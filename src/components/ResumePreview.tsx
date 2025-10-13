@@ -134,11 +134,11 @@ const Section = ({
     <section ref={handleRef} className="space-y-4">
       <div className="flex items-center gap-3">
         <span
-          className={cn('h-2 w-8 rounded-full print:bg-slate-500', variant.accentBar)}
+          className={cn('h-2 w-8 rounded-full', variant.accentBar)}
           style={accentStyle}
         />
         <h3
-          className={cn('text-lg font-semibold print:text-slate-900', variant.sectionHeading)}
+          className={cn('text-lg font-semibold', variant.sectionHeading)}
           style={headingStyle}
         >
           {title}
@@ -269,6 +269,15 @@ const ResumePreviewComponent = ({
       }) as const,
     [resolvedAccent, theme],
   );
+  const articleStyle = useMemo(
+    () =>
+      ({
+        ...(themeStyles.article || {}),
+        WebkitPrintColorAdjust: 'exact',
+        printColorAdjust: 'exact',
+      }) as CSSProperties,
+    [themeStyles.article],
+  );
   const renderStandardSection = (sectionKey: string): ReactNode => {
     switch (sectionKey) {
       case 'socials':
@@ -289,14 +298,14 @@ const ResumePreviewComponent = ({
                   key={social.id}
                   ref={setRef('socials', social.id)}
                   className={cn(
-                    'rounded-2xl border border-transparent px-4 py-3 text-sm shadow-sm transition hover:-translate-y-0.5 print:border-none print:bg-transparent print:p-0 print:text-slate-800',
+                    'rounded-2xl border border-transparent px-4 py-3 text-sm shadow-sm transition hover:-translate-y-0.5',
                     variant.card,
                     variant.link,
                   )}
                   style={themeStyles.card}
                 >
                   <p
-                    className={cn('font-semibold print:text-slate-900', variant.heading)}
+                    className={cn('font-semibold', variant.heading)}
                     style={themeStyles.heading}
                   >
                     {social.label || social.url || '链接'}
@@ -317,7 +326,7 @@ const ResumePreviewComponent = ({
                       </a>
                       <span
                         className={cn(
-                          'mt-1 hidden break-words text-xs print:block print:text-slate-700',
+                          'mt-1 hidden break-words text-xs print:block',
                           variant.metaValue,
                         )}
                         style={themeStyles.text}
@@ -353,7 +362,7 @@ const ResumePreviewComponent = ({
                     key={exp.id}
                     ref={setRef('experience', exp.id)}
                     className={cn(
-                      'rounded-2xl border border-transparent px-4 py-4 text-sm shadow-sm transition hover:-translate-y-0.5 print:border print:border-slate-200 print:bg-transparent',
+                      'rounded-2xl border border-transparent px-4 py-4 text-sm shadow-sm transition hover:-translate-y-0.5',
                       variant.card,
                     )}
                     style={themeStyles.card}
@@ -362,7 +371,7 @@ const ResumePreviewComponent = ({
                       <div>
                         <h4
                           className={cn(
-                            'text-base font-semibold print:text-slate-900',
+                            'text-base font-semibold',
                             variant.heading,
                           )}
                           style={themeStyles.heading}
@@ -370,7 +379,7 @@ const ResumePreviewComponent = ({
                           {exp.company || '公司 / 组织'}
                         </h4>
                         <p
-                          className={cn('text-sm print:text-slate-700', variant.metaValue)}
+                          className={cn('text-sm', variant.metaValue)}
                           style={themeStyles.text}
                         >
                           {exp.role || '职位'}
@@ -378,14 +387,14 @@ const ResumePreviewComponent = ({
                       </div>
                       <div className="flex flex-col items-end gap-1 text-xs uppercase tracking-[0.28em] sm:text-right">
                         <span
-                          className={cn('print:text-slate-600', variant.timelineMeta)}
+                          className={cn(variant.timelineMeta)}
                           style={themeStyles.muted}
                         >
                           {[exp.startDate, exp.endDate].filter(Boolean).join(' – ') || '时间'}
                         </span>
                         {exp.location && (
                           <span
-                            className={cn('print:text-slate-600', variant.timelineMeta)}
+                            className={cn(variant.timelineMeta)}
                             style={themeStyles.muted}
                           >
                             {exp.location}
@@ -396,7 +405,7 @@ const ResumePreviewComponent = ({
                     {highlights.length > 0 && (
                       <ul
                         className={cn(
-                          'mt-3 space-y-2 text-sm print:text-slate-800',
+                          'mt-3 space-y-2 text-sm',
                           variant.metaValue,
                         )}
                         style={themeStyles.text}
@@ -405,7 +414,7 @@ const ResumePreviewComponent = ({
                           <li key={index} className="flex gap-2">
                             <span
                               className={cn(
-                                'mt-[0.4rem] h-1.5 w-1.5 flex-shrink-0 rounded-full print:bg-slate-500',
+                                'mt-[0.4rem] h-1.5 w-1.5 flex-shrink-0 rounded-full',
                                 variant.bullet,
                               )}
                               style={accentBulletStyle}
@@ -439,7 +448,7 @@ const ResumePreviewComponent = ({
                   key={edu.id}
                   ref={setRef('education', edu.id)}
                   className={cn(
-                    'rounded-2xl px-4 py-4 shadow-sm print:border print:border-slate-200 print:bg-transparent',
+                    'rounded-2xl px-4 py-4 shadow-sm',
                     variant.card,
                   )}
                   style={themeStyles.card}
@@ -448,7 +457,7 @@ const ResumePreviewComponent = ({
                     <div>
                       <h4
                         className={cn(
-                          'text-base font-semibold print:text-slate-900',
+                          'text-base font-semibold',
                           variant.heading,
                         )}
                         style={themeStyles.heading}
@@ -456,14 +465,14 @@ const ResumePreviewComponent = ({
                         {edu.school || '学校'}
                       </h4>
                       <p
-                        className={cn('text-sm print:text-slate-700', variant.metaValue)}
+                        className={cn('text-sm', variant.metaValue)}
                         style={themeStyles.text}
                       >
                         {edu.degree}
                       </p>
                     </div>
                     <span
-                      className={cn('text-sm print:text-slate-600', variant.timelineMeta)}
+                      className={cn('text-sm', variant.timelineMeta)}
                       style={themeStyles.muted}
                     >
                       {[edu.startDate, edu.endDate].filter(Boolean).join(' - ') || '时间'}
@@ -471,7 +480,7 @@ const ResumePreviewComponent = ({
                   </div>
                   {edu.details && (
                     <p
-                      className={cn('mt-2 text-sm print:text-slate-800', variant.metaValue)}
+                      className={cn('mt-2 text-sm', variant.metaValue)}
                       style={themeStyles.text}
                     >
                       {edu.details}
@@ -500,7 +509,7 @@ const ResumePreviewComponent = ({
                   key={project.id}
                   ref={setRef('projects', project.id)}
                   className={cn(
-                    'rounded-2xl px-4 py-4 shadow-sm transition hover:-translate-y-0.5 print:border print:border-slate-200 print:bg-transparent',
+                    'rounded-2xl px-4 py-4 shadow-sm transition hover:-translate-y-0.5',
                     variant.card,
                   )}
                   style={themeStyles.card}
@@ -508,7 +517,7 @@ const ResumePreviewComponent = ({
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <h4
                       className={cn(
-                        'text-base font-semibold print:text-slate-900',
+                        'text-base font-semibold',
                         variant.heading,
                       )}
                       style={themeStyles.heading}
@@ -517,7 +526,7 @@ const ResumePreviewComponent = ({
                     </h4>
                     {project.role && (
                       <span
-                        className={cn('text-sm print:text-slate-700', variant.metaValue)}
+                        className={cn('text-sm', variant.metaValue)}
                         style={themeStyles.text}
                       >
                         {project.role}
@@ -526,7 +535,7 @@ const ResumePreviewComponent = ({
                   </div>
                   {project.summary && (
                     <p
-                      className={cn('mt-2 text-sm print:text-slate-800', variant.metaValue)}
+                      className={cn('mt-2 text-sm', variant.metaValue)}
                       style={themeStyles.text}
                     >
                       {project.summary}
@@ -548,7 +557,7 @@ const ResumePreviewComponent = ({
                       </a>
                       <span
                         className={cn(
-                          'mt-2 hidden break-words text-xs print:block print:text-slate-700',
+                          'mt-2 hidden break-words text-xs print:block',
                           variant.metaValue,
                         )}
                         style={themeStyles.text}
@@ -582,13 +591,13 @@ const ResumePreviewComponent = ({
                     key={skill.id}
                     ref={setRef('skills', skill.id)}
                     className={cn(
-                      'rounded-2xl px-4 py-4 shadow-sm print:border print:border-slate-200 print:bg-transparent',
+                      'rounded-2xl px-4 py-4 shadow-sm',
                       variant.card,
                     )}
                     style={themeStyles.card}
                   >
                     <h4
-                      className={cn('text-sm font-semibold print:text-slate-900', variant.heading)}
+                      className={cn('text-sm font-semibold', variant.heading)}
                       style={themeStyles.heading}
                     >
                       {skill.title || '技能方向'}
@@ -631,13 +640,13 @@ const ResumePreviewComponent = ({
                   key={lang.id}
                   ref={setRef('languages', lang.id)}
                   className={cn(
-                    'flex items-baseline justify-between gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm print:border print:border-slate-200 print:bg-transparent',
+                    'flex items-baseline justify-between gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm',
                     variant.card,
                   )}
                   style={themeStyles.card}
                 >
                   <span
-                    className={cn('font-medium print:text-slate-900', variant.metaLabel)}
+                    className={cn('font-medium', variant.metaLabel)}
                     style={themeStyles.heading}
                   >
                     {lang.name}
@@ -645,7 +654,7 @@ const ResumePreviewComponent = ({
                   {lang.level && (
                     <span
                       className={cn(
-                        'text-xs uppercase tracking-[0.2em] print:text-slate-600',
+                        'text-xs uppercase tracking-[0.2em]',
                         variant.timelineMeta,
                       )}
                       style={themeStyles.muted}
@@ -672,7 +681,7 @@ const ResumePreviewComponent = ({
           >
             <div
               className={cn(
-                'rounded-2xl px-4 py-4 shadow-sm print:border print:border-slate-200 print:bg-transparent',
+                'rounded-2xl px-4 py-4 shadow-sm',
                 variant.card,
               )}
               style={themeStyles.card}
@@ -710,20 +719,20 @@ const ResumePreviewComponent = ({
                   key={award.id}
                   ref={setRef('awards', award.id)}
                   className={cn(
-                    'flex flex-wrap items-baseline justify-between gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm print:border print:border-slate-200 print:bg-transparent print:text-slate-800',
+                    'flex flex-wrap items-baseline justify-between gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm',
                     variant.card,
                   )}
                   style={themeStyles.card}
                 >
                   <span
-                    className={cn('font-semibold print:text-slate-900', variant.heading)}
+                    className={cn('font-semibold', variant.heading)}
                     style={themeStyles.heading}
                   >
                     {award.name}
                   </span>
                   <span
                     className={cn(
-                      'text-xs uppercase tracking-[0.28em] print:text-slate-600',
+                      'text-xs uppercase tracking-[0.28em]',
                       variant.timelineMeta,
                     )}
                     style={themeStyles.muted}
@@ -770,7 +779,7 @@ const ResumePreviewComponent = ({
         {mode === 'fields' ? (
           <dl
             ref={setRef(sectionKey, section.id)}
-            className="space-y-2 text-sm print:text-slate-800"
+            className="space-y-2 text-sm"
             style={themeStyles.text}
           >
             {fields.length === 0 ? (
@@ -789,14 +798,14 @@ const ResumePreviewComponent = ({
                 >
                   <dt
                     ref={setRef(sectionKey, field.id)}
-                    className={cn('font-medium print:text-slate-900', variant.metaLabel)}
+                    className={cn('font-medium', variant.metaLabel)}
                     style={themeStyles.heading}
                   >
                     {field.label || '未命名字段'}
                   </dt>
                   {field.value && (
                     <dd
-                      className={cn('text-sm print:text-slate-700', variant.metaValue)}
+                      className={cn('text-sm', variant.metaValue)}
                       style={themeStyles.text}
                     >
                       {field.value}
@@ -809,7 +818,7 @@ const ResumePreviewComponent = ({
         ) : mode === 'text' ? (
           <div
             ref={setRef(sectionKey, section.id)}
-            className={cn('text-sm leading-relaxed print:text-slate-800', variant.metaValue)}
+            className={cn('text-sm leading-relaxed', variant.metaValue)}
             style={{
               whiteSpace: 'pre-line',
               ...(themeStyles.text ?? {}),
@@ -824,7 +833,7 @@ const ResumePreviewComponent = ({
         ) : (
           <div
             ref={setRef(sectionKey, section.id)}
-            className="space-y-2 text-sm print:text-slate-800"
+            className="space-y-2 text-sm"
             style={themeStyles.text}
           >
             {items.length > 0 ? (
@@ -833,7 +842,7 @@ const ResumePreviewComponent = ({
                   <li key={index} className="flex gap-2">
                     <span
                       className={cn(
-                        'mt-[0.4rem] h-1.5 w-1.5 flex-shrink-0 rounded-full print:bg-slate-500',
+                        'mt-[0.4rem] h-1.5 w-1.5 flex-shrink-0 rounded-full',
                         variant.bullet,
                       )}
                       style={accentBulletStyle}
@@ -874,16 +883,15 @@ const ResumePreviewComponent = ({
   return (
     <article
       className={cn(
-        'flex min-h-full w-full flex-col gap-8 rounded-3xl p-6 text-sm leading-relaxed',
+        'resume-preview flex min-h-full w-full flex-col gap-8 rounded-3xl p-6 text-sm leading-relaxed',
         variant.article,
-        'print:h-auto print:w-full print:rounded-none print:border-0 print:bg-white print:p-0 print:text-slate-900 print:shadow-none',
       )}
-      style={themeStyles.article}
+      style={articleStyle}
     >
       <div
         ref={setRef('personal', '__section__')}
         className={cn(
-          'flex flex-col gap-6 pb-6 print:border-slate-300',
+          'flex flex-col gap-6 pb-6',
           variant.divider,
         )}
         style={themeStyles.divider}
@@ -897,7 +905,7 @@ const ResumePreviewComponent = ({
           <div className="space-y-2 md:flex-1">
             <h1
               className={cn(
-                'text-3xl font-semibold tracking-tight print:text-slate-900',
+                'text-3xl font-semibold tracking-tight',
                 variant.heading,
               )}
               style={themeStyles.heading}
@@ -906,7 +914,7 @@ const ResumePreviewComponent = ({
             </h1>
             <p
               className={cn(
-                'text-base font-medium print:text-slate-700',
+                'text-base font-medium',
                 variant.subheading,
               )}
               style={themeStyles.subheading}
@@ -916,7 +924,7 @@ const ResumePreviewComponent = ({
           </div>
           <div
             className={cn(
-              'flex flex-col gap-4 text-sm md:w-[260px] print:text-slate-700',
+              'flex flex-col gap-4 text-sm md:w-[260px]',
               variant.metaWrapper,
             )}
             style={themeStyles.muted}
@@ -925,7 +933,7 @@ const ResumePreviewComponent = ({
               <img
                 src={personal.photo}
                 alt={`${personal.fullName || '候选人'} 的照片`}
-                className="rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40 print:ring-0"
+                className="rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40"
                 style={{
                   width: `${photoSize}px`,
                   height: `${photoSize}px`,
@@ -938,7 +946,7 @@ const ResumePreviewComponent = ({
                 <div className="flex items-center gap-2">
                   <dt
                     className={cn(
-                      'font-medium print:text-slate-900',
+                      'font-medium',
                       variant.metaLabel,
                     )}
                     style={themeStyles.heading}
@@ -957,7 +965,7 @@ const ResumePreviewComponent = ({
                 <div className="flex items-center gap-2">
                   <dt
                     className={cn(
-                      'font-medium print:text-slate-900',
+                      'font-medium',
                       variant.metaLabel,
                     )}
                     style={themeStyles.heading}
@@ -973,7 +981,7 @@ const ResumePreviewComponent = ({
                 <div className="flex items-center gap-2">
                   <dt
                     className={cn(
-                      'font-medium print:text-slate-900',
+                      'font-medium',
                       variant.metaLabel,
                     )}
                     style={themeStyles.heading}
@@ -989,7 +997,7 @@ const ResumePreviewComponent = ({
                 <div key={extra.id} className="flex items-start gap-2">
                   <dt
                     className={cn(
-                      'font-medium print:text-slate-900',
+                      'font-medium',
                       variant.metaLabel,
                     )}
                     style={themeStyles.heading}
@@ -1017,7 +1025,7 @@ const ResumePreviewComponent = ({
             headingStyle={themeStyles.heading}
           >
             <p
-              className={cn('text-base leading-7 print:text-slate-800', variant.metaValue)}
+              className={cn('text-base leading-7', variant.metaValue)}
               style={themeStyles.text}
             >
               {personal.summary}

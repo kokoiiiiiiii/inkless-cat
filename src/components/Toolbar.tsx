@@ -17,6 +17,9 @@ const baseButton =
 const primaryButton =
   "inline-flex items-center justify-center gap-1.5 rounded-full border border-transparent bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/40 transition-all hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400";
 
+const inklessCatLogo = new URL("../assets/Inkless Cat.png", import.meta.url)
+  .href;
+
 const Toolbar = ({
   onResetSample,
   onClear,
@@ -62,7 +65,7 @@ const Toolbar = ({
       <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
           <img
-            src="/src/assets/Inkless Cat.png"
+            src={inklessCatLogo}
             alt="Inkless Cat 标志"
             className="size-10 rounded-full border border-slate-200/70 bg-white object-cover shadow-inner shadow-brand-200/60 dark:border-slate-700 dark:bg-slate-900"
           />

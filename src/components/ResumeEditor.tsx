@@ -13,6 +13,7 @@ import type { StandardSectionKey } from '../data/sections';
 import type {
   ResumeCustomField,
   ResumeCustomSection,
+  ResumeCustomSectionMode,
   ResumeData,
   ResumePersonal,
   ResumePersonalExtra,
@@ -92,7 +93,7 @@ const dragItemClass =
 const dragIndicatorClass =
   'pointer-events-none absolute left-4 right-4 h-1 rounded-full bg-brand-500';
 
-const customModeOptions = [
+const customModeOptions: Array<{ value: ResumeCustomSectionMode; label: string }> = [
   { value: 'list', label: '列表条目' },
   { value: 'fields', label: '键值对' },
   { value: 'text', label: '自由文本' },
@@ -215,7 +216,10 @@ const SectionManager = memo(
     onToggle,
     onReorderSections,
   }: SectionManagerProps) => {
-    const resolvedActiveSections = Array.isArray(activeSections) ? activeSections : [...sectionOrder];
+    const resolvedActiveSections = useMemo(
+      () => (Array.isArray(activeSections) ? activeSections : [...sectionOrder]),
+      [activeSections],
+    );
     const customList = useMemo<ResumeCustomSection[]>(
       () => (Array.isArray(customSections) ? customSections : []),
       [customSections],
@@ -1234,7 +1238,7 @@ const CustomSectionEditor = memo(
     notifyFocus,
     sectionRef,
   }: CustomSectionEditorProps) => {
-    const mode: ResumeCustomSection['mode'] = section.mode || 'list';
+    const mode: ResumeCustomSectionMode = section.mode ?? 'list';
     const itemsValue = Array.isArray(section.items) ? section.items.join('\n') : '';
     const fieldsValue = Array.isArray(section.fields) ? section.fields : [];
     const textValue = typeof section.text === 'string' ? section.text : '';
@@ -1278,7 +1282,9 @@ const CustomSectionEditor = memo(
               <select
                 className={inputClass}
                 value={mode}
-                onChange={(event) => onModeChange(section.id, event.target.value)}
+                onChange={(event) =>
+                  onModeChange(section.id, event.target.value as ResumeCustomSectionMode)
+                }
                 onFocus={() => notifyFocus(sectionKey, `${section.id}-mode`)}
               >
                 {customModeOptions.map((option) => (
