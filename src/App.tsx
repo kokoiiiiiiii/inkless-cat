@@ -236,8 +236,8 @@ function App() {
     }
     return [];
   });
-  const [templatePanelOpen, setTemplatePanelOpen] = useState<boolean>(true);
-  const [modulePanelOpen, setModulePanelOpen] = useState<boolean>(true);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState<boolean>(false);
+  const [modulePanelOpen, setModulePanelOpen] = useState<boolean>(false);
   const [hasResumeChanges, setHasResumeChanges] = useState<boolean>(false);
   const [activeSections, setActiveSections] = useState<ActiveSectionKey[]>(() => {
     const resumeSnapshot = initialResumeRef.current || loadInitialResume();
