@@ -53,7 +53,7 @@ const createCustomField = (): ResumeCustomField => ({
 });
 
 const cardClass =
-  'rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-sm shadow-slate-200/60 transition hover:border-brand-400/50 hover:shadow-lg hover:shadow-brand-500/10 dark:border-slate-800/60 dark:bg-slate-900/60 dark:hover:border-brand-400/60';
+  'rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm shadow-slate-200/60 transition hover:border-brand-400/50 hover:shadow-lg hover:shadow-brand-500/10 dark:border-slate-800/60 dark:bg-slate-900/60 dark:hover:border-brand-400/60 sm:p-5';
 
 const labelClass =
   'flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300';
@@ -617,7 +617,7 @@ const SectionManager = memo(
 
     return (
       <section className="space-y-3">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">模块管理</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -626,7 +626,7 @@ const SectionManager = memo(
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200"
+            className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 sm:w-auto"
             onClick={onToggle}
             aria-expanded={open}
           >
@@ -636,7 +636,7 @@ const SectionManager = memo(
         {open && (
           <div className="space-y-4">
             <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-white">模块排序</h4>
                 <span className="text-xs text-slate-500 dark:text-slate-400">拖动进行排序</span>
               </div>
@@ -729,7 +729,7 @@ const SectionManager = memo(
                 })}
               </div>
               <div className="space-y-3 rounded-2xl border border-dashed border-slate-300/60 bg-white/70 p-3 dark:border-slate-700/60 dark:bg-slate-900/60">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-white">自定义模块</h4>
                   <button
                     type="button"
@@ -812,7 +812,7 @@ const PersonalSection = memo(
 
     return (
       <section ref={sectionRef} className="space-y-4">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">个人信息</h3>
         </header>
         <div className={cardClass}>
@@ -899,7 +899,7 @@ const PersonalSection = memo(
                 </div>
               )}
               <div className="w-full space-y-3 rounded-2xl border border-slate-200/60 bg-white/80 p-4 text-left text-xs font-semibold text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-400">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span>显示照片</span>
                   <input
                     type="checkbox"
@@ -957,7 +957,7 @@ const PersonalSection = memo(
               </div>
             </div>
             <div className="space-y-3 lg:col-span-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className={labelTextClass}>补充信息</span>
                 <button
                   type="button"
@@ -1087,7 +1087,7 @@ const ResumeSection = memo(
 
     return (
       <section ref={sectionRef} className="space-y-4">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">
             {sectionDefinitions[sectionKey]?.title || sectionKey}
           </h3>
@@ -1245,7 +1245,7 @@ const CustomSectionEditor = memo(
 
     return (
       <section ref={sectionRef} className="space-y-4">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">
             {section.title || '自定义模块'}
           </h3>
@@ -1309,7 +1309,7 @@ const CustomSectionEditor = memo(
             )}
             {mode === 'fields' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className={labelTextClass}>键值对</span>
                   <button
                     type="button"

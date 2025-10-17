@@ -883,7 +883,7 @@ const ResumePreviewComponent = ({
   return (
     <article
       className={cn(
-        'resume-preview flex min-h-full w-full flex-col gap-8 rounded-3xl p-6 text-sm leading-relaxed',
+        'resume-preview flex min-h-full w-full flex-col gap-6 rounded-3xl p-4 text-sm leading-relaxed sm:gap-8 sm:p-6',
         variant.article,
       )}
       style={articleStyle}

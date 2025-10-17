@@ -345,7 +345,7 @@ const TemplateSelector = ({
 
   return (
     <section className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">模板与样式</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -371,7 +371,7 @@ const TemplateSelector = ({
         </div>
       </div>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300">自定义模板</h4>
           <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
             保存当前简历为模板，随时快速切换
@@ -438,7 +438,7 @@ const TemplateSelector = ({
                 onChange={(event) => setTemplateDescription(event.target.value)}
               />
             </label>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 品牌色
                 <input

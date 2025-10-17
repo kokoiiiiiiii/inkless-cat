@@ -12,10 +12,10 @@ type ToolbarProps = {
 };
 
 const baseButton =
-  "inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-500 hover:text-brand-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:border-brand-400 dark:hover:text-brand-200";
+  "inline-flex min-w-fit flex-shrink-0 items-center justify-center gap-1.5 rounded-full border border-slate-200/70 bg-white/70 px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-500 hover:text-brand-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:border-brand-400 dark:hover:text-brand-200 sm:px-4 sm:text-sm";
 
 const primaryButton =
-  "inline-flex items-center justify-center gap-1.5 rounded-full border border-transparent bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/40 transition-all hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400";
+  "inline-flex min-w-fit flex-shrink-0 items-center justify-center gap-1.5 rounded-full border border-transparent bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-brand-500/40 transition-all hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400 sm:px-4 sm:text-sm";
 
 const inklessCatLogo = new URL("../assets/Inkless Cat.png", import.meta.url)
   .href;
@@ -61,8 +61,8 @@ const Toolbar = ({
   };
 
   return (
-    <header className="print:hidden sticky top-0 z-40 w-full border-b border-slate-200/60 bg-white/70 backdrop-blur-xl dark:border-slate-800/60 dark:bg-slate-900/60">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <header className="print:hidden sticky top-0 z-40 w-full border-b border-slate-200/60 bg-white/80 backdrop-blur-xl dark:border-slate-800/60 dark:bg-slate-900/70">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
         <div className="flex items-center gap-3">
           <img
             src={inklessCatLogo}
@@ -78,7 +78,7 @@ const Toolbar = ({
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 scrollbar-thin sm:w-auto sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
           <button type="button" className={baseButton} onClick={onResetSample}>
             载入示例
           </button>
