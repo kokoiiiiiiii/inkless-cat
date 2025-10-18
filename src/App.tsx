@@ -596,6 +596,10 @@ function App() {
     });
   }, [ensureTemplateSelectorLoaded]);
 
+  useEffect(() => {
+    ensureTemplateSelectorLoaded();
+  }, [ensureTemplateSelectorLoaded]);
+
   const handleTemplateStyleChange = (template) => {
     setTemplateId(template.id);
   };
