@@ -179,12 +179,12 @@ const ResumePreviewComponent = ({
   } = resume;
   const personalSettings = {
     showPhoto: true,
-    photoSize: 160,
+    photoSize: 120,
     photoPosition: 'right',
     ...(resume.settings?.personal || {}),
   };
   const showPhoto = personalSettings.showPhoto !== false;
-  const photoSize = Math.max(80, Math.min(Number(personalSettings.photoSize) || 160, 260));
+  const photoSize = Math.max(80, Math.min(Number(personalSettings.photoSize) || 120, 260));
   const photoPosition = personalSettings.photoPosition === 'left' ? 'left' : 'right';
   const extras = useMemo(
     () =>

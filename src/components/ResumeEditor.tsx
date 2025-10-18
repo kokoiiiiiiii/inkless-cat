@@ -101,7 +101,7 @@ const customModeOptions: Array<{ value: ResumeCustomSectionMode; label: string }
 
 const defaultPersonalSettings: PersonalSettings = {
   showPhoto: true,
-  photoSize: 160,
+  photoSize: 120,
   photoPosition: 'right',
 };
 
@@ -807,7 +807,7 @@ const PersonalSection = memo(
   }: PersonalSectionProps) => {
     const extras = Array.isArray(personal.extras) ? personal.extras : [];
     const showPhoto = settings.showPhoto !== false;
-    const photoSize = Math.max(80, Math.min(settings.photoSize ?? 160, 260));
+    const photoSize = Math.max(80, Math.min(settings.photoSize ?? 120, 260));
     const photoPosition = settings.photoPosition === 'left' ? 'left' : 'right';
 
     return (
@@ -1695,7 +1695,7 @@ const ResumeEditor = ({
   };
   personalSettings.photoSize = Math.max(
     80,
-    Math.min(Number(personalSettings.photoSize) || 160, 260),
+    Math.min(Number(personalSettings.photoSize) || 120, 260),
   );
   personalSettings.photoPosition = personalSettings.photoPosition === 'left' ? 'left' : 'right';
   personalSettings.showPhoto = personalSettings.showPhoto !== false;

@@ -284,6 +284,7 @@ type TemplateSelectorProps = {
   onSaveTemplate?: (template: TemplateUpdatePayload) => void;
   onDeleteTemplate?: (id: string) => void;
   onUpdateTemplate?: (id: string, updates: TemplateUpdatePayload) => void;
+  onReady?: () => void;
 };
 
 const TemplateSelector = ({
@@ -295,6 +296,7 @@ const TemplateSelector = ({
   onSaveTemplate,
   onDeleteTemplate,
   onUpdateTemplate,
+  onReady,
 }: TemplateSelectorProps) => {
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
@@ -303,6 +305,12 @@ const TemplateSelector = ({
   const [customTheme, setCustomTheme] = useState<TemplateTheme>(() => ({
     ...DEFAULT_CUSTOM_THEME,
   }));
+
+  useEffect(() => {
+    if (typeof onReady === 'function') {
+      onReady();
+    }
+  }, [onReady]);
 
   const isCustomStyle = previewStyle === 'custom';
 

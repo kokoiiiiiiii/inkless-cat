@@ -39,10 +39,11 @@ const LEGACY_KEYS = {
   customTemplates: 'resume-studio-custom-templates',
 } as const;
 
-const TemplateSelector = lazy(() => import('./components/TemplateSelector'));
+const loadTemplateSelector = () => import('./components/TemplateSelector');
+const TemplateSelector = lazy(loadTemplateSelector);
 
 const TemplateSelectorFallback = () => (
-  <div className="h-56 animate-pulse rounded-2xl border border-dashed border-slate-200/80 bg-white/60 dark:border-slate-800/70 dark:bg-slate-900/40" />
+  <div className="h-56 rounded-2xl border border-dashed border-slate-200/80 bg-white/80 dark:border-slate-800/70 dark:bg-slate-900/50" />
 );
 
 type ActiveSectionKey = StandardSectionKey | string;
@@ -128,8 +129,8 @@ const loadInitialResume = (): ResumeData => {
   if (cached) {
     try {
       return normalizeResumeSchema(JSON.parse(cached) as ResumeData, { clone: true });
-    } catch (error) {
-      console.warn('Failed to parse cached resume data', error);
+    } catch {
+      // Ignore invalid cached resume data and fallback to defaults.
     }
   }
   return normalizeResumeSchema(createSampleResume(), { clone: true });
@@ -200,6 +201,18 @@ const normalizeTemplateTheme = (theme: unknown): TemplateTheme | undefined => {
 };
 
 function App() {
+  const [isTemplateSelectorReady, setIsTemplateSelectorReady] = useState<boolean>(() => !isBrowser);
+
+  const templateSelectorLoadRef = useRef<Promise<unknown> | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const initialResumeRef = useRef<ResumeData | null>(null);
   const [resume, setResume] = useState<ResumeData>(() => {
     const initial = loadInitialResume();
@@ -231,8 +244,8 @@ function App() {
                 theme: normalizeTemplateTheme(item.theme),
               }))
           : [];
-      } catch (error) {
-        console.warn('Failed to parse custom templates', error);
+      } catch {
+        // Ignore invalid custom template cache entries.
       }
     }
     return [];
@@ -247,8 +260,8 @@ function App() {
     if (cached) {
       try {
         return sanitizeSections(JSON.parse(cached) as string[], resumeSnapshot);
-      } catch (error) {
-        console.warn('Failed to parse cached section data', error);
+      } catch {
+        // Ignore invalid cached section data.
       }
     }
     return deriveSectionsFromResume(resumeSnapshot);
@@ -550,6 +563,39 @@ function App() {
     setTheme((current) => (current === 'light' ? 'dark' : 'light'));
   };
 
+  const handleTemplatePanelLoaded = useCallback(() => {
+    if (!isMountedRef.current) {
+      return;
+    }
+    setIsTemplateSelectorReady(true);
+  }, []);
+
+  const ensureTemplateSelectorLoaded = useCallback(() => {
+    if (isTemplateSelectorReady || templateSelectorLoadRef.current) {
+      return;
+    }
+    templateSelectorLoadRef.current = loadTemplateSelector()
+      .then(() => {
+        handleTemplatePanelLoaded();
+      })
+      .catch(() => {
+        handleTemplatePanelLoaded();
+      })
+      .finally(() => {
+        templateSelectorLoadRef.current = null;
+      });
+  }, [isTemplateSelectorReady, handleTemplatePanelLoaded]);
+
+  const handleToggleTemplatePanel = useCallback(() => {
+    setTemplatePanelOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) {
+        ensureTemplateSelectorLoaded();
+      }
+      return nextOpen;
+    });
+  }, [ensureTemplateSelectorLoaded]);
+
   const handleTemplateStyleChange = (template) => {
     setTemplateId(template.id);
   };
@@ -803,11 +849,15 @@ function App() {
             </div>
             <button
               type="button"
-              className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 sm:w-auto"
-              onClick={() => setTemplatePanelOpen((open) => !open)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 sm:w-auto"
+              onClick={handleToggleTemplatePanel}
               aria-expanded={templatePanelOpen}
             >
-              {templatePanelOpen ? '收起模板' : '展开模板'}
+              {templatePanelOpen ? (
+                '收起模板'
+              ) : (
+                '展开模板'
+              )}
             </button>
           </div>
           <div
@@ -826,6 +876,7 @@ function App() {
                     onSaveTemplate={handleSaveCustomTemplate}
                     onDeleteTemplate={handleDeleteCustomTemplate}
                     onUpdateTemplate={handleUpdateCustomTemplate}
+                    onReady={handleTemplatePanelLoaded}
                   />
                 </Suspense>
               </div>

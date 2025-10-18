@@ -1,4 +1,4 @@
-import { ChangeEvent, CSSProperties, useRef } from 'react';
+import { ChangeEvent, CSSProperties, useRef } from "react";
 
 type PhotoUploadProps = {
   value?: string;
@@ -9,10 +9,10 @@ type PhotoUploadProps = {
 };
 
 const uploadButtonClass =
-  'inline-flex items-center justify-center rounded-full border border-transparent bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/40 transition hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400';
+  "inline-flex items-center justify-center rounded-full border border-transparent bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/40 transition hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400";
 
 const clearButtonClass =
-  'inline-flex items-center justify-center rounded-full border border-transparent bg-slate-200/70 px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-700/70';
+  "inline-flex items-center justify-center rounded-full border border-transparent bg-slate-200/70 px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-700/70";
 
 const PhotoUpload = ({
   value,
@@ -33,22 +33,21 @@ const PhotoUpload = ({
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      window.alert('图片大小超过 2MB，请选择更小的文件。');
-      event.target.value = '';
+      window.alert("图片大小超过 2MB，请选择更小的文件。");
+      event.target.value = "";
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
+      if (typeof reader.result === "string") {
         onChange(reader.result);
       }
-      event.target.value = '';
+      event.target.value = "";
     };
     reader.onerror = () => {
-      console.error('Failed to read photo file', reader.error);
-      window.alert('读取图片失败，请重试或更换文件。');
-      event.target.value = '';
+      window.alert("读取图片失败，请重试或更换文件。");
+      event.target.value = "";
     };
     reader.readAsDataURL(file);
   };
@@ -69,7 +68,11 @@ const PhotoUpload = ({
         style={boxStyle}
       >
         {value ? (
-          <img src={value} alt="个人照片预览" className="h-full w-full object-cover" />
+          <img
+            src={value}
+            alt="个人照片预览"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-500">
             <svg
@@ -107,7 +110,7 @@ const PhotoUpload = ({
             className={clearButtonClass}
             onClick={() => {
               onFocus?.();
-              onChange('');
+              onChange("");
             }}
           >
             移除照片

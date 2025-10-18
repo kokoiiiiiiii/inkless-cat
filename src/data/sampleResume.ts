@@ -132,7 +132,7 @@ export const createSampleResume = (): ResumeData => ({
   settings: {
     personal: {
       showPhoto: true,
-      photoSize: 168,
+      photoSize: 120,
       photoPosition: 'right',
     },
   },
@@ -161,7 +161,7 @@ export const createEmptyResume = (): ResumeData => ({
   settings: {
     personal: {
       showPhoto: true,
-      photoSize: 160,
+      photoSize: 120,
       photoPosition: 'right',
     },
   },

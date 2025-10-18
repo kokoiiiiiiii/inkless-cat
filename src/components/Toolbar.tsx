@@ -50,8 +50,7 @@ const Toolbar = ({
         }
         const parsed = JSON.parse(textContent);
         onImport(parsed);
-      } catch (error) {
-        console.error("Failed to import resume data", error);
+      } catch {
         window.alert("导入失败，请确认文件内容为合法的 JSON 简历数据。");
       } finally {
         event.target.value = "";
