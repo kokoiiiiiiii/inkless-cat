@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
 import { produce } from 'immer';
 import type {
   ResumeCustomField,
@@ -10,6 +10,7 @@ import type {
 import type { StandardSectionKey } from './data/sections';
 import ResumeEditor from './components/ResumeEditor';
 import ResumePreview from './components/ResumePreview';
+import TemplateSelector from './components/TemplateSelector';
 import Toolbar from './components/Toolbar';
 import { createEmptyResume, createSampleResume } from './data/sampleResume';
 import { templates as baseTemplates } from './data/templates';
@@ -38,13 +39,6 @@ const LEGACY_KEYS = {
   sections: 'resume-studio-sections',
   customTemplates: 'resume-studio-custom-templates',
 } as const;
-
-const loadTemplateSelector = () => import('./components/TemplateSelector');
-const TemplateSelector = lazy(loadTemplateSelector);
-
-const TemplateSelectorFallback = () => (
-  <div className="h-56 rounded-2xl border border-dashed border-slate-200/80 bg-white/80 dark:border-slate-800/70 dark:bg-slate-900/50" />
-);
 
 type ActiveSectionKey = StandardSectionKey | string;
 type ResumeUpdater = (draft: ResumeData) => void;
@@ -201,17 +195,6 @@ const normalizeTemplateTheme = (theme: unknown): TemplateTheme | undefined => {
 };
 
 function App() {
-  const [isTemplateSelectorReady, setIsTemplateSelectorReady] = useState<boolean>(() => !isBrowser);
-
-  const templateSelectorLoadRef = useRef<Promise<unknown> | null>(null);
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   const initialResumeRef = useRef<ResumeData | null>(null);
   const [resume, setResume] = useState<ResumeData>(() => {
@@ -563,42 +546,9 @@ function App() {
     setTheme((current) => (current === 'light' ? 'dark' : 'light'));
   };
 
-  const handleTemplatePanelLoaded = useCallback(() => {
-    if (!isMountedRef.current) {
-      return;
-    }
-    setIsTemplateSelectorReady(true);
-  }, []);
-
-  const ensureTemplateSelectorLoaded = useCallback(() => {
-    if (isTemplateSelectorReady || templateSelectorLoadRef.current) {
-      return;
-    }
-    templateSelectorLoadRef.current = loadTemplateSelector()
-      .then(() => {
-        handleTemplatePanelLoaded();
-      })
-      .catch(() => {
-        handleTemplatePanelLoaded();
-      })
-      .finally(() => {
-        templateSelectorLoadRef.current = null;
-      });
-  }, [isTemplateSelectorReady, handleTemplatePanelLoaded]);
-
   const handleToggleTemplatePanel = useCallback(() => {
-    setTemplatePanelOpen((open) => {
-      const nextOpen = !open;
-      if (nextOpen) {
-        ensureTemplateSelectorLoaded();
-      }
-      return nextOpen;
-    });
-  }, [ensureTemplateSelectorLoaded]);
-
-  useEffect(() => {
-    ensureTemplateSelectorLoaded();
-  }, [ensureTemplateSelectorLoaded]);
+    setTemplatePanelOpen((open) => !open);
+  }, []);
 
   const handleTemplateStyleChange = (template) => {
     setTemplateId(template.id);
@@ -870,19 +820,16 @@ function App() {
           >
             {templatePanelOpen && (
               <div className="mb-4">
-                <Suspense fallback={<TemplateSelectorFallback />}>
-                  <TemplateSelector
-                    builtInTemplates={baseTemplates}
-                    customTemplates={customTemplates}
-                    activeId={activeTemplate.id}
-                    onStyleChange={handleTemplateStyleChange}
-                    onLoadSample={handleTemplateSampleLoad}
-                    onSaveTemplate={handleSaveCustomTemplate}
-                    onDeleteTemplate={handleDeleteCustomTemplate}
-                    onUpdateTemplate={handleUpdateCustomTemplate}
-                    onReady={handleTemplatePanelLoaded}
-                  />
-                </Suspense>
+                <TemplateSelector
+                  builtInTemplates={baseTemplates}
+                  customTemplates={customTemplates}
+                  activeId={activeTemplate.id}
+                  onStyleChange={handleTemplateStyleChange}
+                  onLoadSample={handleTemplateSampleLoad}
+                  onSaveTemplate={handleSaveCustomTemplate}
+                  onDeleteTemplate={handleDeleteCustomTemplate}
+                  onUpdateTemplate={handleUpdateCustomTemplate}
+                />
               </div>
             )}
             <ResumeEditor
