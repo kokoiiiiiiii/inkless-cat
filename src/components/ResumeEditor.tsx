@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeEvent, DragEvent as ReactDragEvent } from 'react';
+import type { ChangeEvent, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { createId } from '../utils/id';
 import PhotoUpload from './PhotoUpload';
 import {
@@ -89,9 +89,8 @@ const removeChipButtonClass =
   'inline-flex items-center justify-center rounded-full border border-transparent bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-500 transition hover:bg-red-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 dark:bg-red-500/20 dark:text-red-300 dark:hover:bg-red-500/30';
 
 const dragItemClass =
-  'relative flex cursor-grab items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/90 px-4 py-3 text-sm shadow-sm transition hover:border-brand-400 hover:shadow-lg dark:border-slate-700/60 dark:bg-slate-900/60 transition-transform duration-150 ease-out';
-const dragIndicatorClass =
-  'pointer-events-none absolute left-4 right-4 h-1 rounded-full bg-brand-500';
+  'relative flex cursor-grab select-none items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/90 px-4 py-3 text-sm shadow-sm transition hover:border-brand-400 hover:shadow-lg dark:border-slate-700/60 dark:bg-slate-900/60 transition-transform duration-150 ease-out';
+const dragIndicatorClass = 'pointer-events-none absolute left-4 right-4 h-1 rounded-full bg-brand-500';
 
 const customModeOptions: Array<{ value: ResumeCustomSectionMode; label: string }> = [
   { value: 'list', label: '列表条目' },
@@ -116,6 +115,10 @@ type DragState = {
   over: string | null;
   position: DragPosition;
 };
+type DragOverRect = { top: number; bottom: number; height: number };
+type DragOverInfo = { y: number } | null;
+
+type ScrollLock = () => void;
 
 type SectionManagerProps = {
   activeSections?: string[];
@@ -211,11 +214,11 @@ const SectionManager = memo(
     onToggleSection,
     customSections,
     onAddCustomSection,
-    onRemoveCustomSection,
-    isOpen,
-    onToggle,
-    onReorderSections,
-  }: SectionManagerProps) => {
+  onRemoveCustomSection,
+  isOpen,
+  onToggle,
+  onReorderSections,
+}: SectionManagerProps) => {
     const resolvedActiveSections = useMemo(
       () => (Array.isArray(activeSections) ? activeSections : [...sectionOrder]),
       [activeSections],
@@ -232,7 +235,20 @@ const SectionManager = memo(
     });
     const dragStateRef = useRef<DragState>(dragState);
     const dragOverFrameRef = useRef<number | null>(null);
-    const dragOverInfoRef = useRef<{ rect: DOMRect | null; y: number }>({ rect: null, y: 0 });
+    const dragOverInfoRef = useRef<DragOverInfo>(null);
+    const dragListRef = useRef<HTMLUListElement | null>(null);
+    const lastProcessYRef = useRef<number | null>(null);
+    const scrollLockRef = useRef<ScrollLock | null>(null);
+    const pointerCaptureRef = useRef<{ element: HTMLElement | null; prevTouchAction: string }>({
+      element: null,
+      prevTouchAction: '',
+    });
+    const activePointerRef = useRef<{ id: number | null; type: string | null }>({ id: null, type: null });
+    const pointerListenersRef = useRef<{
+      move: ((event: PointerEvent) => void) | null;
+      up: ((event: PointerEvent) => void) | null;
+      cancel: ((event: PointerEvent) => void) | null;
+    }>({ move: null, up: null, cancel: null });
 
     const updateDragState = useCallback((valueOrUpdater: DragState | ((prev: DragState) => DragState)) => {
       setDragState((prev) => {
@@ -265,9 +281,72 @@ const SectionManager = memo(
       [customTitleMap],
     );
 
+    const removePointerListeners = useCallback(() => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      const { move, up, cancel } = pointerListenersRef.current;
+      if (move) {
+        window.removeEventListener('pointermove', move);
+      }
+      if (up) {
+        window.removeEventListener('pointerup', up);
+      }
+      if (cancel) {
+        window.removeEventListener('pointercancel', cancel);
+      }
+      pointerListenersRef.current = { move: null, up: null, cancel: null };
+      const capture = pointerCaptureRef.current;
+      const pointerId = activePointerRef.current.id;
+      if (capture.element && pointerId !== null) {
+        try {
+          capture.element.releasePointerCapture(pointerId);
+        } catch {
+          // ignore
+        }
+        capture.element.style.touchAction = capture.prevTouchAction;
+      }
+      pointerCaptureRef.current = { element: null, prevTouchAction: '' };
+      activePointerRef.current = { id: null, type: null };
+    }, []);
+
     const resetDragState = useCallback(() => {
+      dragOverInfoRef.current = null;
+      dragListRef.current = null;
+      lastProcessYRef.current = null;
+      removePointerListeners();
+      const unlock = scrollLockRef.current;
+      scrollLockRef.current = null;
+      if (unlock) {
+        unlock();
+      }
       updateDragState({ active: null, over: null, position: null });
-    }, [updateDragState]);
+    }, [removePointerListeners, updateDragState]);
+
+    const lockScroll = useCallback(() => {
+      if (typeof document === 'undefined') {
+        return;
+      }
+      if (scrollLockRef.current) {
+        return;
+      }
+      const { body } = document;
+      const html = document.documentElement;
+      const prevBodyTouchAction = body.style.touchAction;
+      const prevBodyUserSelect = body.style.userSelect;
+      const prevBodyOverflow = body.style.overflow;
+      const prevHtmlOverscroll = html.style.overscrollBehavior;
+      body.style.touchAction = 'none';
+      body.style.userSelect = 'none';
+      body.style.overflow = 'hidden';
+      html.style.overscrollBehavior = 'none';
+      scrollLockRef.current = () => {
+        body.style.touchAction = prevBodyTouchAction;
+        body.style.userSelect = prevBodyUserSelect;
+        body.style.overflow = prevBodyOverflow;
+        html.style.overscrollBehavior = prevHtmlOverscroll;
+      };
+    }, []);
 
     const displayOrder = useMemo(() => {
       const { active, over, position } = dragState;
@@ -311,112 +390,95 @@ const SectionManager = memo(
       return order;
     }, [dragState, resolvedActiveSections]);
 
+    const commitDragHover = useCallback(
+      (nextOver: string | null, nextPosition: Exclude<DragPosition, null>) => {
+        updateDragState((prev) => {
+          if (!prev.active) {
+            return prev;
+          }
+          if (nextOver === prev.active) {
+            return prev;
+          }
+          if (prev.over === nextOver && prev.position === nextPosition) {
+            return prev;
+          }
+          return { active: prev.active, over: nextOver, position: nextPosition };
+        });
+      },
+      [updateDragState],
+    );
+
     const processDragOver = useCallback(() => {
       dragOverFrameRef.current = null;
       const info = dragOverInfoRef.current;
-      const rect = info.rect;
-      if (!rect) {
+      const listNode = dragListRef.current;
+      if (!info || !listNode) {
         return;
       }
-      const { y } = info;
-      const threshold = Math.min(rect.height / 4, 32);
 
-      updateDragState((prev) => {
-        if (!prev.active) {
-          return prev;
-        }
-        const orderedWithoutActive = displayOrder.filter((key) => key !== prev.active);
-        if (orderedWithoutActive.length === 0) {
-          return prev;
-        }
-        const firstKey = orderedWithoutActive[0];
-        const lastKey = orderedWithoutActive[orderedWithoutActive.length - 1];
+      const activeKey = dragStateRef.current.active;
+      if (!activeKey) {
+        return;
+      }
 
-        if (y <= rect.top + threshold) {
-          if (prev.over === firstKey && prev.position === 'before') {
-            return prev;
-          }
-          return { active: prev.active, over: firstKey, position: 'before' };
-        }
+      const y = info.y;
+      const lastY = lastProcessYRef.current;
+      if (lastY !== null && Math.abs(lastY - y) < 4) {
+        return;
+      }
+      lastProcessYRef.current = y;
+      const childNodes = Array.from(listNode.querySelectorAll('li[data-section-key]')) as HTMLElement[];
+      const rectMap = new Map<string, DragOverRect>();
 
-        if (y >= rect.bottom - threshold) {
-          if (prev.over === lastKey && prev.position === 'after') {
-            return prev;
-          }
-          return { active: prev.active, over: lastKey, position: 'after' };
+      childNodes.forEach((node) => {
+        const keyAttr = node.getAttribute('data-section-key');
+        if (!keyAttr) {
+          return;
         }
-
-        return prev;
+        const rect = node.getBoundingClientRect();
+        rectMap.set(keyAttr, { top: rect.top, bottom: rect.bottom, height: rect.height });
       });
-    }, [displayOrder, updateDragState]);
 
-    const handleDragStart = useCallback((event: ReactDragEvent<HTMLLIElement>, key: string) => {
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        // Mark our internal drag type for reliable detection
-        event.dataTransfer.setData('application/x-resume-section', key);
-        // Provide a harmless plain text payload to satisfy some browsers
-        // and avoid default navigation behaviors.
-        try {
-          event.dataTransfer.setData('text/plain', 'resume-section');
-        } catch {
-          // Ignore failures; older browsers might block setting extra types
-        }
-      }
-      updateDragState({ active: key, over: null, position: null });
-    }, [updateDragState]);
-
-    const handleDragOverItem = useCallback((event: ReactDragEvent<HTMLLIElement>, key: string) => {
-      event.preventDefault();
-      if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = 'move';
-      }
-      const target = event.currentTarget as HTMLElement | null;
-      if (!target) {
+      const orderedKeys = displayOrder.filter((key) => key !== activeKey);
+      if (orderedKeys.length === 0) {
+        commitDragHover(null, 'after');
         return;
       }
-      const clientY = event.clientY;
-      const rect = target.getBoundingClientRect();
-      const topBoundary = rect.top + Math.min(rect.height / 3, 12);
-      const bottomBoundary = rect.bottom - Math.min(rect.height / 3, 12);
-      updateDragState((prev) => {
-        if (!prev.active || prev.active === key) {
-          return prev;
-        }
-        let nextPosition: 'before' | 'after' | null = prev.position;
-        if (clientY <= topBoundary) {
-          nextPosition = 'before';
-        } else if (clientY >= bottomBoundary) {
-          nextPosition = 'after';
-        } else {
-          // Keep the current indicator while pointer stays near the middle to reduce jitter.
-          nextPosition = prev.position ?? (clientY < rect.top + rect.height / 2 ? 'before' : 'after');
-        }
-        if (prev.over === key && prev.position === nextPosition) {
-          return prev;
-        }
-        return { active: prev.active, over: key, position: nextPosition };
-      });
-    }, [updateDragState]);
 
-    const handleDragLeaveItem = useCallback((event: ReactDragEvent<HTMLLIElement>, key: string) => {
-      event.preventDefault();
-      const target = event.currentTarget as HTMLElement | null;
-      const related = event.relatedTarget as Node | null;
-      if (!target) {
-        return;
-      }
-      const listNode = target.parentElement;
-      if (related && listNode && listNode.contains(related)) {
-        return;
-      }
-      updateDragState((prev) => {
-        if (prev.over !== key) {
-          return prev;
+      const previousState = dragStateRef.current;
+
+      for (let index = 0; index < orderedKeys.length; index += 1) {
+        const key = orderedKeys[index];
+        const rect = rectMap.get(key);
+        if (!rect) {
+          continue;
         }
-        return { active: prev.active, over: null, position: prev.position };
-      });
-    }, [updateDragState]);
+
+        const upperThreshold = rect.top + Math.min(rect.height / 4, 24);
+        const lowerThreshold = rect.bottom - Math.min(rect.height / 4, 24);
+
+        if (y <= upperThreshold) {
+          commitDragHover(key, 'before');
+          return;
+        }
+
+        if (y < lowerThreshold) {
+          const previousPosition = previousState.over === key ? previousState.position : null;
+          const midpoint = rect.top + rect.height / 2;
+          const nextPosition = previousPosition ?? (y < midpoint ? 'before' : 'after');
+          commitDragHover(key, nextPosition === 'before' ? 'before' : 'after');
+          return;
+        }
+
+        if (y < rect.bottom) {
+          commitDragHover(key, 'after');
+          return;
+        }
+      }
+
+      const lastKey = orderedKeys[orderedKeys.length - 1];
+      commitDragHover(lastKey, 'after');
+    }, [commitDragHover, displayOrder]);
 
     const applyReorder = useCallback(
       (targetKey: string | null, position: Exclude<DragPosition, null>) => {
@@ -455,165 +517,129 @@ const SectionManager = memo(
       [dragState, resolvedActiveSections, onReorderSections, resetDragState],
     );
 
-    const handleDropItem = useCallback(
-      (event: ReactDragEvent<HTMLLIElement>, key: string) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.dataTransfer) {
-          event.dataTransfer.dropEffect = 'move';
-        }
-        if (!dragState.active) {
-          resetDragState();
-          return;
-        }
-
-        const droppingOnActive = dragState.active === key;
-        let targetKey = key;
-        let position: 'before' | 'after' = dragState.position || 'before';
-
-        if (droppingOnActive) {
-          if (dragState.over && dragState.over !== dragState.active) {
-            targetKey = dragState.over;
-          } else if (!dragState.over) {
-            applyReorder(null, dragState.position || 'after');
-            return;
-          } else {
-            resetDragState();
-            return;
-          }
-        } else {
-          const target = event.currentTarget as HTMLElement | null;
-          if (target) {
-            const rect = target.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            position = event.clientY < midpoint ? 'before' : 'after';
-          }
-        }
-
-        if (targetKey === dragState.active) {
-          resetDragState();
-          return;
-        }
-
-        applyReorder(targetKey, position);
-      },
-      [dragState, applyReorder, resetDragState],
-    );
-
-    const handleDropContainer = useCallback(
-      (event: ReactDragEvent<HTMLUListElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.dataTransfer) {
-          event.dataTransfer.dropEffect = 'move';
-        }
-        if (!dragState.active) {
-          resetDragState();
-          return;
-        }
-        if (dragState.over) {
-          applyReorder(dragState.over, dragState.position || 'before');
-        } else {
-          applyReorder(null, dragState.position || 'after');
-        }
-      },
-      [dragState, applyReorder, resetDragState],
-    );
-
-    const handleDragOverContainer = useCallback(
-      (event: ReactDragEvent<HTMLUListElement>) => {
-        event.preventDefault();
-        if (event.dataTransfer) {
-          event.dataTransfer.dropEffect = 'move';
-        }
-
-        const listNode = event.currentTarget as HTMLElement | null;
-        if (!listNode) {
-          return;
-        }
-
-        dragOverInfoRef.current = {
-          rect: listNode.getBoundingClientRect(),
-          y: event.clientY,
-        };
-
-        if (dragOverFrameRef.current === null && typeof window !== 'undefined') {
-          dragOverFrameRef.current = window.requestAnimationFrame(processDragOver);
-        }
-      },
-      [processDragOver],
-    );
-
-    const handleDragEnd = useCallback(() => {
-      resetDragState();
-    }, [resetDragState]);
-
-    const isResumeSectionDrag = useCallback(
-      (event?: { dataTransfer?: DataTransfer | null }) => {
-        const dataTransfer = event?.dataTransfer;
-        if (!dataTransfer) {
-          return Boolean(dragStateRef.current.active);
-        }
-        try {
-          return Array.from(dataTransfer.types as ArrayLike<string>).includes(
-            'application/x-resume-section',
-          );
-        } catch {
-          return Boolean(dragStateRef.current.active);
-        }
-      },
-      [],
-    );
-
-    useEffect(() => {
-      if (typeof window === 'undefined') return undefined;
-
-      const handleGlobalDragOver = (event: DragEvent) => {
-        if (!dragStateRef.current.active && !isResumeSectionDrag(event)) {
-          return;
-        }
-        event.preventDefault();
-        if (event.dataTransfer) {
-          event.dataTransfer.dropEffect = 'move';
-        }
-      };
-
-      const handleGlobalDrop = (event: DragEvent) => {
-        if (!dragStateRef.current.active && !isResumeSectionDrag(event)) {
-          return;
-        }
-        event.preventDefault();
-        window.setTimeout(() => {
-          resetDragState();
-        }, 0);
-      };
-
-      const targets: Array<Window | Document> = [window];
-      if (typeof document !== 'undefined') {
-        targets.push(document);
+    const finalizePointerReorder = useCallback(() => {
+      const state = dragStateRef.current;
+      if (!state.active) {
+        resetDragState();
+        return;
       }
+      if (!state.over && !state.position) {
+        resetDragState();
+        return;
+      }
+      if (state.over) {
+        applyReorder(state.over, state.position || 'before');
+      } else {
+        applyReorder(null, state.position || 'after');
+      }
+    }, [applyReorder, resetDragState]);
 
-      targets.forEach((target) => {
-        target.addEventListener('dragover', handleGlobalDragOver, true);
-        target.addEventListener('drop', handleGlobalDrop, true);
-      });
+    const handlePointerDown = useCallback(
+      (event: ReactPointerEvent<HTMLLIElement>, key: string) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+          return;
+        }
+        const target = event.currentTarget as HTMLElement | null;
+        const listNode = target?.parentElement as HTMLUListElement | null;
+        if (!target || !listNode) {
+          return;
+        }
 
-      return () => {
-        targets.forEach((target) => {
-          target.removeEventListener('dragover', handleGlobalDragOver, true);
-          target.removeEventListener('drop', handleGlobalDrop, true);
-        });
-      };
-    }, [dragStateRef, isResumeSectionDrag, resetDragState]);
+        event.stopPropagation();
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+
+        removePointerListeners();
+
+        pointerCaptureRef.current = { element: target, prevTouchAction: target.style.touchAction || '' };
+        target.style.touchAction = 'none';
+        activePointerRef.current = { id: event.pointerId, type: event.pointerType };
+        dragListRef.current = listNode;
+
+        try {
+          target.setPointerCapture(event.pointerId);
+        } catch {
+          // Some browsers might throw if capture is not supported; ignore.
+        }
+
+        if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+          lockScroll();
+        }
+
+        dragOverInfoRef.current = { y: event.clientY };
+        lastProcessYRef.current = null;
+        updateDragState({ active: key, over: null, position: null });
+
+        if (typeof window !== 'undefined') {
+          const handleMove = (nativeEvent: PointerEvent) => {
+            if (nativeEvent.pointerId !== activePointerRef.current.id) {
+              return;
+            }
+            if (nativeEvent.cancelable) {
+              nativeEvent.preventDefault();
+            }
+            dragOverInfoRef.current = { y: nativeEvent.clientY };
+            lastProcessYRef.current = null;
+            if (dragOverFrameRef.current === null) {
+              dragOverFrameRef.current = window.requestAnimationFrame(processDragOver);
+            }
+          };
+
+          const handleUp = (nativeEvent: PointerEvent) => {
+            if (nativeEvent.pointerId !== activePointerRef.current.id) {
+              return;
+            }
+            if (nativeEvent.cancelable) {
+              nativeEvent.preventDefault();
+            }
+            removePointerListeners();
+            finalizePointerReorder();
+          };
+
+          const handleCancel = (nativeEvent: PointerEvent) => {
+            if (nativeEvent.pointerId !== activePointerRef.current.id) {
+              return;
+            }
+            removePointerListeners();
+            resetDragState();
+          };
+
+          pointerListenersRef.current = {
+            move: handleMove,
+            up: handleUp,
+            cancel: handleCancel,
+          };
+
+          window.addEventListener('pointermove', handleMove, { passive: false });
+          window.addEventListener('pointerup', handleUp, { passive: false });
+          window.addEventListener('pointercancel', handleCancel, { passive: false });
+        }
+      },
+      [
+        finalizePointerReorder,
+        lockScroll,
+        processDragOver,
+        removePointerListeners,
+        resetDragState,
+        updateDragState,
+      ],
+    );
 
     useEffect(() => {
       return () => {
+        removePointerListeners();
+        const unlock = scrollLockRef.current;
+        scrollLockRef.current = null;
+        if (unlock) {
+          unlock();
+        }
         if (dragOverFrameRef.current !== null && typeof window !== 'undefined') {
           window.cancelAnimationFrame(dragOverFrameRef.current);
         }
         dragOverFrameRef.current = null;
       };
-    }, []);
+    }, [removePointerListeners]);
 
     return (
       <section className="space-y-3">
@@ -645,11 +671,7 @@ const SectionManager = memo(
                   暂无启用的模块，先在下方开启需要的模块。
                 </p>
               ) : (
-                <ul
-                  className="space-y-2"
-                  onDragOver={handleDragOverContainer}
-                  onDrop={handleDropContainer}
-                >
+                <ul ref={dragListRef} className="space-y-2">
                   {displayOrder.map((sectionKey) => {
                     const isDragging = dragState.active === sectionKey;
                     const isDragOver = dragState.over === sectionKey;
@@ -659,17 +681,14 @@ const SectionManager = memo(
                       marginTop: !isDragging && indicatorPosition === 'before' ? '18px' : undefined,
                       marginBottom: !isDragging && indicatorPosition === 'after' ? '18px' : undefined,
                       transition: 'transform 150ms ease, margin 150ms ease',
+                      touchAction: 'none',
                     } as const;
                     return (
                       <li
                         key={sectionKey}
-                        draggable
-                        onDragStart={(event) => handleDragStart(event, sectionKey)}
-                        onDragOver={(event) => handleDragOverItem(event, sectionKey)}
-                        onDragEnter={(event) => handleDragOverItem(event, sectionKey)}
-                        onDragLeave={(event) => handleDragLeaveItem(event, sectionKey)}
-                        onDrop={(event) => handleDropItem(event, sectionKey)}
-                        onDragEnd={handleDragEnd}
+                        role="presentation"
+                        draggable={false}
+                        onPointerDown={(event) => handlePointerDown(event, sectionKey)}
                         className={`${dragItemClass} ${
                           isDragging ? 'cursor-grabbing opacity-60' : ''
                         } ${isDragOver ? 'border-brand-400 shadow-lg shadow-brand-500/10' : ''}`}
