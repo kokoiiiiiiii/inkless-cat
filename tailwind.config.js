@@ -1,7 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
-  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  content: [
+    './index.html',
+    './src/**/*.{ts,tsx}',
+    './src/{features,entities,widgets,pages,shared,app}/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       fontFamily: {

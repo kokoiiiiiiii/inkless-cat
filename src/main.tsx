@@ -1,9 +1,11 @@
+import './index.css'
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
+
 import App from './App'
 
-const container = document.getElementById('root')
+const container = document.querySelector('#root')
 
 if (!container) {
   throw new Error('Root element #root not found')
