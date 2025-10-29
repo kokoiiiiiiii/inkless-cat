@@ -185,12 +185,41 @@ const ResumePreviewComponent = ({
   const showPhoto = personalSettings.showPhoto !== false;
   const photoSize = Math.max(80, Math.min(Number(personalSettings.photoSize) || 120, 260));
   const photoPosition = personalSettings.photoPosition === 'left' ? 'left' : 'right';
+  const shouldShowPhoto = showPhoto && Boolean(personal.photo);
   const extras = useMemo(
     () =>
       Array.isArray(personal.extras)
         ? personal.extras.filter((item) => item && (item.label || item.value))
         : [],
     [personal.extras],
+  );
+  const contactItems = useMemo(
+    () => {
+      const items: Array<{ id: string; label: string; value: string }> = [];
+
+      if (personal.email) {
+        items.push({ id: 'email', label: '邮箱', value: personal.email });
+      }
+
+      if (personal.phone) {
+        items.push({ id: 'phone', label: '电话', value: personal.phone });
+      }
+
+      if (personal.location) {
+        items.push({ id: 'location', label: '所在地', value: personal.location });
+      }
+
+      extras.forEach((extra, index) => {
+        items.push({
+          id: `extra-${extra.id ?? index}`,
+          label: extra.label || '补充信息',
+          value: extra.value || '',
+        });
+      });
+
+      return items;
+    },
+    [extras, personal.email, personal.phone, personal.location],
   );
   const customSections = useMemo<ResumeCustomSection[]>(
     () =>
@@ -776,88 +805,57 @@ const ResumePreviewComponent = ({
         className={cn('flex flex-col gap-6 pb-6', variant.divider)}
         style={themeStyles.divider}
       >
-        <div
-          className={cn(
-            'flex flex-col gap-6 md:items-start md:justify-between',
-            showPhoto && personal.photo
-              ? (photoPosition === 'left'
-                ? 'md:flex-row-reverse'
-                : 'md:flex-row')
-              : 'md:flex-row',
-          )}
-        >
-          <div className="space-y-2 md:flex-1">
-            <h1
-              className={cn('text-3xl font-semibold tracking-tight', variant.heading)}
-              style={themeStyles.heading}
-            >
-              {personal.fullName || '你的姓名'}
-            </h1>
-            <p className={cn('text-base font-medium', variant.subheading)} style={themeStyles.subheading}>
-              {personal.title || '职业定位 / 目标'}
-            </p>
+        <div className="flex flex-col gap-6">
+          <div
+            className={cn(
+              'flex flex-col gap-4 sm:gap-6 sm:items-center sm:justify-between print:items-center print:justify-between',
+              shouldShowPhoto
+                ? (photoPosition === 'left'
+                  ? 'sm:flex-row-reverse print:flex-row-reverse'
+                  : 'sm:flex-row print:flex-row')
+                : 'sm:flex-row print:flex-row',
+            )}
+          >
+            <div className="space-y-2 sm:flex-1">
+              <h1
+                className={cn('text-3xl font-semibold tracking-tight', variant.heading)}
+                style={themeStyles.heading}
+              >
+                {personal.fullName || '你的姓名'}
+              </h1>
+              <p className={cn('text-base font-medium', variant.subheading)} style={themeStyles.subheading}>
+                {personal.title || '职业定位 / 目标'}
+              </p>
+            </div>
+            {shouldShowPhoto && (
+              <img
+                src={personal.photo}
+                alt={`${personal.fullName || '候选人'} 的照片`}
+                className="flex-shrink-0 rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40"
+                style={{
+                  width: `${photoSize}px`,
+                  height: `${photoSize}px`,
+                  boxShadow: accentStyle ? `0 18px 40px -22px ${resolvedAccent}` : undefined,
+                }}
+              />
+            )}
           </div>
-          {(showPhoto && personal.photo) || extras.length > 0 || personal.email || personal.phone || personal.location ? (
-            <div
-              className={cn('flex flex-col gap-4 text-sm md:w-[260px]', variant.metaWrapper)}
-              style={themeStyles.muted}
-            >
-              {showPhoto && personal.photo && (
-                <img
-                  src={personal.photo}
-                  alt={`${personal.fullName || '候选人'} 的照片`}
-                  className="rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40"
-                  style={{
-                    width: `${photoSize}px`,
-                    height: `${photoSize}px`,
-                    boxShadow: accentStyle ? `0 18px 40px -22px ${resolvedAccent}` : undefined,
-                  }}
-                />
-              )}
-              <dl className="grid gap-2">
-                {personal.email && (
-                  <div className="flex items-center gap-2">
+          {contactItems.length > 0 && (
+            <div className={cn('text-sm', variant.metaWrapper)} style={themeStyles.muted}>
+              <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 print:grid-cols-2">
+                {contactItems.map((item) => (
+                  <div key={item.id} className="grid grid-cols-[auto,1fr] items-baseline gap-x-2">
                     <dt className={cn('font-medium', variant.metaLabel)} style={themeStyles.heading}>
-                      邮箱
+                      {item.label}
                     </dt>
-                    <dd className={cn('break-all', variant.metaValue)} style={themeStyles.text}>
-                      {personal.email}
-                    </dd>
-                  </div>
-                )}
-                {personal.phone && (
-                  <div className="flex items-center gap-2">
-                    <dt className={cn('font-medium', variant.metaLabel)} style={themeStyles.heading}>
-                      电话
-                    </dt>
-                    <dd className={variant.metaValue} style={themeStyles.text}>
-                      {personal.phone}
-                    </dd>
-                  </div>
-                )}
-                {personal.location && (
-                  <div className="flex items-center gap-2">
-                    <dt className={cn('font-medium', variant.metaLabel)} style={themeStyles.heading}>
-                      所在地
-                    </dt>
-                    <dd className={variant.metaValue} style={themeStyles.text}>
-                      {personal.location}
-                    </dd>
-                  </div>
-                )}
-                {extras.map((extra) => (
-                  <div key={extra.id} className="flex items-start gap-2">
-                    <dt className={cn('font-medium', variant.metaLabel)} style={themeStyles.heading}>
-                      {extra.label || '补充信息'}
-                    </dt>
-                    <dd className={cn('flex-1 break-words', variant.metaValue)} style={themeStyles.text}>
-                      {extra.value}
+                    <dd className={cn('break-words', variant.metaValue)} style={themeStyles.text}>
+                      {item.value}
                     </dd>
                   </div>
                 ))}
               </dl>
             </div>
-          ) : null}
+          )}
         </div>
         {personal.summary && (
           <Section
