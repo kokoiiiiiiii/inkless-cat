@@ -18,7 +18,7 @@ Inkless Cat 是一个纯前端的简历创作工具，用模块化的方式帮�
 
 - ⚛️ React 19 + TypeScript 构建组件与数据流。
 - ⚡ Vite 7 提供极速的开发与构建体验。
-- 💨 Tailwind CSS 负责原子化样式与主题能力。
+- 💨 Tailwind CSS + SCSS 组合负责原子化样式与自定义封装能力。
 - 🌀 Immer 辅助实现不可变数据与撤销重做等高级操作。
 
 ## 快速开始 🚀

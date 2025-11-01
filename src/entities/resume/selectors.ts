@@ -27,10 +27,16 @@ export const deriveSectionsFromResume = (resume: ResumeData | null | undefined):
   return combined.length > 0 ? combined : getDefaultSections();
 };
 
+type SanitizeOptions = {
+  fallbackToDefaults?: boolean;
+};
+
 export const sanitizeSections = (
   sections: string[] | null | undefined,
   resume: ResumeData,
+  options: SanitizeOptions = {},
 ): ActiveSectionKey[] => {
+  const { fallbackToDefaults = false } = options;
   if (!Array.isArray(sections)) return deriveSectionsFromResume(resume);
   const availableCustomIds = new Set(
     (resume?.customSections || []).map((section: ResumeCustomSection) => section.id),
@@ -46,7 +52,7 @@ export const sanitizeSections = (
     }
     return false;
   });
-  if (filtered.length === 0) {
+  if (filtered.length === 0 && fallbackToDefaults) {
     return deriveSectionsFromResume(resume);
   }
   return filtered;

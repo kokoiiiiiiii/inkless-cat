@@ -3,8 +3,8 @@ export default {
   darkMode: 'class',
   content: [
     './index.html',
-    './src/**/*.{ts,tsx}',
-    './src/{features,entities,widgets,pages,shared,app}/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx,scss}',
+    './src/{features,entities,widgets,pages,shared,app}/**/*.{ts,tsx,scss}',
   ],
   theme: {
     extend: {

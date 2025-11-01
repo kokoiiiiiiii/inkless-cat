@@ -114,6 +114,33 @@ export const SectionManager = memo(
       [customTitleMap],
     );
 
+    const standardAllEnabled = useMemo(
+      () => sectionOrder.every((key) => resolvedActiveSections.includes(key)),
+      [resolvedActiveSections],
+    );
+    const standardAnyEnabled = useMemo(
+      () => sectionOrder.some((key) => resolvedActiveSections.includes(key)),
+      [resolvedActiveSections],
+    );
+
+    const handleToggleAllStandard = useCallback(
+      (nextState: boolean) => {
+        if (typeof onToggleSection !== 'function') {
+          return;
+        }
+        const activeSet = new Set(resolvedActiveSections);
+        for (const sectionKey of sectionOrder) {
+          const isActive = activeSet.has(sectionKey);
+          if (nextState && !isActive) {
+            onToggleSection(sectionKey, true);
+          } else if (!nextState && isActive) {
+            onToggleSection(sectionKey, false);
+          }
+        }
+      },
+      [onToggleSection, resolvedActiveSections],
+    );
+
     const removePointerListeners = useCallback(() => {
       if (typeof globalThis === 'undefined') {
         return;
@@ -531,7 +558,29 @@ export const SectionManager = memo(
               )}
             </div>
             <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">模块开关</h4>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">模块开关</h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-200/70 disabled:hover:text-slate-600 dark:disabled:hover:border-slate-700 dark:disabled:hover:text-slate-300"
+                    onClick={() => handleToggleAllStandard(true)}
+                    disabled={standardAllEnabled}
+                    aria-disabled={standardAllEnabled}
+                  >
+                    全部开启
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-200/70 disabled:hover:text-slate-600 dark:disabled:hover:border-slate-700 dark:disabled:hover:text-slate-300"
+                    onClick={() => handleToggleAllStandard(false)}
+                    disabled={!standardAnyEnabled}
+                    aria-disabled={!standardAnyEnabled}
+                  >
+                    全部关闭
+                  </button>
+                </div>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {sectionOrder.map((sectionKey) => {
                   const enabled = resolvedActiveSections.includes(sectionKey);

@@ -29,9 +29,13 @@ type ActiveSectionsInput =
   | ActiveSectionKey[]
   | ((prev: ActiveSectionKey[]) => ActiveSectionKey[]);
 
+type UpdateActiveSectionsOptions = {
+  allowEmpty?: boolean;
+};
+
 type ResumeStoreContextValue = ResumeStoreState & {
   updateResume: (updater: UpdateResumeInput, options?: UpdateResumeOptions) => void;
-  updateActiveSections: (input: ActiveSectionsInput) => void;
+  updateActiveSections: (input: ActiveSectionsInput, options?: UpdateActiveSectionsOptions) => void;
   setHasResumeChanges: Dispatch<boolean>;
   resetState: (nextResume?: ResumeData) => void;
 };
@@ -55,20 +59,24 @@ export const ResumeStoreProvider = ({
   const [resume, setResume] = useState<ResumeData>(() => createNormalizedResume(initialResume));
   const [activeSections, setActiveSections] = useState<ActiveSectionKey[]>(() => {
     if (Array.isArray(initialSections) && initialSections.length > 0) {
-      return sanitizeSections(initialSections, createNormalizedResume(initialResume));
+      return sanitizeSections(initialSections, createNormalizedResume(initialResume), {
+        fallbackToDefaults: true,
+      });
     }
     return deriveSectionsFromResume(createNormalizedResume(initialResume));
   });
   const [hasResumeChanges, setHasResumeChanges] = useState<boolean>(false);
 
   const updateActiveSections = useCallback(
-    (input: ActiveSectionsInput) => {
+    (input: ActiveSectionsInput, options?: UpdateActiveSectionsOptions) => {
       setActiveSections((prev) => {
         const next =
           typeof input === 'function'
             ? (input as (prevSections: ActiveSectionKey[]) => ActiveSectionKey[])(prev)
             : input;
-        return sanitizeSections(next, resume);
+        return sanitizeSections(next, resume, {
+          fallbackToDefaults: !(options?.allowEmpty),
+        });
       });
     },
     [resume],
@@ -93,7 +101,9 @@ export const ResumeStoreProvider = ({
               })
             : normalizeResumeSchema(updater, { clone: true });
         if (syncSections) {
-          setActiveSections((current) => sanitizeSections(current, next));
+          setActiveSections((current) =>
+            sanitizeSections(current, next, { fallbackToDefaults: true }),
+          );
         }
         return next;
       });

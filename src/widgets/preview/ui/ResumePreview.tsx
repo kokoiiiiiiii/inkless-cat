@@ -229,13 +229,12 @@ const ResumePreviewComponent = ({
     [resume.customSections],
   );
 
-  const normalizedActiveSections = useMemo(
-    () =>
-      Array.isArray(activeSections) && activeSections.length > 0
-        ? activeSections
-        : sectionOrder.map((section) => section),
-    [activeSections],
-  );
+  const normalizedActiveSections = useMemo(() => {
+    if (Array.isArray(activeSections)) {
+      return activeSections;
+    }
+    return [...sectionOrder];
+  }, [activeSections]);
   const activeSectionSet = useMemo(
     () => new Set<string>(normalizedActiveSections),
     [normalizedActiveSections],

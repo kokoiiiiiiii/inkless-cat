@@ -52,28 +52,31 @@ export const useSortableSections = () => {
 
   const toggleSection: ToggleHandler = useCallback(
     (sectionKey, enabled) => {
-      updateActiveSections((prev) => {
-        const existingIndex = prev.indexOf(sectionKey);
-        if (existingIndex === -1 && !enabled) {
-          return prev;
-        }
-        const cleaned = prev.filter((key) => key !== sectionKey);
-        if (!enabled) {
-          return cleaned;
-        }
-        if (existingIndex !== -1) {
-          return prev;
-        }
-        const savedIndex = orderMemoryRef.current.get(sectionKey);
-        const next = [...cleaned];
-        if (typeof savedIndex === 'number' && Number.isFinite(savedIndex)) {
-          const clamped = Math.max(0, Math.min(savedIndex, next.length));
-          next.splice(clamped, 0, sectionKey);
+      updateActiveSections(
+        (prev) => {
+          const existingIndex = prev.indexOf(sectionKey);
+          if (existingIndex === -1 && !enabled) {
+            return prev;
+          }
+          const cleaned = prev.filter((key) => key !== sectionKey);
+          if (!enabled) {
+            return cleaned;
+          }
+          if (existingIndex !== -1) {
+            return prev;
+          }
+          const savedIndex = orderMemoryRef.current.get(sectionKey);
+          const next = [...cleaned];
+          if (typeof savedIndex === 'number' && Number.isFinite(savedIndex)) {
+            const clamped = Math.max(0, Math.min(savedIndex, next.length));
+            next.splice(clamped, 0, sectionKey);
+            return next;
+          }
+          next.push(sectionKey);
           return next;
-        }
-        next.push(sectionKey);
-        return next;
-      });
+        },
+        { allowEmpty: true },
+      );
 
       if (enabled && sectionOrder.includes(sectionKey as StandardSectionKey)) {
         updateResume((draft) => {
@@ -93,16 +96,22 @@ export const useSortableSections = () => {
       (draft.customSections).push(newSection);
     });
     const newKey = getCustomSectionKey(newSection.id);
-    updateActiveSections((prev) => {
-      const without = prev.filter((key) => key !== newKey);
-      return [...without, newKey];
-    });
+    updateActiveSections(
+      (prev) => {
+        const without = prev.filter((key) => key !== newKey);
+        return [...without, newKey];
+      },
+      { allowEmpty: true },
+    );
   }, [updateResume, updateActiveSections]);
 
   const removeCustomSection = useCallback(
     (sectionId: string) => {
       const targetKey = getCustomSectionKey(sectionId);
-      updateActiveSections((prev) => prev.filter((key) => key !== targetKey));
+      updateActiveSections(
+        (prev) => prev.filter((key) => key !== targetKey),
+        { allowEmpty: true },
+      );
       updateResume((draft) => {
         if (!Array.isArray(draft.customSections)) {
           return;
