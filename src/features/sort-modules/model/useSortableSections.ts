@@ -5,10 +5,13 @@ import {
   sectionOrder,
   type StandardSectionKey,
 } from '@entities/module';
-import { deriveSectionsFromResume, type ResumeCustomSection, type ResumeData } from '@entities/resume';
+import {
+  deriveSectionsFromResume,
+  type ResumeCustomSection,
+  type ResumeData,
+} from '@entities/resume';
+import { useResumeActions, useResumeState } from '@entities/resume';
 import { useCallback, useEffect, useRef } from 'react';
-
-import { useResumeActions, useResumeState } from '@/stores/resume.store';
 
 type ToggleHandler = (sectionKey: string, enabled: boolean) => void;
 type ReorderHandler = (order: string[]) => void;
@@ -45,7 +48,12 @@ export const useSortableSections = () => {
       if (!Array.isArray(nextOrder)) {
         return;
       }
-      updateActiveSections(nextOrder);
+      const memory = orderMemoryRef.current;
+      memory.clear();
+      for (const [index, key] of nextOrder.entries()) {
+        memory.set(key, index);
+      }
+      updateActiveSections(() => [...nextOrder], { allowEmpty: true });
     },
     [updateActiveSections],
   );
@@ -79,39 +87,42 @@ export const useSortableSections = () => {
       );
 
       if (enabled && sectionOrder.includes(sectionKey as StandardSectionKey)) {
-        updateResume((draft) => {
-          ensureSectionInitialized(draft, sectionKey as StandardSectionKey);
-        }, { markDirty: false, syncSections: false });
+        updateResume(
+          (draft) => {
+            ensureSectionInitialized(draft, sectionKey as StandardSectionKey);
+          },
+          { markDirty: false, syncSections: false },
+        );
       }
     },
     [updateActiveSections, updateResume],
   );
 
-  const addCustomSection = useCallback<AddCustomSectionHandler>((title) => {
-    const newSection = createCustomSection(title || '自定义模块');
-    updateResume((draft) => {
-      if (!Array.isArray(draft.customSections)) {
-        draft.customSections = [];
-      }
-      (draft.customSections).push(newSection);
-    });
-    const newKey = getCustomSectionKey(newSection.id);
-    updateActiveSections(
-      (prev) => {
-        const without = prev.filter((key) => key !== newKey);
-        return [...without, newKey];
-      },
-      { allowEmpty: true },
-    );
-  }, [updateResume, updateActiveSections]);
+  const addCustomSection = useCallback<AddCustomSectionHandler>(
+    (title) => {
+      const newSection = createCustomSection(title || '自定义模块');
+      updateResume((draft) => {
+        if (!Array.isArray(draft.customSections)) {
+          draft.customSections = [];
+        }
+        draft.customSections.push(newSection);
+      });
+      const newKey = getCustomSectionKey(newSection.id);
+      updateActiveSections(
+        (prev) => {
+          const without = prev.filter((key) => key !== newKey);
+          return [...without, newKey];
+        },
+        { allowEmpty: true },
+      );
+    },
+    [updateResume, updateActiveSections],
+  );
 
   const removeCustomSection = useCallback(
     (sectionId: string) => {
       const targetKey = getCustomSectionKey(sectionId);
-      updateActiveSections(
-        (prev) => prev.filter((key) => key !== targetKey),
-        { allowEmpty: true },
-      );
+      updateActiveSections((prev) => prev.filter((key) => key !== targetKey), { allowEmpty: true });
       updateResume((draft) => {
         if (!Array.isArray(draft.customSections)) {
           return;
@@ -123,7 +134,7 @@ export const useSortableSections = () => {
   );
 
   const availableCustomSections: ResumeCustomSection[] = Array.isArray(resume.customSections)
-    ? (resume.customSections)
+    ? resume.customSections
     : [];
 
   const resolvedActiveSections = deriveSectionsFromResume(resume);

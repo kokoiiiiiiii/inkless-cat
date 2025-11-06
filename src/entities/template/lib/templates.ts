@@ -1,5 +1,5 @@
 import type { ResumeData } from '@entities/resume';
-import { createEmptyResume, createSampleResume } from '@entities/resume/lib/factory';
+import { createEmptyResume, createSampleResume } from '@entities/resume';
 import { createId } from '@shared/lib/id';
 
 import type { ResumeTemplate } from '../types';
@@ -150,8 +150,7 @@ const designerResume = buildResume({
       id: createId('proj'),
       name: 'Luna Coffee 品牌重塑',
       role: '主视觉设计师',
-      summary:
-        '打造完整品牌识别系统与包装插画，在新品上线三个月内带动销量提升 120%。',
+      summary: '打造完整品牌识别系统与包装插画，在新品上线三个月内带动销量提升 120%。',
       link: 'https://lisui.design/luna',
     },
     {

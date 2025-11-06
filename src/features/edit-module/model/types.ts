@@ -72,4 +72,6 @@ export type PersonalHandlers = {
   ) => void;
 };
 
-export type UseModuleEditorResult = PersonalHandlers & StandardSectionHandlers & CustomSectionHandlers;
+export type UseModuleEditorResult = PersonalHandlers &
+  StandardSectionHandlers &
+  CustomSectionHandlers;

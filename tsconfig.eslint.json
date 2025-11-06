@@ -6,5 +6,12 @@
     "allowJs": true,
     "types": ["vite/client"]
   },
-  "include": ["src", ".eslintrc.cjs", "vite.config.ts", "tailwind.config.js", "postcss.config.js"]
+  "include": [
+    "src",
+    "eslint.config.js",
+    "vite.config.ts",
+    "tailwind.config.js",
+    "postcss.config.js",
+    "prettier.config.cjs"
+  ]
 }

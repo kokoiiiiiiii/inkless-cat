@@ -1,7 +1,6 @@
 import { deriveSectionsFromResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
+import { useResumeActions } from '@entities/resume';
 import { useCallback } from 'react';
-
-import { useResumeActions } from '@/stores/resume.store';
 
 type ImportResult = {
   success: boolean;

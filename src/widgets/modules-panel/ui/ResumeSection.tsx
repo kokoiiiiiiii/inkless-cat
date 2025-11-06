@@ -1,7 +1,4 @@
-import {
-  sectionDefinitions,
-  type StandardSectionKey,
-} from '@entities/module';
+import { sectionDefinitions, type StandardSectionKey } from '@entities/module';
 import type { ResumeSectionItem } from '@features/edit-module';
 import { memo } from 'react';
 
@@ -68,7 +65,7 @@ const ResumeSection = memo(
         <input
           className={inputClass}
           type="text"
-          value={typeof item[field] === 'string' ? (item[field]) : ''}
+          value={typeof item[field] === 'string' ? item[field] : ''}
           placeholder={placeholder}
           onChange={(event) => onFieldChange(sectionKey, index, field, event.target.value)}
           onFocus={() => notifyFocus(sectionKey, focusId)}
@@ -89,9 +86,7 @@ const ResumeSection = memo(
           className={textareaClass}
           rows={4}
           value={
-            Array.isArray(item[field])
-              ? (item[field] as string[]).filter(Boolean).join('\n')
-              : ''
+            Array.isArray(item[field]) ? (item[field] as string[]).filter(Boolean).join('\n') : ''
           }
           placeholder={placeholder}
           onChange={(event) => onListChange(sectionKey, index, field, event.target.value)}
@@ -231,7 +226,7 @@ const ResumeSection = memo(
         )}
       </section>
     );
-  }
+  },
 );
 
 ResumeSection.displayName = 'ResumeSection';

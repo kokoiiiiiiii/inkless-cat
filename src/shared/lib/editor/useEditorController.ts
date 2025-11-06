@@ -1,32 +1,23 @@
 import {
-  type ActiveSectionKey,
   createEmptyResume,
   createSampleResume,
-  deriveSectionsFromResume,
   normalizeResumeSchema,
   type ResumeData,
 } from '@entities/resume';
+import { useResumeActions, useResumeState } from '@entities/resume';
 import {
   type ResumeTemplate,
   templates as builtInTemplates,
   type TemplateTheme,
 } from '@entities/template';
+import { useUIActions, useUIState } from '@entities/ui';
 import { useExportResume } from '@features/export-resume';
 import { useImportResume } from '@features/import-resume';
 import { useSortableSections } from '@features/sort-modules';
 import { useMediaQuery } from '@shared/hooks';
 import { clone } from '@shared/lib/clone';
 import type { TemplateUpdatePayload } from '@widgets/template-selector';
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
-
-import { useResumeActions, useResumeState } from '@/stores/resume.store';
-import { useUIActions, useUIState } from '@/stores/ui.store';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef } from 'react';
 
 const STORAGE_KEY = 'inkless-cat-data';
 const THEME_KEY = 'inkless-cat-theme';
@@ -97,8 +88,7 @@ const loadInitialResume = (): ResumeData => {
   return normalizeResumeSchema(createSampleResume(), { clone: true });
 };
 
-const getDefaultTemplateId = (): string =>
-  builtInTemplates[0]?.id ?? 'modern-blue';
+const getDefaultTemplateId = (): string => builtInTemplates[0]?.id ?? 'modern-blue';
 
 const createCustomTemplateId = () =>
   `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -109,14 +99,8 @@ export const useEditorController = () => {
   const { resume, activeSections, hasResumeChanges } = useResumeState();
   const { updateResume, updateActiveSections, setHasResumeChanges, resetState } =
     useResumeActions();
-  const {
-    theme,
-    templateId,
-    customTemplates,
-    templatePanelOpen,
-    modulePanelOpen,
-    mobileView,
-  } = useUIState();
+  const { theme, templateId, customTemplates, templatePanelOpen, modulePanelOpen, mobileView } =
+    useUIState();
   const {
     setTheme,
     setTemplateId,
@@ -189,10 +173,7 @@ export const useEditorController = () => {
     const storedTemplate = getStoredValue(TEMPLATE_KEY, LEGACY_KEYS.template);
     setTemplateId(storedTemplate || getDefaultTemplateId());
 
-    const storedCustomTemplates = getStoredValue(
-      CUSTOM_TEMPLATES_KEY,
-      LEGACY_KEYS.customTemplates,
-    );
+    const storedCustomTemplates = getStoredValue(CUSTOM_TEMPLATES_KEY, LEGACY_KEYS.customTemplates);
     if (storedCustomTemplates) {
       try {
         const parsed = JSON.parse(storedCustomTemplates) as ResumeTemplate[];
@@ -302,8 +283,7 @@ export const useEditorController = () => {
       const orderedKeys = ['personal', ...activeSections];
       const sectionKeys = orderedKeys.filter(
         (key) =>
-          editorSectionRefs.current.has(key) &&
-          previewRefs.current.has(`${key}:__section__`),
+          editorSectionRefs.current.has(key) && previewRefs.current.has(`${key}:__section__`),
       );
 
       if (sectionKeys.length === 0) {
@@ -383,36 +363,31 @@ export const useEditorController = () => {
     }
   }, []);
 
-  const handleFieldFocus = useCallback(
-    (sectionKey: string, itemKey: string) => {
-      if (!isBrowser) return;
-      const keysToTry = [];
-      if (itemKey) {
-        keysToTry.push(`${sectionKey}:${itemKey}`);
-      }
-      keysToTry.push(`${sectionKey}:__section__`);
-      const targetNode = keysToTry
-        .map((key) => previewRefs.current.get(key))
-        .find(Boolean);
-      if (!targetNode) return;
-      globalThis.requestAnimationFrame(() => {
-        if (typeof targetNode.scrollIntoView === 'function') {
-          targetNode.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest',
-          });
-        }
-        const toolbarHeight = 96;
-        const targetTop = targetNode.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({
-          top: Math.max(targetTop - toolbarHeight, 0),
+  const handleFieldFocus = useCallback((sectionKey: string, itemKey: string) => {
+    if (!isBrowser) return;
+    const keysToTry = [];
+    if (itemKey) {
+      keysToTry.push(`${sectionKey}:${itemKey}`);
+    }
+    keysToTry.push(`${sectionKey}:__section__`);
+    const targetNode = keysToTry.map((key) => previewRefs.current.get(key)).find(Boolean);
+    if (!targetNode) return;
+    globalThis.requestAnimationFrame(() => {
+      if (typeof targetNode.scrollIntoView === 'function') {
+        targetNode.scrollIntoView({
           behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest',
         });
+      }
+      const toolbarHeight = 96;
+      const targetTop = targetNode.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({
+        top: Math.max(targetTop - toolbarHeight, 0),
+        behavior: 'smooth',
       });
-    },
-    [],
-  );
+    });
+  }, []);
 
   const handleResetSample = useCallback(() => {
     const templateSample =
@@ -430,8 +405,8 @@ export const useEditorController = () => {
     (payload: unknown) => {
       const result = importFromObject(payload);
       if (!result.success && result.message && isBrowser) {
-          globalThis.alert(result.message);
-        }
+        globalThis.alert(result.message);
+      }
     },
     [importFromObject],
   );

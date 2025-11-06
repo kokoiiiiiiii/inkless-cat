@@ -68,14 +68,7 @@ export const UIStoreProvider = ({
       setModulePanelOpen,
       setMobileView,
     }),
-    [
-      theme,
-      templateId,
-      customTemplates,
-      templatePanelOpen,
-      modulePanelOpen,
-      mobileView,
-    ],
+    [theme, templateId, customTemplates, templatePanelOpen, modulePanelOpen, mobileView],
   );
 
   return <UIStoreContext.Provider value={contextValue}>{children}</UIStoreContext.Provider>;

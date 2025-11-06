@@ -10,9 +10,6 @@ import {
   labelTextClass,
   subtleButtonClass,
   textareaClass,
-  toggleBaseClass,
-  toggleDisabledClass,
-  toggleEnabledClass,
 } from './constants';
 import PhotoUpload from './PhotoUpload';
 import type { SectionFocusHandler } from './types';
@@ -220,7 +217,9 @@ const PersonalSection = memo(
                             type="text"
                             value={extra.label || ''}
                             placeholder="例如：个人网站"
-                            onChange={(event) => onExtraChange(extra.id, 'label', event.target.value)}
+                            onChange={(event) =>
+                              onExtraChange(extra.id, 'label', event.target.value)
+                            }
                             onFocus={() => notifyFocus('personal', extra.id)}
                           />
                         </label>
@@ -231,7 +230,9 @@ const PersonalSection = memo(
                             type="text"
                             value={extra.value || ''}
                             placeholder="https://example.com"
-                            onChange={(event) => onExtraChange(extra.id, 'value', event.target.value)}
+                            onChange={(event) =>
+                              onExtraChange(extra.id, 'value', event.target.value)
+                            }
                             onFocus={() => notifyFocus('personal', extra.id)}
                           />
                         </label>
@@ -254,7 +255,7 @@ const PersonalSection = memo(
         </div>
       </section>
     );
-  }
+  },
 );
 
 PersonalSection.displayName = 'PersonalSection';

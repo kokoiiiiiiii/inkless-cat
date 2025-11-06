@@ -10,10 +10,7 @@ type UpdateDraft = (mutator: (draft: ResumeData) => void) => void;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object';
 
-const ensureSectionList = (
-  draft: ResumeData,
-  section: StandardSectionKey,
-): ResumeSectionItem[] => {
+const ensureSectionList = (draft: ResumeData, section: StandardSectionKey): ResumeSectionItem[] => {
   const current = draft[section];
   if (Array.isArray(current)) {
     return current as ResumeSectionItem[];
@@ -23,12 +20,8 @@ const ensureSectionList = (
   return next;
 };
 
-export const useStandardSectionEditor = (
-  updateDraft: UpdateDraft,
-): StandardSectionHandlers => {
-  const handleArrayFieldChange = useCallback<
-    StandardSectionHandlers['handleArrayFieldChange']
-  >(
+export const useStandardSectionEditor = (updateDraft: UpdateDraft): StandardSectionHandlers => {
+  const handleArrayFieldChange = useCallback<StandardSectionHandlers['handleArrayFieldChange']>(
     (section, index, field, value) => {
       updateDraft((draft) => {
         const sectionList = ensureSectionList(draft, section);
@@ -41,9 +34,7 @@ export const useStandardSectionEditor = (
     [updateDraft],
   );
 
-  const handleArrayListChange = useCallback<
-    StandardSectionHandlers['handleArrayListChange']
-  >(
+  const handleArrayListChange = useCallback<StandardSectionHandlers['handleArrayListChange']>(
     (section, index, field, rawValue) => {
       updateDraft((draft) => {
         const sectionList = ensureSectionList(draft, section);
@@ -56,9 +47,7 @@ export const useStandardSectionEditor = (
     [updateDraft],
   );
 
-  const handleAddSectionItem = useCallback<
-    StandardSectionHandlers['handleAddSectionItem']
-  >(
+  const handleAddSectionItem = useCallback<StandardSectionHandlers['handleAddSectionItem']>(
     (section) => {
       updateDraft((draft) => {
         const sectionList = ensureSectionList(draft, section);
@@ -71,9 +60,7 @@ export const useStandardSectionEditor = (
     [updateDraft],
   );
 
-  const handleRemoveSectionItem = useCallback<
-    StandardSectionHandlers['handleRemoveSectionItem']
-  >(
+  const handleRemoveSectionItem = useCallback<StandardSectionHandlers['handleRemoveSectionItem']>(
     (section, index) => {
       updateDraft((draft) => {
         const sectionList = ensureSectionList(draft, section);

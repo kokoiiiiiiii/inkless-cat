@@ -1,4 +1,4 @@
-export const clone = <T,>(value: T): T => {
+export const clone = <T>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);
   }

@@ -1,10 +1,7 @@
 import type { ResumeData } from '@entities/resume';
 import { useCallback } from 'react';
 
-import type {
-  UseModuleEditorOptions,
-  UseModuleEditorResult,
-} from './types';
+import type { UseModuleEditorOptions, UseModuleEditorResult } from './types';
 import { useCustomSectionsEditor } from './useCustomSectionsEditor';
 import { usePersonalEditor } from './usePersonalEditor';
 import { useStandardSectionEditor } from './useStandardSectionEditor';

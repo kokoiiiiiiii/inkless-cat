@@ -37,9 +37,7 @@ const renderPersonalBlock = (resume: ResumeData): string[] => {
   }
   lines.push('');
 
-  const contact = [personal.email, personal.phone, personal.location]
-    .filter(Boolean)
-    .join(' ｜ ');
+  const contact = [personal.email, personal.phone, personal.location].filter(Boolean).join(' ｜ ');
   if (contact) {
     lines.push(contact, '');
   }
@@ -219,10 +217,7 @@ const renderCustomSectionContent = (section: ResumeCustomSection): string[] => {
   return [];
 };
 
-const renderCustomSections = (
-  resume: ResumeData,
-  includeSection: IncludePredicate,
-): string[] => {
+const renderCustomSections = (resume: ResumeData, includeSection: IncludePredicate): string[] => {
   const sections: ResumeCustomSection[] = Array.isArray(resume.customSections)
     ? resume.customSections
     : [];

@@ -23,9 +23,7 @@ export const normalizeCustomSection = (
   const normalized: ResumeCustomSection = {
     id: section.id || createId('custom'),
     title: typeof section.title === 'string' ? section.title : '',
-    mode: ['list', 'fields', 'text'].includes(section.mode as string)
-      ? (section.mode)
-      : 'list',
+    mode: ['list', 'fields', 'text'].includes(section.mode as string) ? section.mode : 'list',
     items: Array.isArray(section.items)
       ? section.items
           .map((item) => (typeof item === 'string' ? item : ''))

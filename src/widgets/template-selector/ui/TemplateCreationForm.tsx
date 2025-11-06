@@ -1,5 +1,5 @@
 import type { TemplateTheme } from '@entities/template';
-import { type ChangeEvent, type FormEvent,useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DEFAULT_CUSTOM_THEME, styleOptions } from './constants';
 import { TEMPLATE_THEME_FIELDS } from './themeFields';
@@ -76,7 +76,14 @@ const useTemplateCreationState = (): [TemplateCreationFormState, TemplateCreatio
 
   return [
     formState,
-    { setTemplateName, setTemplateDescription, setAccentColor, setPreviewStyle, updateThemeField, reset },
+    {
+      setTemplateName,
+      setTemplateDescription,
+      setAccentColor,
+      setPreviewStyle,
+      updateThemeField,
+      reset,
+    },
   ];
 };
 
@@ -194,10 +201,7 @@ const TemplateCreationForm = ({ onSaveTemplate }: TemplateCreationFormProps) => 
     }
   }, [accentColor, isCustomStyle, updateThemeField]);
 
-  const resolvedTheme = useMemo(
-    () => ({ ...DEFAULT_CUSTOM_THEME, ...customTheme }),
-    [customTheme],
-  );
+  const resolvedTheme = useMemo(() => ({ ...DEFAULT_CUSTOM_THEME, ...customTheme }), [customTheme]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

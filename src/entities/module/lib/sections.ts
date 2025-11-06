@@ -17,6 +17,8 @@ export const sectionOrder: SectionKey[] = [
 ];
 
 export type StandardSectionKey = SectionKey;
+export type CustomSectionKey = `${typeof CUSTOM_SECTION_PREFIX}${string}`;
+export type ActiveSectionKey = StandardSectionKey | CustomSectionKey;
 
 export const sectionDefinitions: Record<SectionKey, SectionDefinition> = {
   socials: {
@@ -88,9 +90,11 @@ export function createCustomSection(
   };
 }
 
-export const getCustomSectionKey = (id: string): string => `${CUSTOM_SECTION_PREFIX}${id}`;
+export const getCustomSectionKey = (id: string): CustomSectionKey =>
+  `${CUSTOM_SECTION_PREFIX}${id}`;
 
-export const isCustomSectionKey = (key: string): boolean => key.startsWith(CUSTOM_SECTION_PREFIX);
+export const isCustomSectionKey = (key: string): key is CustomSectionKey =>
+  key.startsWith(CUSTOM_SECTION_PREFIX);
 
 export const extractCustomSectionId = (key: string): string | null =>
   isCustomSectionKey(key) ? key.slice(CUSTOM_SECTION_PREFIX.length) : null;

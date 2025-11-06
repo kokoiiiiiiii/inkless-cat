@@ -1,7 +1,6 @@
+import { ResumeStoreProvider } from '@entities/resume';
+import { UIStoreProvider } from '@entities/ui';
 import type { ReactNode } from 'react';
-
-import { ResumeStoreProvider } from '@/stores/resume.store';
-import { UIStoreProvider } from '@/stores/ui.store';
 
 type StoreProviderProps = {
   children: ReactNode;

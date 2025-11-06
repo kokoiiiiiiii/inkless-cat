@@ -1,6 +1,5 @@
+import { useResumeState } from '@entities/resume';
 import { useCallback } from 'react';
-
-import { useResumeState } from '@/stores/resume.store';
 
 import { downloadBlob, resumeToJson } from '../lib/json';
 import { resumeToMarkdown } from '../lib/markdown';

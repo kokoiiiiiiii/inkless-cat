@@ -1,9 +1,8 @@
+import { ResumePreview } from '@features/resume-preview';
+import { useEditorController } from '@shared/lib/editor';
 import { ModulesPanel } from '@widgets/modules-panel';
-import { ResumePreview } from '@widgets/preview';
 import { TemplateSelector } from '@widgets/template-selector';
 import { Topbar } from '@widgets/topbar';
-
-import { useEditorController } from './model/useEditorController';
 
 function EditorPage() {
   const {
@@ -44,7 +43,6 @@ function EditorPage() {
     showEditor,
     showPreview,
     isLargeScreen,
-    mobileView,
     setMobileView,
     baseTemplates,
   } = useEditorController();

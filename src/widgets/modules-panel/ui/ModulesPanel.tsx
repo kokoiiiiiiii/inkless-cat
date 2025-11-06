@@ -1,13 +1,12 @@
 import {
   extractCustomSectionId,
-  getCustomSectionKey,
   isCustomSectionKey,
+  SectionManager,
   sectionOrder,
   type StandardSectionKey,
 } from '@entities/module';
 import type { ResumeCustomSection, ResumeData } from '@entities/resume';
-import { type PersonalSettings, type ResumeSectionItem,useModuleEditor } from '@features/edit-module';
-import { SectionManager } from '@features/sort-modules';
+import { type ResumeSectionItem, useModuleEditor } from '@features/edit-module';
 import { useCallback, useEffect, useRef } from 'react';
 
 import CustomSectionEditor from './CustomSectionEditor';

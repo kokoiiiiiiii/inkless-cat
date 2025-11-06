@@ -1,14 +1,18 @@
-import {
-  type ActiveSectionKey,
-  createEmptyResume,
-  deriveSectionsFromResume,
-  normalizeResumeDraft,
-  normalizeResumeSchema,
-  type ResumeData,
-  sanitizeSections,
-} from '@entities/resume';
 import { produce } from 'immer';
-import { createContext, type Dispatch, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  createContext,
+  type Dispatch,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
+
+import { createEmptyResume } from '../lib/factory';
+import { normalizeResumeDraft, normalizeResumeSchema } from '../lib/normalizers';
+import { deriveSectionsFromResume, sanitizeSections } from '../selectors';
+import type { ActiveSectionKey, ResumeData } from '../types';
 
 type ResumeUpdater = (draft: ResumeData) => void;
 
@@ -25,9 +29,7 @@ type ResumeStoreState = {
   hasResumeChanges: boolean;
 };
 
-type ActiveSectionsInput =
-  | ActiveSectionKey[]
-  | ((prev: ActiveSectionKey[]) => ActiveSectionKey[]);
+type ActiveSectionsInput = ActiveSectionKey[] | ((prev: ActiveSectionKey[]) => ActiveSectionKey[]);
 
 type UpdateActiveSectionsOptions = {
   allowEmpty?: boolean;
@@ -75,7 +77,7 @@ export const ResumeStoreProvider = ({
             ? (input as (prevSections: ActiveSectionKey[]) => ActiveSectionKey[])(prev)
             : input;
         return sanitizeSections(next, resume, {
-          fallbackToDefaults: !(options?.allowEmpty),
+          fallbackToDefaults: !options?.allowEmpty,
         });
       });
     },
@@ -96,7 +98,7 @@ export const ResumeStoreProvider = ({
         const next =
           typeof updater === 'function'
             ? produce(prev, (draft: ResumeData) => {
-                (updater)(draft);
+                updater(draft);
                 normalizeResumeDraft(draft);
               })
             : normalizeResumeSchema(updater, { clone: true });
@@ -124,7 +126,7 @@ export const ResumeStoreProvider = ({
       setHasResumeChanges,
       resetState,
     }),
-    [resume, activeSections, hasResumeChanges, updateResume, updateActiveSections],
+    [resume, activeSections, hasResumeChanges, updateResume, updateActiveSections, resetState],
   );
 
   return <ResumeStoreContext.Provider value={contextValue}>{children}</ResumeStoreContext.Provider>;

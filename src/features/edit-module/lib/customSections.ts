@@ -1,8 +1,4 @@
-import type {
-  ResumeCustomField,
-  ResumeCustomSection,
-  ResumeData,
-} from '@entities/resume';
+import type { ResumeCustomField, ResumeCustomSection, ResumeData } from '@entities/resume';
 
 import { cleanListInput, createCustomField } from './utils';
 
@@ -31,9 +27,7 @@ export const ensureSectionShape = (section: ResumeCustomSection): void => {
   }
 };
 
-export const ensureFieldsCollection = (
-  section: ResumeCustomSection,
-): ResumeCustomField[] => {
+export const ensureFieldsCollection = (section: ResumeCustomSection): ResumeCustomField[] => {
   if (!Array.isArray(section.fields)) {
     section.fields = [];
   }

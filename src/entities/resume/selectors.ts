@@ -1,4 +1,6 @@
 import {
+  type ActiveSectionKey as ModuleActiveSectionKey,
+  type CustomSectionKey,
   extractCustomSectionId,
   getCustomSectionKey,
   isCustomSectionKey,
@@ -8,7 +10,7 @@ import {
 
 import type { ResumeCustomSection, ResumeData } from './types';
 
-export type ActiveSectionKey = StandardSectionKey | string;
+export type ActiveSectionKey = ModuleActiveSectionKey;
 
 export const getDefaultSections = (): StandardSectionKey[] => [...sectionOrder];
 
@@ -17,10 +19,12 @@ const hasContent = (sectionKey: StandardSectionKey, resume: ResumeData): boolean
   return Array.isArray(value) ? value.length > 0 : false;
 };
 
-export const deriveSectionsFromResume = (resume: ResumeData | null | undefined): ActiveSectionKey[] => {
+export const deriveSectionsFromResume = (
+  resume: ResumeData | null | undefined,
+): ActiveSectionKey[] => {
   if (!resume) return getDefaultSections();
   const baseKeys = sectionOrder.filter((key) => hasContent(key, resume));
-  const customKeys = Array.isArray(resume.customSections)
+  const customKeys: CustomSectionKey[] = Array.isArray(resume.customSections)
     ? resume.customSections.map((section) => getCustomSectionKey(section.id))
     : [];
   const combined = [...baseKeys, ...customKeys];
@@ -32,7 +36,7 @@ type SanitizeOptions = {
 };
 
 export const sanitizeSections = (
-  sections: string[] | null | undefined,
+  sections: readonly ActiveSectionKey[] | null | undefined,
   resume: ResumeData,
   options: SanitizeOptions = {},
 ): ActiveSectionKey[] => {
@@ -41,8 +45,8 @@ export const sanitizeSections = (
   const availableCustomIds = new Set(
     (resume?.customSections || []).map((section: ResumeCustomSection) => section.id),
   );
-  const seen = new Set<string>();
-  const filtered = sections.filter((key) => {
+  const seen = new Set<ActiveSectionKey>();
+  const filtered = sections.filter((key): key is ActiveSectionKey => {
     if (seen.has(key)) return false;
     seen.add(key);
     if (sectionOrder.includes(key as StandardSectionKey)) return true;

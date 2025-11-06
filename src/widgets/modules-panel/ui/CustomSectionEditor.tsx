@@ -204,7 +204,7 @@ const CustomSectionEditor = memo(
         </div>
       </section>
     );
-  }
+  },
 );
 
 CustomSectionEditor.displayName = 'CustomSectionEditor';

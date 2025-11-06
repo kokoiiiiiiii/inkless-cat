@@ -14,10 +14,7 @@ import {
 import type { CustomSectionHandlers } from './types';
 
 type UpdateDraft = (mutator: (draft: ResumeData) => void) => void;
-type MutateSection = (
-  sectionId: string,
-  mutator: (section: ResumeCustomSection) => void,
-) => void;
+type MutateSection = (sectionId: string, mutator: (section: ResumeCustomSection) => void) => void;
 
 const getAvailableSections = (
   customSections: ResumeData['customSections'],
@@ -126,10 +123,7 @@ export const useCustomSectionsEditor = (
     [updateDraft],
   );
 
-  const handlers = useMemo(
-    () => createCustomSectionHandlers(mutateSection),
-    [mutateSection],
-  );
+  const handlers = useMemo(() => createCustomSectionHandlers(mutateSection), [mutateSection]);
 
   return {
     availableCustomSections,

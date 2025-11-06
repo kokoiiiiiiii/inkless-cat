@@ -1,4 +1,4 @@
-import { type ChangeEvent,useCallback, useRef } from 'react';
+import { type ChangeEvent, useCallback, useRef } from 'react';
 
 type ResumeImportHandler = (payload: unknown) => void;
 
