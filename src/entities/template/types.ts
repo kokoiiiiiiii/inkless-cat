@@ -21,3 +21,7 @@ export type ResumeTemplate = {
   theme?: TemplateTheme;
   sample: ResumeData;
 };
+
+export type TemplateUpdatePayload = Partial<Omit<ResumeTemplate, 'sample'>> & {
+  sample?: ResumeData | '__CURRENT__';
+};

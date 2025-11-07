@@ -1,8 +1,4 @@
-import type { ResumeTemplate } from '@entities/template';
-
-export type TemplateUpdatePayload = Partial<Omit<ResumeTemplate, 'sample'>> & {
-  sample?: ResumeTemplate | '__CURRENT__';
-};
+import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
 
 export type TemplateSelectorProps = {
   builtInTemplates?: ResumeTemplate[];

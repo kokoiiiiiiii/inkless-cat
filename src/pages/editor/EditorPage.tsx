@@ -1,5 +1,5 @@
+import { useEditorController } from '@features/editor-shell';
 import { ResumePreview } from '@features/resume-preview';
-import { useEditorController } from '@shared/lib/editor';
 import { ModulesPanel } from '@widgets/modules-panel';
 import { TemplateSelector } from '@widgets/template-selector';
 import { Topbar } from '@widgets/topbar';
