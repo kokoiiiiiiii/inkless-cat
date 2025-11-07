@@ -1,5 +1,5 @@
 import type { ResumeCustomSection } from '@entities/resume';
-import { memo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { getCustomSectionKey, sectionDefinitions, sectionOrder } from '../lib/sections';
 import type { SectionReorderHandler, SectionToggleHandler } from '../model/useSectionManager';
@@ -52,6 +52,100 @@ export const SectionManager = memo(
       onReorderSections,
     });
 
+    // ----- 排序：复原 & 撤销（单步） -----
+    const initialOrderRef = useRef<string[] | null>(null); // 初始顺序深拷贝
+    const prevActiveRef = useRef<string[] | null>(null); // 上一次的活动顺序
+    const undoOrderRef = useRef<string[] | null>(null); // 撤销目标（单步）
+
+    const arraysShallowEqual = useCallback((a?: readonly string[] | null, b?: readonly string[] | null) => {
+      if (!Array.isArray(a) || !Array.isArray(b)) return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    }, []);
+
+    // 首次记录初始顺序（深拷贝）。
+    useEffect(() => {
+      if (!initialOrderRef.current && Array.isArray(activeSections) && activeSections.length > 0) {
+        initialOrderRef.current = [...activeSections];
+      }
+    }, [activeSections]);
+
+    // 监听外部顺序变化：若是纯排序变动，则提供撤销堆栈（单步）。
+    useEffect(() => {
+      const prev = prevActiveRef.current;
+      if (Array.isArray(prev) && Array.isArray(activeSections)) {
+        const sameLength = prev.length === activeSections.length;
+        if (sameLength) {
+          const prevSet = new Set(prev);
+          const sameMembers = activeSections.every((k) => prevSet.has(k));
+          if (sameMembers && !arraysShallowEqual(prev, activeSections)) {
+            undoOrderRef.current = [...prev];
+          } else if (!sameMembers) {
+            // 模块增删导致集合变化，清空单步撤销
+            undoOrderRef.current = null;
+          }
+        } else {
+          undoOrderRef.current = null;
+        }
+      }
+      prevActiveRef.current = Array.isArray(activeSections) ? [...activeSections] : null;
+    }, [activeSections, arraysShallowEqual]);
+
+    // 计算当前集合下的“原始顺序”（初始顺序中过滤当前存在的模块 + 新增的排在末尾，保持当前相对次序）
+    const targetRestoreOrder = useMemo(() => {
+      const current = Array.isArray(activeSections) ? activeSections : [];
+      const initial = Array.isArray(initialOrderRef.current) ? initialOrderRef.current : [];
+      const initialSet = new Set(initial);
+      const base = initial.filter((k) => current.includes(k));
+      const extras = current.filter((k) => !initialSet.has(k));
+      return [...base, ...extras];
+    }, [activeSections]);
+
+    const canRestore = useMemo(() => {
+      const current = Array.isArray(activeSections) ? activeSections : [];
+      return !arraysShallowEqual(current, targetRestoreOrder) && current.length > 0;
+    }, [activeSections, targetRestoreOrder, arraysShallowEqual]);
+
+    const canUndo = Array.isArray(undoOrderRef.current) && undoOrderRef.current.length > 0;
+
+    const handleRestore = useCallback(() => {
+      const current = Array.isArray(activeSections) ? activeSections : [];
+      if (!onReorderSections || current.length === 0) return;
+      // 点击反馈动画由类控制
+      undoOrderRef.current = [...current];
+      onReorderSections([...targetRestoreOrder]);
+    }, [activeSections, onReorderSections, targetRestoreOrder]);
+
+    const handleUndo = useCallback(() => {
+      if (!onReorderSections) return;
+      const undoOrder = undoOrderRef.current;
+      if (!Array.isArray(undoOrder) || undoOrder.length === 0) return;
+      onReorderSections([...undoOrder]);
+      // 单步撤销后清空（下一次排序变更会再刷新）
+      undoOrderRef.current = null;
+    }, [onReorderSections]);
+
+    // Ctrl/Cmd+Z 撤销（仅在面板展开时启用；避免输入框干扰）
+    useEffect(() => {
+      if (!open) return;
+      const handler = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement | null;
+        const tag = (target?.tagName || '').toLowerCase();
+        const editable = target?.isContentEditable || tag === 'input' || tag === 'textarea';
+        if (editable) return; // 不拦截编辑中的撤销
+        const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z');
+        if (isUndo) {
+          e.preventDefault();
+          handleUndo();
+        }
+      };
+      globalThis.addEventListener('keydown', handler, { passive: false });
+      return () => globalThis.removeEventListener('keydown', handler as EventListener);
+    }, [open, handleUndo]);
+
     return (
       <section className="space-y-3">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -75,7 +169,29 @@ export const SectionManager = memo(
             <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-white">模块排序</h4>
-                <span className="text-xs text-slate-500 dark:text-slate-400">拖动进行排序</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">拖动进行排序</span>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 active:scale-95"
+                    onClick={handleRestore}
+                    disabled={!canRestore}
+                    title="恢复原始排序"
+                    aria-disabled={!canRestore}
+                  >
+                    复原
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 active:scale-95"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    title="撤销上一次排序 (Ctrl/⌘+Z)"
+                    aria-disabled={!canUndo}
+                  >
+                    撤销
+                  </button>
+                </div>
               </div>
               {resolvedActiveSections.length === 0 ? (
                 <p className="text-xs text-slate-500 dark:text-slate-400">
