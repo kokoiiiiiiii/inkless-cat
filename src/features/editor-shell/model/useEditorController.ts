@@ -5,6 +5,7 @@ import { useExportResume } from '@features/export-resume';
 import { useImportResume } from '@features/import-resume';
 import { useSortableSections } from '@features/sort-modules';
 import { useMediaQuery } from '@shared/hooks';
+import { useI18n } from '@shared/i18n';
 import { useCallback, useDeferredValue } from 'react';
 
 import { isBrowser } from '../lib/storage';
@@ -17,6 +18,7 @@ import { useTemplateLibrary } from './useTemplateLibrary';
 const defaultTemplateId = builtInTemplates[0]?.id ?? 'modern-blue';
 
 export const useEditorController = () => {
+  const { t, locale } = useI18n();
   const { resume, activeSections, hasResumeChanges } = useResumeState();
   const { updateResume, updateActiveSections, setHasResumeChanges, resetState } =
     useResumeActions();
@@ -60,6 +62,7 @@ export const useEditorController = () => {
     setTemplateId,
     setCustomTemplates,
     defaultTemplateId,
+    locale,
   });
 
   useEditorStorageSync({
@@ -153,10 +156,16 @@ export const useEditorController = () => {
       appendCustomSection();
       return;
     }
-    const input = globalThis.prompt('请输入模块名称', '自定义模块');
+    const message = t('modules.customSection.promptTitle');
+    const placeholder = t('modules.customSection.promptPlaceholder');
+    const fallback = t('modules.customSection.defaultTitle');
+    const input = globalThis.prompt(
+      message === 'modules.customSection.promptTitle' ? 'Enter a module name' : message,
+      placeholder === 'modules.customSection.promptPlaceholder' ? fallback : placeholder,
+    );
     if (input === null) return;
-    appendCustomSection(input.trim() || '自定义模块');
-  }, [appendCustomSection]);
+    appendCustomSection(input.trim() || fallback);
+  }, [appendCustomSection, t]);
 
   return {
     resume,

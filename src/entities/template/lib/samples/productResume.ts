@@ -3,7 +3,17 @@ import { createId } from '@shared/lib/id';
 
 import { buildResume } from './helpers';
 
-export const productResume: ResumeData = buildResume({
+const socialsZh = () => [
+  { id: createId('social'), label: 'LinkedIn', url: 'https://linkedin.com/in/ranwang' },
+  { id: createId('social'), label: '知乎', url: 'https://www.zhihu.com/people/pm-ran' },
+];
+
+const socialsEn = () => [
+  { id: createId('social'), label: 'LinkedIn', url: 'https://linkedin.com/in/ranwang' },
+  { id: createId('social'), label: 'Zhihu', url: 'https://www.zhihu.com/people/pm-ran' },
+];
+
+export const productResumeZh: ResumeData = buildResume({
   personal: {
     fullName: '王然',
     title: '资深产品经理 | SaaS & AI',
@@ -14,10 +24,7 @@ export const productResume: ResumeData = buildResume({
     summary:
       '7 年 B 端 & SaaS 产品规划经验，擅长从 0 到 1 搭建数据平台与增长体系。推动 AI 能力落地，帮助客户留存提升 18%。',
   },
-  socials: [
-    { id: createId('social'), label: 'LinkedIn', url: 'https://linkedin.com/in/ranwang' },
-    { id: createId('social'), label: '知乎', url: 'https://www.zhihu.com/people/pm-ran' },
-  ],
+  socials: socialsZh(),
   experience: [
     {
       id: createId('exp'),
@@ -94,3 +101,99 @@ export const productResume: ResumeData = buildResume({
     },
   ],
 });
+
+export const productResumeEn: ResumeData = buildResume({
+  personal: {
+    fullName: 'Ran Wang',
+    title: 'Principal Product Manager | SaaS & AI',
+    email: 'ran.wang@example.com',
+    phone: '+86 139-1000-2000',
+    location: 'Beijing',
+    photo: '',
+    summary:
+      '7 years of B2B/SaaS product strategy experience with a track record of building analytics platforms and growth systems from 0→1. Recently shipped AI capabilities that lifted customer retention by 18%.',
+  },
+  socials: socialsEn(),
+  experience: [
+    {
+      id: createId('exp'),
+      company: 'Aurora Tech',
+      role: 'Senior Product Manager',
+      location: 'Beijing',
+      startDate: '2020-03',
+      endDate: 'Present',
+      highlights: [
+        'Owned roadmap for the AI marketing cloud, steering a 15-person cross-functional squad through three major releases.',
+        'Designed retention funnels and automated outreach that increased enterprise renewal rate from 62% to 80%.',
+        'Introduced data-driven review rituals, cutting the average delivery cycle from 18 to 11 weeks.',
+      ],
+    },
+    {
+      id: createId('exp'),
+      company: 'Insight Data',
+      role: 'Product Manager',
+      location: 'Shanghai',
+      startDate: '2017-07',
+      endDate: '2020-02',
+      highlights: [
+        'Launched an operations analytics platform used by 30+ business units and 500+ daily operators.',
+        'Led customer research and competitive analysis to establish market positioning and opportunity maps.',
+      ],
+    },
+  ],
+  projects: [
+    {
+      id: createId('proj'),
+      name: 'AI Marketing Automation Platform',
+      role: 'Product Owner',
+      summary:
+        'Built recommendation and orchestration modules for real-time audience insights, messaging, and A/B testing, boosting marketing automation efficiency by 50%.',
+      link: 'https://example.com/ai-marketing',
+    },
+  ],
+  education: [
+    {
+      id: createId('edu'),
+      school: 'Capital University',
+      degree: 'B.S. Information Management & Information Systems',
+      startDate: '2013',
+      endDate: '2017',
+      details: 'GPA 3.7/4.0. Led the university technology innovation initiative.',
+    },
+  ],
+  skills: [
+    {
+      id: createId('skill'),
+      title: 'Core Skills',
+      items: ['Roadmapping', 'User Research', 'Data Analysis', 'OKR & KPI Design'],
+    },
+    {
+      id: createId('skill'),
+      title: 'Tools',
+      items: ['Figma', 'Notion', 'SQL', 'Tableau'],
+    },
+  ],
+  languages: [
+    { id: createId('lang'), name: 'Chinese', level: 'Native' },
+    { id: createId('lang'), name: 'English', level: 'Advanced (C1)' },
+  ],
+  interests: [
+    { id: createId('interest'), name: 'Retrospective Writing' },
+    { id: createId('interest'), name: 'Ultimate Frisbee' },
+  ],
+  awards: [
+    {
+      id: createId('award'),
+      name: 'Annual Innovation Product Award',
+      issuer: 'Aurora Tech',
+      year: '2022',
+    },
+  ],
+});
+
+export const productSamples = {
+  'zh-CN': productResumeZh,
+  en: productResumeEn,
+} as const;
+
+export const productResume = productResumeZh;

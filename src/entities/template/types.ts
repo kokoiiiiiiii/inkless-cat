@@ -1,4 +1,5 @@
 import type { ResumeData } from '@entities/resume';
+import type { Locale } from '@shared/i18n';
 
 export type TemplateTheme = {
   accent?: string;
@@ -20,6 +21,7 @@ export type ResumeTemplate = {
   previewStyle?: string;
   theme?: TemplateTheme;
   sample: ResumeData;
+  localizedSamples?: Partial<Record<Locale, ResumeData>>;
 };
 
 export type TemplateUpdatePayload = Partial<Omit<ResumeTemplate, 'sample'>> & {

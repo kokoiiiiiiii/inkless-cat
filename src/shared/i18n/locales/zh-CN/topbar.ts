@@ -1,0 +1,15 @@
+export const topbar = {
+  loadSample: '载入示例',
+  clear: '清空',
+  import: '导入',
+  export: '导出',
+  exportMarkdown: '导出 Markdown',
+  print: '打印 / PDF',
+  themeLight: '日间模式',
+  themeDark: '夜间模式',
+  toggleLang: 'English',
+  importError: '导入失败，请确认文件内容为合法的 JSON 简历数据。',
+  logoAlt: 'Inkless Cat 标志',
+  subtitle: '无墨猫简历编辑器',
+  githubLabel: 'GitHub 仓库',
+} as const;

@@ -1,0 +1,15 @@
+export const topbar = {
+  loadSample: 'Load Sample',
+  clear: 'Clear',
+  import: 'Import',
+  export: 'Export',
+  exportMarkdown: 'Export Markdown',
+  print: 'Print / PDF',
+  themeLight: 'Light Mode',
+  themeDark: 'Dark Mode',
+  toggleLang: '中文',
+  importError: 'Import failed. Please ensure the file is a valid JSON resume.',
+  logoAlt: 'Inkless Cat logo',
+  subtitle: 'Inkless Cat Resume Editor',
+  githubLabel: 'GitHub Repository',
+} as const;

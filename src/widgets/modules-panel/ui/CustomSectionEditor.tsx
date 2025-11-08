@@ -5,6 +5,8 @@ import type {
 } from '@entities/resume';
 import { memo } from 'react';
 
+import { useI18n } from '@shared/i18n';
+
 import {
   cardClass,
   customModeOptions,
@@ -52,47 +54,51 @@ const CustomSectionEditor = memo(
     notifyFocus,
     sectionRef,
   }: CustomSectionEditorProps) => {
+    const { t } = useI18n();
     const mode: ResumeCustomSectionMode = section.mode ?? 'list';
     const itemsValue = Array.isArray(section.items) ? section.items.join('\n') : '';
     const fieldsValue = Array.isArray(section.fields) ? section.fields : [];
     const textValue = typeof section.text === 'string' ? section.text : '';
+    const fallbackTitle = section.title || t('modules.customSection.defaultTitle');
 
     return (
       <section ref={sectionRef} className="space-y-4">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-            {section.title || '自定义模块'}
-          </h3>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">{fallbackTitle}</h3>
           <button
             type="button"
             className={dangerButtonClass}
             onClick={() => {
               const shouldRemove =
                 typeof globalThis === 'undefined' ||
-                globalThis.confirm(`确定删除模块“${section.title || '未命名模块'}”吗？`);
+                globalThis.confirm(
+                  t('modules.customSection.confirmDelete', {
+                    name: section.title || t('modules.customSection.untitled'),
+                  }),
+                );
               if (shouldRemove) {
                 onRemove?.(section.id);
               }
             }}
           >
-            删除模块
+            {t('modules.customSection.deleteModule')}
           </button>
         </header>
         <div className={cardClass}>
           <div className="space-y-4">
             <label className={labelClass}>
-              <span className={labelTextClass}>模块名称</span>
+              <span className={labelTextClass}>{t('modules.customSection.nameLabel')}</span>
               <input
                 className={inputClass}
                 type="text"
                 value={section.title || ''}
-                placeholder="自定义模块名称"
+                placeholder={t('modules.customSection.namePlaceholder')}
                 onChange={(event) => onTitleChange(section.id, event.target.value)}
                 onFocus={() => notifyFocus(sectionKey, section.id)}
               />
             </label>
             <label className={labelClass}>
-              <span className={labelTextClass}>内容类型</span>
+              <span className={labelTextClass}>{t('modules.customSection.modeLabel')}</span>
               <select
                 className={inputClass}
                 value={mode}
@@ -103,19 +109,19 @@ const CustomSectionEditor = memo(
               >
                 {customModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </option>
                 ))}
               </select>
             </label>
             {mode === 'list' && (
               <label className={labelClass}>
-                <span className={labelTextClass}>内容条目</span>
+                <span className={labelTextClass}>{t('modules.customSection.listLabel')}</span>
                 <textarea
                   className={textareaClass}
                   rows={4}
                   value={itemsValue}
-                  placeholder="每行一个亮点或描述"
+                  placeholder={t('modules.customSection.listPlaceholder')}
                   onChange={(event) => onItemsChange(section.id, event.target.value)}
                   onFocus={() => notifyFocus(sectionKey, section.id)}
                 />
@@ -124,18 +130,18 @@ const CustomSectionEditor = memo(
             {mode === 'fields' && (
               <div className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span className={labelTextClass}>键值对</span>
+                  <span className={labelTextClass}>{t('modules.customSection.fieldsLabel')}</span>
                   <button
                     type="button"
                     className={subtleButtonClass}
                     onClick={() => onFieldAdd(section.id)}
                   >
-                    添加字段
+                    {t('modules.customSection.addField')}
                   </button>
                 </div>
                 {fieldsValue.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-slate-300/70 bg-white/60 px-3 py-4 text-sm text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-400">
-                    目前没有字段，点击“添加字段”开始编辑。
+                    {t('modules.customSection.fieldsEmpty')}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -146,12 +152,12 @@ const CustomSectionEditor = memo(
                       >
                         <div className="flex flex-col gap-3 md:flex-row">
                           <label className={`${labelClass} md:flex-1`}>
-                            <span className={labelTextClass}>字段名称</span>
+                            <span className={labelTextClass}>{t('modules.customSection.fieldNameLabel')}</span>
                             <input
                               className={inputClass}
                               type="text"
                               value={field.label || ''}
-                              placeholder="例如：职责"
+                              placeholder={t('modules.customSection.fieldNamePlaceholder')}
                               onChange={(event) =>
                                 onFieldChange(section.id, field.id, 'label', event.target.value)
                               }
@@ -159,12 +165,12 @@ const CustomSectionEditor = memo(
                             />
                           </label>
                           <label className={`${labelClass} md:flex-1`}>
-                            <span className={labelTextClass}>字段内容</span>
+                            <span className={labelTextClass}>{t('modules.customSection.fieldValueLabel')}</span>
                             <input
                               className={inputClass}
                               type="text"
                               value={field.value || ''}
-                              placeholder="例如：负责团队管理与项目规划"
+                              placeholder={t('modules.customSection.fieldValuePlaceholder')}
                               onChange={(event) =>
                                 onFieldChange(section.id, field.id, 'value', event.target.value)
                               }
@@ -178,7 +184,7 @@ const CustomSectionEditor = memo(
                             className={dangerButtonClass}
                             onClick={() => onFieldRemove(section.id, field.id)}
                           >
-                            删除字段
+                            {t('modules.customSection.removeField')}
                           </button>
                         </div>
                       </div>
@@ -189,12 +195,12 @@ const CustomSectionEditor = memo(
             )}
             {mode === 'text' && (
               <label className={labelClass}>
-                <span className={labelTextClass}>自由文本</span>
+                <span className={labelTextClass}>{t('modules.customSection.textLabel')}</span>
                 <textarea
                   className={textareaClass}
                   rows={5}
                   value={textValue}
-                  placeholder="可粘贴多个段落，自由调整格式。"
+                  placeholder={t('modules.customSection.textPlaceholder')}
                   onChange={(event) => onTextChange(section.id, event.target.value)}
                   onFocus={() => notifyFocus(sectionKey, `${section.id}-text`)}
                 />

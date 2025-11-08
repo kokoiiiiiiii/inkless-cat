@@ -1,4 +1,5 @@
 import type { TemplateTheme } from '@entities/template';
+import { useI18n } from '@shared/i18n';
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DEFAULT_CUSTOM_THEME, styleOptions } from './constants';
@@ -107,55 +108,61 @@ const TemplateBasicsFields = ({
   onDescriptionChange,
   onStyleChange,
   onAccentChange,
-}: TemplateBasicsFieldsProps) => (
-  <>
-    <div className="grid gap-3 md:grid-cols-2">
+}: TemplateBasicsFieldsProps) => {
+  const { t } = useI18n();
+  return (
+    <>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {t('template.creation.nameLabel')}
+          <input
+            className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+            type="text"
+            value={templateName}
+            placeholder={t('template.creation.namePlaceholder')}
+            onChange={(event) => onNameChange(event.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {t('template.creation.styleLabel')}
+          <select
+            className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+            value={previewStyle}
+            onChange={(event) => onStyleChange(event.target.value)}
+          >
+            {styleOptions.map((option) => {
+              const label = t(option.labelKey);
+              return (
+                <option key={option.value} value={option.value}>
+                  {label === option.labelKey ? option.value : label}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+      </div>
       <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-        模板名称
+        {t('template.creation.descriptionLabel')}
         <input
           className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
           type="text"
-          value={templateName}
-          placeholder="例如：深色商务模板"
-          onChange={(event) => onNameChange(event.target.value)}
+          value={templateDescription}
+          placeholder={t('template.creation.descriptionPlaceholder')}
+          onChange={(event) => onDescriptionChange(event.target.value)}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-        风格
-        <select
-          className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
-          value={previewStyle}
-          onChange={(event) => onStyleChange(event.target.value)}
-        >
-          {styleOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        {t('template.creation.accentLabel')}
+        <input
+          className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+          type="color"
+          value={accentColor}
+          onChange={(event) => onAccentChange(event.target.value)}
+        />
       </label>
-    </div>
-    <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-      模板描述（可选）
-      <input
-        className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
-        type="text"
-        value={templateDescription}
-        placeholder="简要说明适用场景或亮点"
-        onChange={(event) => onDescriptionChange(event.target.value)}
-      />
-    </label>
-    <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-      品牌色
-      <input
-        className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
-        type="color"
-        value={accentColor}
-        onChange={(event) => onAccentChange(event.target.value)}
-      />
-    </label>
-  </>
-);
+    </>
+  );
+};
 
 const CustomThemeFieldGrid = ({
   theme,
@@ -163,26 +170,30 @@ const CustomThemeFieldGrid = ({
 }: {
   theme: TemplateTheme;
   onChange: (key: keyof TemplateTheme, value: string) => void;
-}) => (
-  <div className="grid gap-3 md:grid-cols-2">
-    {TEMPLATE_THEME_FIELDS.map(({ key, label, fallback }) => (
-      <label
-        key={key}
-        className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400"
-      >
-        {label}
-        <input
-          className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
-          type="color"
-          value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
-        />
-      </label>
-    ))}
-  </div>
-);
+}) => {
+  const { t } = useI18n();
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {TEMPLATE_THEME_FIELDS.map(({ key, labelKey, fallback }) => (
+        <label
+          key={key}
+          className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400"
+        >
+          {t(labelKey)}
+          <input
+            className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+            type="color"
+            value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
+          />
+        </label>
+      ))}
+    </div>
+  );
+};
 
 const TemplateCreationForm = ({ onSaveTemplate }: TemplateCreationFormProps) => {
+  const { t } = useI18n();
   const [formState, actions] = useTemplateCreationState();
   const {
     setTemplateName,
@@ -242,7 +253,7 @@ const TemplateCreationForm = ({ onSaveTemplate }: TemplateCreationFormProps) => 
         type="submit"
         className="inline-flex w-full items-center justify-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:-translate-y-0.5 hover:bg-brand-500 dark:bg-brand-500 dark:hover:bg-brand-400"
       >
-        保存当前简历为模板
+        {t('template.creation.submit')}
       </button>
     </form>
   );

@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import { useI18n } from '@shared/i18n';
+
 import TemplateCard from './TemplateCard';
 import TemplateCreationForm from './TemplateCreationForm';
 import type { TemplateSelectorProps } from './types';
@@ -15,6 +17,7 @@ const TemplateSelector = ({
   onUpdateTemplate,
   onReady,
 }: TemplateSelectorProps) => {
+  const { t } = useI18n();
   useEffect(() => {
     if (typeof onReady === 'function') {
       onReady();
@@ -25,15 +28,17 @@ const TemplateSelector = ({
     <section className="space-y-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">模板与样式</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            选择不同模板快速切换配色与排版，也可创建属于自己的模板。
-          </p>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            {t('template.panelTitle')}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('template.panelDescription')}</p>
         </div>
       </header>
 
       <div className="space-y-4">
-        <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300">系统模板</h4>
+        <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          {t('template.systemTemplates')}
+        </h4>
         <div className="space-y-3">
           {builtInTemplates.map((template) => (
             <TemplateCard
@@ -52,9 +57,11 @@ const TemplateSelector = ({
 
       <div className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300">自定义模板</h4>
+          <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+            {t('template.customTemplates')}
+          </h4>
           <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-            保存当前简历为模板，随时快速切换
+            {t('template.customTemplatesHint')}
           </span>
         </div>
         {customTemplates.length > 0 ? (
@@ -74,7 +81,7 @@ const TemplateSelector = ({
           </div>
         ) : (
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            还没有自定义模板，填写下方表单即可保存当前简历。
+            {t('template.emptyCustomTip')}
           </p>
         )}
 

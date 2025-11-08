@@ -3,8 +3,10 @@ import { ResumePreview } from '@features/resume-preview';
 import { ModulesPanel } from '@widgets/modules-panel';
 import { TemplateSelector } from '@widgets/template-selector';
 import { Topbar } from '@widgets/topbar';
+import { useI18n } from '@shared/i18n';
 
 function EditorPage() {
+  const { t } = useI18n();
   const {
     resume,
     deferredResume,
@@ -72,7 +74,7 @@ function EditorPage() {
               onClick={() => setMobileView('editor')}
               aria-pressed={showEditor}
             >
-              编辑
+              {t('editor.title')}
             </button>
             <button
               type="button"
@@ -84,7 +86,7 @@ function EditorPage() {
               onClick={() => setMobileView('preview')}
               aria-pressed={showPreview}
             >
-              预览
+              {t('preview.title')}
             </button>
           </div>
         )}
@@ -96,10 +98,8 @@ function EditorPage() {
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">编辑器</h2>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                左侧编辑内容，右侧实时预览排版效果。
-              </p>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t('editor.title')}</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('editor.desc')}</p>
             </div>
             <button
               type="button"
@@ -107,7 +107,9 @@ function EditorPage() {
               onClick={handleToggleTemplatePanel}
               aria-expanded={templatePanelOpen}
             >
-              {templatePanelOpen ? '收起模板' : '展开模板'}
+              {templatePanelOpen
+                ? t('editor.templatePanel.collapse')
+                : t('editor.templatePanel.expand')}
             </button>
           </div>
           <div
@@ -152,9 +154,9 @@ function EditorPage() {
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between print:hidden">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">实时预览</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t('preview.title')}</h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                模板：{activeTemplate.name}
+                {t('preview.template', { name: activeTemplate.name })}
               </p>
             </div>
           </div>

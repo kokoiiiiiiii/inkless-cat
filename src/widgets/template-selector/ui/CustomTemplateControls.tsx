@@ -1,4 +1,5 @@
 import type { ResumeTemplate, TemplateTheme } from '@entities/template';
+import { useI18n } from '@shared/i18n';
 import type { ChangeEvent } from 'react';
 
 import { DEFAULT_CUSTOM_THEME, styleOptions } from './constants';
@@ -40,22 +41,28 @@ const StyleSelector = ({
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLSelectElement>) => void;
-}) => (
-  <label className="inline-flex items-center gap-1">
-    风格
-    <select
-      className="rounded border border-slate-300/70 bg-white/70 px-1 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900/70"
-      value={value}
-      onChange={onChange}
-    >
-      {styleOptions.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
-);
+}) => {
+  const { t } = useI18n();
+  return (
+    <label className="inline-flex items-center gap-1">
+      {t('template.controls.styleLabel')}
+      <select
+        className="rounded border border-slate-300/70 bg-white/70 px-1 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900/70"
+        value={value}
+        onChange={onChange}
+      >
+        {styleOptions.map((option) => {
+          const label = t(option.labelKey);
+          return (
+            <option key={option.value} value={option.value}>
+              {label === option.labelKey ? option.value : label}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
+};
 
 const AccentColorPicker = ({
   value,
@@ -63,12 +70,15 @@ const AccentColorPicker = ({
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-}) => (
-  <label className="inline-flex items-center gap-1">
-    品牌色
-    <input type="color" value={value} onChange={onChange} />
-  </label>
-);
+}) => {
+  const { t } = useI18n();
+  return (
+    <label className="inline-flex items-center gap-1">
+      {t('template.controls.accentLabel')}
+      <input type="color" value={value} onChange={onChange} />
+    </label>
+  );
+};
 
 const ThemeColorPickers = ({
   theme,
@@ -76,20 +86,23 @@ const ThemeColorPickers = ({
 }: {
   theme: TemplateTheme;
   onChange: (key: keyof TemplateTheme, value: string) => void;
-}) => (
-  <>
-    {TEMPLATE_THEME_FIELDS.map(({ key, label, fallback }) => (
-      <label key={key} className="inline-flex items-center gap-1">
-        {label}
-        <input
-          type="color"
-          value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
-        />
-      </label>
-    ))}
-  </>
-);
+}) => {
+  const { t } = useI18n();
+  return (
+    <>
+      {TEMPLATE_THEME_FIELDS.map(({ key, labelKey, fallback }) => (
+        <label key={key} className="inline-flex items-center gap-1">
+          {t(labelKey)}
+          <input
+            type="color"
+            value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
+          />
+        </label>
+      ))}
+    </>
+  );
+};
 
 export const CustomTemplateControls = ({
   template,
@@ -99,6 +112,7 @@ export const CustomTemplateControls = ({
   onUpdateTemplate,
   onThemeChange,
 }: CustomTemplateControlsProps) => {
+  const { t } = useI18n();
   if (!onUpdateTemplate) {
     return <></>;
   }
@@ -125,9 +139,9 @@ export const CustomTemplateControls = ({
       <StyleSelector value={template.previewStyle || 'modern'} onChange={handleStyleChange} />
       <AccentColorPicker value={template.accentColor || '#2563eb'} onChange={handleAccentChange} />
       {isCustomStyle && <ThemeColorPickers theme={theme} onChange={onThemeChange} />}
-      <ControlButton onClick={handleUpdateExample}>更新示例</ControlButton>
+      <ControlButton onClick={handleUpdateExample}>{t('template.actions.updateSample')}</ControlButton>
       <ControlButton tone="danger" onClick={() => onDeleteTemplate?.(template.id)}>
-        删除
+        {t('template.actions.delete')}
       </ControlButton>
     </div>
   );

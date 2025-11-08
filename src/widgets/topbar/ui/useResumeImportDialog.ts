@@ -1,8 +1,11 @@
 import { type ChangeEvent, useCallback, useRef } from 'react';
 
+import { useI18n } from '@shared/i18n';
+
 type ResumeImportHandler = (payload: unknown) => void;
 
 const useResumeImportDialog = (onImport: ResumeImportHandler) => {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const openPicker = useCallback(() => {
@@ -23,14 +26,15 @@ const useResumeImportDialog = (onImport: ResumeImportHandler) => {
           }
           onImport(JSON.parse(textContent));
         } catch {
-          globalThis.alert('导入失败，请确认文件内容为合法的 JSON 简历数据。');
+          const message = t('topbar.importError');
+          globalThis.alert(message === 'topbar.importError' ? 'Import failed.' : message);
         } finally {
           event.target.value = '';
         }
       });
       reader.readAsText(file, 'utf-8');
     },
-    [onImport],
+    [onImport, t],
   );
 
   return { inputRef, openPicker, handleFileChange };

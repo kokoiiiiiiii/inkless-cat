@@ -19,7 +19,7 @@ export const normalizeCustomField = (
 export const normalizeCustomSection = (
   section: Partial<ResumeCustomSection> | null | undefined,
 ): ResumeCustomSection => {
-  if (!section) return createCustomSection('自定义模块');
+  if (!section) return createCustomSection();
   const normalized: ResumeCustomSection = {
     id: section.id || createId('custom'),
     title: typeof section.title === 'string' ? section.title : '',

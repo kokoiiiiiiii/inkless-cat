@@ -1,0 +1,40 @@
+export const personal = {
+  title: '个人信息',
+  fields: {
+    fullName: { label: '姓名', placeholder: '张三' },
+    title: { label: '头衔', placeholder: '前端工程师 / 产品技术负责人' },
+    email: { label: '邮箱', placeholder: 'you@example.com' },
+    phone: { label: '电话', placeholder: '+86 138 0000 0000' },
+    location: { label: '所在地', placeholder: '上海 / 远程' },
+    summary: { label: '个人简介', placeholder: '用 2-3 句话突出你的价值、成果与优势' },
+  },
+  photo: {
+    show: '显示照片',
+    size: '照片尺寸 ({size}px)',
+    position: '照片位置',
+    left: '左侧',
+    right: '右侧',
+    upload: '上传照片',
+    select: '选择照片',
+    remove: '移除照片',
+    hint: '建议尺寸 400×400，支持 JPG / PNG，文件需小于 2MB。',
+    alt: '{name} 的照片',
+    errors: {
+      oversize: '图片大小超过 2MB，请选择更小的文件。',
+      read: '读取图片失败，请重试或更换文件。',
+    },
+    tipsTitle: '照片小贴士',
+    tips: {
+      tip1: '选择光线均匀、背景干净的正面照片，更易传递专业感。',
+      tip2: '保持头肩居中并留出适度空白，避免裁剪过多造成失真。',
+      tip3: '服装与背景配色与简历主题相呼应，整体视觉更协调。',
+    },
+  },
+  extras: {
+    title: '补充信息',
+    add: '添加',
+    empty: '暂无补充信息，点击“添加”可自定义标签与内容。',
+    label: { label: '标签', placeholder: '例如：个人网站' },
+    value: { label: '内容', placeholder: 'https://example.com' },
+  },
+} as const;

@@ -1,7 +1,8 @@
 import { createSampleResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
 import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
+import { useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib/clone';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { createCustomTemplateId, normalizeTemplateTheme } from '../lib/templateTheme';
 
@@ -30,6 +31,9 @@ export const useTemplateLibrary = ({
   setHasResumeChanges,
   defaultTemplateId,
 }: UseTemplateLibraryParams) => {
+  const { t, locale } = useI18n();
+  const lastLocaleRef = useRef(locale);
+
   const allTemplates = useMemo<ResumeTemplate[]>(() => {
     if (!Array.isArray(customTemplates) || customTemplates.length === 0) {
       return baseTemplates;
@@ -42,12 +46,20 @@ export const useTemplateLibrary = ({
     return found ?? allTemplates[0] ?? baseTemplates[0];
   }, [allTemplates, baseTemplates, templateId]);
 
+  const selectTemplateSample = useCallback(
+    (template: ResumeTemplate) => {
+      const localized = template.localizedSamples?.[locale];
+      const baseSample = localized ?? template.sample ?? createSampleResume(locale);
+      return normalizeResumeSchema(baseSample, { clone: true });
+    },
+    [locale],
+  );
+
   const handleResetSample = useCallback(() => {
-    const templateSample =
-      activeTemplate.sample ?? normalizeResumeSchema(createSampleResume(), { clone: true });
+    const templateSample = selectTemplateSample(activeTemplate);
     resetState(templateSample);
     setHasResumeChanges(false);
-  }, [activeTemplate.sample, resetState, setHasResumeChanges]);
+  }, [activeTemplate, resetState, selectTemplateSample, setHasResumeChanges]);
 
   const handleTemplateStyleChange = useCallback(
     (template: ResumeTemplate) => {
@@ -60,21 +72,42 @@ export const useTemplateLibrary = ({
 
   const handleTemplateSampleLoad = useCallback(
     (template: ResumeTemplate) => {
-      if (!template?.sample) return;
+      if (!template?.sample && !template.localizedSamples) return;
       if (
         hasResumeChanges &&
         typeof globalThis !== 'undefined' &&
-        !globalThis.confirm('将使用该模板的示例数据覆盖当前内容，是否继续？')
+        !globalThis.confirm(
+          t(
+            'template.confirmLoadSample',
+            'This will replace your current resume with the template sample. Continue?',
+          ),
+        )
       ) {
         return;
       }
-      const normalized = normalizeResumeSchema(template.sample, { clone: true });
+      const normalized = selectTemplateSample(template);
       resetState(normalized);
       setTemplateId(template.id);
       setHasResumeChanges(false);
     },
-    [hasResumeChanges, resetState, setTemplateId, setHasResumeChanges],
+    [hasResumeChanges, resetState, selectTemplateSample, setTemplateId, setHasResumeChanges, t],
   );
+
+  useEffect(() => {
+    if (lastLocaleRef.current !== locale && !hasResumeChanges) {
+      const localizedSample = selectTemplateSample(activeTemplate);
+      resetState(localizedSample);
+      setHasResumeChanges(false);
+    }
+    lastLocaleRef.current = locale;
+  }, [
+    locale,
+    activeTemplate,
+    hasResumeChanges,
+    resetState,
+    selectTemplateSample,
+    setHasResumeChanges,
+  ]);
 
   const handleSaveCustomTemplate = useCallback(
     (payload: TemplateUpdatePayload) => {

@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { CustomSectionProps } from './types';
@@ -11,11 +13,12 @@ export const CustomSection = ({
   accentStyle,
   accentBulletStyle,
 }: CustomSectionProps) => {
+  const { t } = useI18n();
   if (!section) {
     return null;
   }
 
-  const title = section.title || '自定义模块';
+  const title = section.title || t('modules.customSection.defaultTitle');
   const mode = section.mode || 'list';
   const items = Array.isArray(section.items)
     ? section.items.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
@@ -42,10 +45,10 @@ export const CustomSection = ({
                 className={cn('font-semibold uppercase tracking-wide', variant.metaLabel)}
                 style={themeStyles.heading}
               >
-                {field.label || '字段'}
+                {field.label || t('modules.customSection.fieldNameLabel')}
               </dt>
               <dd className={cn('flex-1 break-words', variant.metaValue)} style={themeStyles.text}>
-                {field.value || '填写内容'}
+                {field.value || t('modules.customSection.fieldValuePlaceholder')}
               </dd>
             </div>
           ))}
@@ -76,7 +79,7 @@ export const CustomSection = ({
           className={cn('text-slate-500 dark:text-slate-400', variant.metaValue)}
           style={themeStyles.muted}
         >
-          暂无内容
+          {t('modules.customSection.empty')}
         </p>
       )}
     </SectionContainer>

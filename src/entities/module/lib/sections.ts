@@ -22,11 +22,11 @@ export type ActiveSectionKey = StandardSectionKey | CustomSectionKey;
 
 export const sectionDefinitions: Record<SectionKey, SectionDefinition> = {
   socials: {
-    title: '社交与链接',
+    titleKey: 'modules.sections.socials',
     createItem: () => ({ id: createId('social'), label: '', url: '' }),
   },
   experience: {
-    title: '工作经历',
+    titleKey: 'modules.sections.experience',
     createItem: () => ({
       id: createId('exp'),
       company: '',
@@ -38,7 +38,7 @@ export const sectionDefinitions: Record<SectionKey, SectionDefinition> = {
     }),
   },
   education: {
-    title: '教育背景',
+    titleKey: 'modules.sections.education',
     createItem: () => ({
       id: createId('edu'),
       school: '',
@@ -49,7 +49,7 @@ export const sectionDefinitions: Record<SectionKey, SectionDefinition> = {
     }),
   },
   projects: {
-    title: '项目经历',
+    titleKey: 'modules.sections.projects',
     createItem: () => ({
       id: createId('proj'),
       name: '',
@@ -59,19 +59,19 @@ export const sectionDefinitions: Record<SectionKey, SectionDefinition> = {
     }),
   },
   skills: {
-    title: '技能特长',
+    titleKey: 'modules.sections.skills',
     createItem: () => ({ id: createId('skill'), title: '', items: [] }),
   },
   languages: {
-    title: '语言能力',
+    titleKey: 'modules.sections.languages',
     createItem: () => ({ id: createId('lang'), name: '', level: '' }),
   },
   interests: {
-    title: '兴趣爱好',
+    titleKey: 'modules.sections.interests',
     createItem: () => ({ id: createId('interest'), name: '' }),
   },
   awards: {
-    title: '荣誉奖项',
+    titleKey: 'modules.sections.awards',
     createItem: () => ({ id: createId('award'), name: '', issuer: '', year: '' }),
   },
 };
@@ -82,7 +82,7 @@ export function createCustomSection(
 ): ResumeCustomSection {
   return {
     id: createId('custom'),
-    title: title ?? '自定义模块',
+    title: title ?? '',
     mode,
     items: [],
     fields: [],

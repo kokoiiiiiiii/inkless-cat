@@ -3,7 +3,17 @@ import { createId } from '@shared/lib/id';
 
 import { buildResume } from './helpers';
 
-export const engineerResume: ResumeData = buildResume({
+const socials = () => [
+  { id: createId('social'), label: 'GitHub', url: 'https://github.com/yizhao-dev' },
+  { id: createId('social'), label: '技术博客', url: 'https://blog.yizhao.dev' },
+];
+
+const socialsEn = () => [
+  { id: createId('social'), label: 'GitHub', url: 'https://github.com/yizhao-dev' },
+  { id: createId('social'), label: 'Tech Blog', url: 'https://blog.yizhao.dev' },
+];
+
+export const engineerResumeZh: ResumeData = buildResume({
   personal: {
     fullName: '赵一',
     title: '前端工程师 | 编辑器 & 可视化',
@@ -14,10 +24,7 @@ export const engineerResume: ResumeData = buildResume({
     summary:
       '专注前端工程化与低代码编辑器的高级工程师，擅长复杂交互、性能优化与多端适配。推动可视化搭建工具落地，降低交付成本 40%。',
   },
-  socials: [
-    { id: createId('social'), label: 'GitHub', url: 'https://github.com/yizhao-dev' },
-    { id: createId('social'), label: '技术博客', url: 'https://blog.yizhao.dev' },
-  ],
+  socials: socials(),
   experience: [
     {
       id: createId('exp'),
@@ -95,3 +102,100 @@ export const engineerResume: ResumeData = buildResume({
     },
   ],
 });
+
+export const engineerResumeEn: ResumeData = buildResume({
+  personal: {
+    fullName: 'Yi Zhao',
+    title: 'Senior Frontend Engineer | Editors & Visualization',
+    email: 'yizhao@example.com',
+    phone: '+86 136-8888-0000',
+    location: 'Shenzhen',
+    photo: '',
+    summary:
+      'Senior engineer focused on frontend infrastructure and low-code editors. Comfortable with complex interactions, performance tuning, and multi-platform delivery. Led visual builder initiatives that cut implementation cost by 40%.',
+  },
+  socials: socialsEn(),
+  experience: [
+    {
+      id: createId('exp'),
+      company: 'Nova Innovation',
+      role: 'Senior Frontend Engineer',
+      location: 'Shenzhen',
+      startDate: '2020-08',
+      endDate: 'Present',
+      highlights: [
+        'Owned the drag-and-drop page builder and modular plug-in system, reaching 70% module reuse.',
+        'Introduced visual debugging and performance profiling to cut first paint time by 35%.',
+        'Built CI/CD pipelines with E2E coverage, reducing production incidents by 60%.',
+      ],
+    },
+    {
+      id: createId('exp'),
+      company: 'Orbit Internet',
+      role: 'Frontend Engineer',
+      location: 'Guangzhou',
+      startDate: '2017-03',
+      endDate: '2020-07',
+      highlights: [
+        'Co-built a data visualization platform supporting 10+ chart types and custom metrics.',
+        'Refactored the component library and unified the design language, eliminating 80% of duplicated work.',
+      ],
+    },
+  ],
+  projects: [
+    {
+      id: createId('proj'),
+      name: 'Flow Builder',
+      role: 'Frontend Lead',
+      summary:
+        'Built a visual workflow and form automation tool with node configuration, versioning, and access control so ops teams could launch campaigns independently.',
+      link: 'https://github.com/yizhao-dev/flow-builder',
+    },
+  ],
+  education: [
+    {
+      id: createId('edu'),
+      school: 'South Tech University',
+      degree: 'B.S. in Software Engineering',
+      startDate: '2012',
+      endDate: '2016',
+      details: 'GPA 3.6/4.0. Thesis focused on WebGL-driven visualization.',
+    },
+  ],
+  skills: [
+    {
+      id: createId('skill'),
+      title: 'Technical Skills',
+      items: ['React', 'TypeScript', 'Node.js', 'WebGL', 'Electron'],
+    },
+    {
+      id: createId('skill'),
+      title: 'Engineering',
+      items: ['Monorepo', 'Micro Frontends', 'Automated Testing', 'Performance Optimization'],
+    },
+  ],
+  languages: [
+    { id: createId('lang'), name: 'Chinese', level: 'Native' },
+    { id: createId('lang'), name: 'English', level: 'Advanced (C1)' },
+  ],
+  interests: [
+    { id: createId('interest'), name: 'Tech Talks' },
+    { id: createId('interest'), name: 'Cycling' },
+    { id: createId('interest'), name: 'Photography' },
+  ],
+  awards: [
+    {
+      id: createId('award'),
+      name: 'Team Collaboration Award',
+      issuer: 'Nova Innovation',
+      year: '2021',
+    },
+  ],
+});
+
+export const engineerSamples = {
+  'zh-CN': engineerResumeZh,
+  en: engineerResumeEn,
+} as const;
+
+export const engineerResume = engineerResumeZh;

@@ -1,5 +1,7 @@
 import { ChangeEvent, CSSProperties, useRef } from 'react';
 
+import { useI18n } from '@shared/i18n';
+
 type PhotoUploadProps = {
   value?: string;
   onChange: (value: string) => void;
@@ -21,6 +23,7 @@ const PhotoUpload = ({
   size = 144,
   hidden = false,
 }: PhotoUploadProps) => {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSelect = () => {
@@ -33,7 +36,7 @@ const PhotoUpload = ({
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      globalThis.alert('图片大小超过 2MB，请选择更小的文件。');
+      globalThis.alert(t('modules.personal.photo.errors.oversize'));
       event.target.value = '';
       return;
     }
@@ -46,7 +49,7 @@ const PhotoUpload = ({
       event.target.value = '';
     });
     reader.onerror = () => {
-      globalThis.alert('读取图片失败，请重试或更换文件。');
+      globalThis.alert(t('modules.personal.photo.errors.read'));
       event.target.value = '';
     };
     reader.readAsDataURL(file);
@@ -68,7 +71,11 @@ const PhotoUpload = ({
         style={boxStyle}
       >
         {value ? (
-          <img src={value} alt="个人照片预览" className="h-full w-full object-cover" />
+          <img
+            src={value}
+            alt={t('modules.personal.photo.alt', { name: 'candidate' })}
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-500">
             <svg
@@ -85,7 +92,7 @@ const PhotoUpload = ({
                 d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 9l-4.5 4.5m0 0L7.5 9m4.5 4.5V3"
               />
             </svg>
-            <span className="text-xs">上传照片</span>
+            <span className="text-xs">{t('modules.personal.photo.upload')}</span>
           </div>
         )}
       </div>
@@ -98,7 +105,7 @@ const PhotoUpload = ({
             handleSelect();
           }}
         >
-          选择照片
+          {t('modules.personal.photo.select')}
         </button>
         {value && (
           <button
@@ -109,11 +116,11 @@ const PhotoUpload = ({
               onChange('');
             }}
           >
-            移除照片
+            {t('modules.personal.photo.remove')}
           </button>
         )}
         <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-          建议尺寸 400×400，支持 JPG / PNG，文件需小于 2MB。
+          {t('modules.personal.photo.hint')}
         </p>
       </div>
       <input

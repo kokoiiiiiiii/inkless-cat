@@ -1,5 +1,5 @@
 export type SectionDefinition = {
-  title: string;
+  titleKey: string;
   createItem: () => Record<string, unknown>;
 };
 

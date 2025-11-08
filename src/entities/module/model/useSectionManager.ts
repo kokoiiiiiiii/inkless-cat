@@ -1,4 +1,5 @@
 import type { ResumeCustomSection } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
 import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useMemo } from 'react';
 
@@ -40,6 +41,7 @@ export const useSectionManager = ({
   onToggleSection,
   onReorderSections,
 }: UseSectionManagerOptions): SectionManagerController => {
+  const { t } = useI18n();
   const resolvedActiveSections = useMemo(
     () => (Array.isArray(activeSections) ? activeSections : [...sectionOrder]),
     [activeSections],
@@ -53,7 +55,7 @@ export const useSectionManager = ({
   const customTitleMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const section of customList) {
-      map.set(getCustomSectionKey(section.id), section.title || '未命名模块');
+      map.set(getCustomSectionKey(section.id), section.title || '');
     }
     return map;
   }, [customList]);
@@ -61,14 +63,24 @@ export const useSectionManager = ({
   const getSectionTitle = useCallback(
     (key: string) => {
       if (sectionOrder.includes(key as StandardSectionKey)) {
-        return sectionDefinitions[key as StandardSectionKey]?.title ?? key;
+        const titleKey = sectionDefinitions[key as StandardSectionKey]?.titleKey;
+        if (titleKey) {
+          const translated = t(titleKey);
+          if (translated !== titleKey) {
+            return translated;
+          }
+        }
+        return key;
       }
       if (isCustomSectionKey(key)) {
-        return customTitleMap.get(key) || '自定义模块';
+        const stored = customTitleMap.get(key);
+        return stored && stored.trim().length > 0
+          ? stored
+          : t('modules.customSection.defaultTitle');
       }
       return key;
     },
-    [customTitleMap],
+    [customTitleMap, t],
   );
 
   const standardAllEnabled = useMemo(

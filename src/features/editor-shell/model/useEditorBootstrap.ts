@@ -1,5 +1,6 @@
 import type { ResumeData } from '@entities/resume';
 import type { ResumeTemplate } from '@entities/template';
+import type { Locale } from '@shared/i18n';
 import { useEffect, useRef } from 'react';
 
 import { loadInitialResume } from '../lib/resume';
@@ -21,6 +22,7 @@ type UseEditorBootstrapParams = {
   setTemplateId: (value: string) => void;
   setCustomTemplates: (templates: ResumeTemplate[]) => void;
   defaultTemplateId: string;
+  locale: Locale;
 };
 
 export const useEditorBootstrap = ({
@@ -30,6 +32,7 @@ export const useEditorBootstrap = ({
   setTemplateId,
   setCustomTemplates,
   defaultTemplateId,
+  locale,
 }: UseEditorBootstrapParams) => {
   const initialisedRef = useRef(false);
 
@@ -37,7 +40,7 @@ export const useEditorBootstrap = ({
     if (initialisedRef.current) return;
     initialisedRef.current = true;
 
-    const initialResume = loadInitialResume();
+    const initialResume = loadInitialResume(locale);
     resetState(initialResume);
 
     const storedSections = getStoredValue(SECTIONS_KEY, LEGACY_KEYS.sections);
@@ -84,6 +87,7 @@ export const useEditorBootstrap = ({
     }
   }, [
     defaultTemplateId,
+    locale,
     resetState,
     setCustomTemplates,
     setTemplateId,

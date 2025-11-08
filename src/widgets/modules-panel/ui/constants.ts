@@ -1,24 +1,24 @@
 import type { ResumeCustomSectionMode } from '@entities/resume';
 
 export const labelMap: Record<string, string> = {
-  label: '名称',
-  url: '链接',
-  company: '公司',
-  role: '职位',
-  location: '地点',
-  startDate: '起始时间',
-  endDate: '结束时间',
-  school: '学校',
-  degree: '学历',
-  details: '详情',
-  name: '名称',
-  summary: '概述',
-  link: '链接',
-  title: '标题',
-  items: '条目',
-  issuer: '颁发机构',
-  year: '年份',
-  level: '水平',
+  label: 'modules.resume.labels.label',
+  url: 'modules.resume.labels.url',
+  company: 'modules.resume.labels.company',
+  role: 'modules.resume.labels.role',
+  location: 'modules.resume.labels.location',
+  startDate: 'modules.resume.labels.startDate',
+  endDate: 'modules.resume.labels.endDate',
+  school: 'modules.resume.labels.school',
+  degree: 'modules.resume.labels.degree',
+  details: 'modules.resume.labels.details',
+  name: 'modules.resume.labels.name',
+  summary: 'modules.resume.labels.summary',
+  link: 'modules.resume.labels.link',
+  title: 'modules.resume.labels.title',
+  items: 'modules.resume.labels.items',
+  issuer: 'modules.resume.labels.issuer',
+  year: 'modules.resume.labels.year',
+  level: 'modules.resume.labels.level',
 };
 
 export const cardClass =
@@ -66,8 +66,8 @@ export const dragItemClass =
 export const dragIndicatorClass =
   'pointer-events-none absolute left-4 right-4 h-1 rounded-full bg-brand-500';
 
-export const customModeOptions: Array<{ value: ResumeCustomSectionMode; label: string }> = [
-  { value: 'list', label: '列表条目' },
-  { value: 'fields', label: '键值对' },
-  { value: 'text', label: '自由文本' },
+export const customModeOptions: Array<{ value: ResumeCustomSectionMode; labelKey: string }> = [
+  { value: 'list', labelKey: 'modules.customModes.list' },
+  { value: 'fields', labelKey: 'modules.customModes.fields' },
+  { value: 'text', labelKey: 'modules.customModes.text' },
 ];

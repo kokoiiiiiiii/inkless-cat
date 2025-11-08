@@ -20,12 +20,12 @@ export const DEFAULT_CUSTOM_THEME: TemplateTheme = {
 
 export type StyleOption = {
   value: string;
-  label: string;
+  labelKey: string;
 };
 
 export const styleOptions: StyleOption[] = [
-  { value: 'modern', label: '现代风格（Modern）' },
-  { value: 'classic', label: '商务风格（Classic）' },
-  { value: 'creative', label: '创意风格（Creative）' },
-  { value: 'custom', label: '自定义风格（Custom）' },
+  { value: 'modern', labelKey: 'template.styleOptions.modern' },
+  { value: 'classic', labelKey: 'template.styleOptions.classic' },
+  { value: 'creative', labelKey: 'template.styleOptions.creative' },
+  { value: 'custom', labelKey: 'template.styleOptions.custom' },
 ];

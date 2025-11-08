@@ -1,4 +1,5 @@
 import type { ResumeCustomSection } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
 import { memo } from 'react';
 
 import {
@@ -34,6 +35,7 @@ export const SectionManager = memo(
     onToggle,
     onReorderSections,
   }: SectionManagerProps) => {
+    const { t } = useI18n();
     const open = typeof isOpen === 'boolean' ? isOpen : true;
 
     const {
@@ -65,10 +67,10 @@ export const SectionManager = memo(
       <section className="space-y-3">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">模块管理</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              可自行开启/关闭模块，保持简历结构灵活，并支持拖动排序。
-            </p>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              {t('modules.manager.title')}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t('modules.manager.desc')}</p>
           </div>
           <button
             type="button"
@@ -76,7 +78,7 @@ export const SectionManager = memo(
             onClick={onToggle}
             aria-expanded={open}
           >
-            {open ? '收起模块管理' : '展开模块管理'}
+            {open ? t('modules.manager.collapse') : t('modules.manager.expand')}
           </button>
         </header>
         {open && (

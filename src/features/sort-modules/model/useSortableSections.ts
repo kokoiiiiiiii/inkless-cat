@@ -11,6 +11,7 @@ import {
   type ResumeData,
 } from '@entities/resume';
 import { useResumeActions, useResumeState } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 
 type ToggleHandler = (sectionKey: string, enabled: boolean) => void;
@@ -32,6 +33,7 @@ const ensureSectionInitialized = (resume: ResumeData, sectionKey: StandardSectio
 };
 
 export const useSortableSections = () => {
+  const { t } = useI18n();
   const { activeSections, resume } = useResumeState();
   const { updateActiveSections, updateResume } = useResumeActions();
   const orderMemoryRef = useRef<Map<string, number>>(new Map());
@@ -100,7 +102,8 @@ export const useSortableSections = () => {
 
   const addCustomSection = useCallback<AddCustomSectionHandler>(
     (title) => {
-      const newSection = createCustomSection(title || '自定义模块');
+      const fallback = t('modules.customSection.defaultTitle');
+      const newSection = createCustomSection(title || fallback);
       updateResume((draft) => {
         if (!Array.isArray(draft.customSections)) {
           draft.customSections = [];
@@ -116,7 +119,7 @@ export const useSortableSections = () => {
         { allowEmpty: true },
       );
     },
-    [updateResume, updateActiveSections],
+    [t, updateResume, updateActiveSections],
   );
 
   const removeCustomSection = useCallback(

@@ -1,9 +1,14 @@
 import { createSampleResume } from '@entities/resume';
 
 import type { ResumeTemplate } from '../types';
-import { designerResume } from './samples/designerResume';
-import { engineerResume } from './samples/engineerResume';
-import { productResume } from './samples/productResume';
+import { designerSamples } from './samples/designerResume';
+import { engineerSamples } from './samples/engineerResume';
+import { productSamples } from './samples/productResume';
+
+const defaultSamples = {
+  'zh-CN': createSampleResume('zh-CN'),
+  en: createSampleResume('en'),
+} as const;
 
 export const templates: ResumeTemplate[] = [
   {
@@ -12,7 +17,11 @@ export const templates: ResumeTemplate[] = [
     description: '适合科技互联网岗位，强调清晰的信息层级与稳重的配色。',
     accentColor: '#2563eb',
     previewStyle: 'modern',
-    sample: createSampleResume(),
+    sample: defaultSamples['zh-CN'],
+    localizedSamples: {
+      'zh-CN': defaultSamples['zh-CN'],
+      en: defaultSamples.en,
+    },
   },
   {
     id: 'dark-contrast',
@@ -20,7 +29,11 @@ export const templates: ResumeTemplate[] = [
     description: '适合求职设计、创意类岗位，深浅对比强化视觉风格。',
     accentColor: '#22d3ee',
     previewStyle: 'classic',
-    sample: designerResume,
+    sample: designerSamples['zh-CN'],
+    localizedSamples: {
+      'zh-CN': designerSamples['zh-CN'],
+      en: designerSamples.en,
+    },
   },
   {
     id: 'creative-pastel',
@@ -28,7 +41,11 @@ export const templates: ResumeTemplate[] = [
     description: '暖色调突出亲和力，适合品牌/市场等需要故事性的岗位。',
     accentColor: '#fb7185',
     previewStyle: 'creative',
-    sample: productResume,
+    sample: productSamples['zh-CN'],
+    localizedSamples: {
+      'zh-CN': productSamples['zh-CN'],
+      en: productSamples.en,
+    },
   },
   {
     id: 'customizable',
@@ -36,7 +53,11 @@ export const templates: ResumeTemplate[] = [
     description: '支持自定义主色与字体，可快速匹配企业品牌调性。',
     accentColor: '#6366f1',
     previewStyle: 'custom',
-    sample: engineerResume,
+    sample: engineerSamples['zh-CN'],
+    localizedSamples: {
+      'zh-CN': engineerSamples['zh-CN'],
+      en: engineerSamples.en,
+    },
     theme: {
       accent: '#6366f1',
       heading: '#0f172a',

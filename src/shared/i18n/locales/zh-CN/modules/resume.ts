@@ -1,0 +1,67 @@
+export const resume = {
+  add: '添加',
+  empty: '暂无内容，点击“添加”开始编辑。',
+  labels: {
+    label: '名称',
+    url: '链接',
+    company: '公司',
+    role: '职位',
+    location: '地点',
+    startDate: '起始时间',
+    endDate: '结束时间',
+    school: '学校',
+    degree: '学历',
+    details: '详情',
+    name: '名称',
+    summary: '概述',
+    link: '链接',
+    title: '标题',
+    items: '条目',
+    issuer: '颁发机构',
+    year: '年份',
+    level: '水平',
+  },
+  placeholders: {
+    socials: {
+      label: 'GitHub / 个人网站',
+      url: 'https://example.com',
+    },
+    experience: {
+      company: '公司或团队名称',
+      role: '职位 / 角色',
+      location: '所在城市',
+      startDate: '2019-06',
+      endDate: '至今 / 2023-08',
+      highlights: '每行一个成果或职责',
+    },
+    education: {
+      school: '学校',
+      degree: '学历 / 专业',
+      startDate: '2014',
+      endDate: '2018',
+      details: '校内成绩、荣誉或主修课程',
+    },
+    projects: {
+      name: '项目名称',
+      role: '角色 / 负责范围',
+      summary: '简要说明项目背景、亮点与成果',
+      link: 'https://项目链接（可选）',
+    },
+    skills: {
+      title: '例如：前端 / 工程实践',
+      items: '每行一个技能或关键字',
+    },
+    languages: {
+      name: '语言',
+      level: '熟练程度',
+    },
+    interests: {
+      name: '兴趣 / 爱好',
+    },
+    awards: {
+      name: '奖项名称',
+      issuer: '颁发机构',
+      year: '年份',
+    },
+  },
+} as const;

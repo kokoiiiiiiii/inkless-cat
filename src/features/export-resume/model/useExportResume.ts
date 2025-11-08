@@ -1,6 +1,7 @@
 import { useResumeState } from '@entities/resume';
 import { useCallback } from 'react';
 
+import { useI18n } from '@shared/i18n';
 import { downloadBlob, resumeToJson } from '../lib/json';
 import { resumeToMarkdown } from '../lib/markdown';
 
@@ -12,6 +13,7 @@ const getDefaultFilename = () => `resume-${new Date().toISOString().slice(0, 10)
 
 export const useExportResume = (options: ExportOptions = {}) => {
   const { resume, activeSections } = useResumeState();
+  const { t } = useI18n();
   const { filename = getDefaultFilename() } = options;
 
   const exportJson = useCallback(() => {
@@ -20,9 +22,9 @@ export const useExportResume = (options: ExportOptions = {}) => {
   }, [resume, filename]);
 
   const exportMarkdown = useCallback(() => {
-    const markdown = resumeToMarkdown(resume, { activeSections });
+    const markdown = resumeToMarkdown(resume, { activeSections, t });
     downloadBlob(markdown, 'text/markdown', `${filename}.md`);
-  }, [resume, activeSections, filename]);
+  }, [resume, activeSections, filename, t]);
 
   return { exportJson, exportMarkdown };
 };

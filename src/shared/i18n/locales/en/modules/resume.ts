@@ -1,0 +1,67 @@
+export const resume = {
+  add: 'Add',
+  empty: 'No entries yet. Click “Add” to start editing.',
+  labels: {
+    label: 'Label',
+    url: 'Link',
+    company: 'Company',
+    role: 'Role',
+    location: 'Location',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    school: 'School',
+    degree: 'Degree',
+    details: 'Details',
+    name: 'Name',
+    summary: 'Summary',
+    link: 'Link',
+    title: 'Title',
+    items: 'Items',
+    issuer: 'Issuer',
+    year: 'Year',
+    level: 'Level',
+  },
+  placeholders: {
+    socials: {
+      label: 'GitHub / Personal Site',
+      url: 'https://example.com',
+    },
+    experience: {
+      company: 'Company or team name',
+      role: 'Role / Title',
+      location: 'City',
+      startDate: '2019-06',
+      endDate: 'Present / 2023-08',
+      highlights: 'One accomplishment or responsibility per line',
+    },
+    education: {
+      school: 'School',
+      degree: 'Degree / Major',
+      startDate: '2014',
+      endDate: '2018',
+      details: 'GPA, honors, or key coursework',
+    },
+    projects: {
+      name: 'Project Name',
+      role: 'Role / Scope',
+      summary: 'Briefly describe context, highlights, and outcomes',
+      link: 'https://project-link (optional)',
+    },
+    skills: {
+      title: 'e.g. Frontend / Engineering Practice',
+      items: 'One skill or keyword per line',
+    },
+    languages: {
+      name: 'Language',
+      level: 'Proficiency',
+    },
+    interests: {
+      name: 'Interest / Hobby',
+    },
+    awards: {
+      name: 'Award Name',
+      issuer: 'Issuer',
+      year: 'Year',
+    },
+  },
+} as const;
