@@ -6,8 +6,8 @@ type UseMobileSwitcherOptions = {
   isLargeScreen: boolean;
   mobileView: 'editor' | 'preview';
   setMobileView: (view: 'editor' | 'preview') => void;
-  editorScrollContainerRef: RefObject<HTMLElement>;
-  previewScrollContainerRef: RefObject<HTMLElement>;
+  editorScrollContainerRef: RefObject<HTMLDivElement | null>;
+  previewScrollContainerRef: RefObject<HTMLDivElement | null>;
 };
 
 export const useMobileSwitcher = ({
