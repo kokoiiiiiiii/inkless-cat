@@ -1,65 +1,49 @@
 import {
   extractCustomSectionId,
   isCustomSectionKey,
-  SectionManager,
   sectionOrder,
   type StandardSectionKey,
 } from '@entities/module';
-import type { ResumeCustomSection, ResumeData } from '@entities/resume';
-import { type ResumeSectionItem, useModuleEditor } from '@features/edit-module';
-import { useCallback, useEffect, useRef } from 'react';
+import type { ResumeData } from '@entities/resume';
+import type { ResumeSectionItem } from '@features/edit-module';
+import type {
+  SectionReorderHandler,
+  SectionToggleHandler,
+  UseModulesPanelControllerResult,
+} from '@features/modules-panel';
+import { SectionManager } from '@features/section-manager';
 
 import CustomSectionEditor from './CustomSectionEditor';
 import PersonalSection from './PersonalSection';
 import ResumeSection from './ResumeSection';
-import type {
-  RegisterSectionRef,
-  SectionFocusHandler,
-  SectionReorderHandler,
-  SectionToggleHandler,
-} from './types';
 
 type ModulesPanelProps = {
   resume: ResumeData;
-  onChange: (updater: (draft: ResumeData) => void) => void;
-  onFieldFocus?: SectionFocusHandler;
+  controller: UseModulesPanelControllerResult;
   activeSections: string[];
   onSectionToggle: SectionToggleHandler;
   onSectionReorder: SectionReorderHandler;
-  customSections: ResumeCustomSection[];
   onAddCustomSection: () => void;
   onRemoveCustomSection: (sectionId: string) => void;
   modulePanelOpen: boolean;
   onToggleModulePanel: () => void;
-  registerSectionRef?: RegisterSectionRef;
 };
 
 const ModulesPanel = ({
   resume,
-  onChange,
-  onFieldFocus,
   activeSections,
+  controller,
   onSectionToggle,
   onSectionReorder,
-  customSections,
   onAddCustomSection,
   onRemoveCustomSection,
   modulePanelOpen,
   onToggleModulePanel,
-  registerSectionRef,
 }: ModulesPanelProps) => {
-  const notifyFocus = useCallback<SectionFocusHandler>(
-    (sectionKey, itemKey) => {
-      if (typeof onFieldFocus === 'function') {
-        onFieldFocus(sectionKey, itemKey);
-      }
-    },
-    [onFieldFocus],
-  );
-
   const {
     personalSettings,
-    availableCustomSections: editorCustomSections,
+    availableCustomSections,
+    resolvedActiveSections,
     handlePersonalChange,
     handleArrayFieldChange,
     handleArrayListChange,
@@ -76,40 +60,10 @@ const ModulesPanel = ({
     handlePersonalExtraChange,
     handlePersonalExtraRemove,
     handlePersonalSettingChange,
-  } = useModuleEditor({ resume, onChange });
-
-  const handleDeleteCustomSection = useCallback(
-    (sectionId: string) => {
-      onRemoveCustomSection?.(sectionId);
-    },
-    [onRemoveCustomSection],
-  );
-
-  const resolvedActiveSections = Array.isArray(activeSections) ? activeSections : [...sectionOrder];
-  const availableCustomSections: ResumeCustomSection[] = Array.isArray(customSections)
-    ? customSections
-    : editorCustomSections;
-
-  const sectionRefCallbacks = useRef<Map<string, (node: HTMLElement | null) => void>>(new Map());
-
-  useEffect(() => {
-    sectionRefCallbacks.current.clear();
-  }, [registerSectionRef]);
-
-  const getSectionRef = useCallback(
-    (key: string) => {
-      const existing = sectionRefCallbacks.current.get(key);
-      if (existing) {
-        return existing;
-      }
-      const callback = (node: HTMLElement | null) => {
-        registerSectionRef?.(key, node);
-      };
-      sectionRefCallbacks.current.set(key, callback);
-      return callback;
-    },
-    [registerSectionRef],
-  );
+    notifyFocus,
+    getSectionRef,
+    handleDeleteCustomSection,
+  } = controller;
 
   return (
     <div className="space-y-10 pb-10">

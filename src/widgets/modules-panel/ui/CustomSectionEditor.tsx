@@ -3,6 +3,7 @@ import type {
   ResumeCustomSection,
   ResumeCustomSectionMode,
 } from '@entities/resume';
+import type { SectionFocusHandler } from '@features/modules-panel';
 import { useI18n } from '@shared/i18n';
 import { memo } from 'react';
 
@@ -16,7 +17,6 @@ import {
   subtleButtonClass,
   textareaClass,
 } from './constants';
-import type { SectionFocusHandler } from './types';
 
 type CustomSectionEditorProps = {
   sectionKey: string;

@@ -1,6 +1,6 @@
+import { sectionDefinitions, sectionOrder } from '@entities/module';
 import { useI18n } from '@shared/i18n';
 
-import { sectionDefinitions, sectionOrder } from '../../lib/sections';
 import type { SectionToggleHandler } from '../../model/useSectionManager';
 
 type SectionTogglePanelProps = {

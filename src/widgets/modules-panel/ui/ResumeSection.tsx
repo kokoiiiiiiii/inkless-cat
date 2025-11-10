@@ -1,5 +1,6 @@
 import { sectionDefinitions, type StandardSectionKey } from '@entities/module';
 import type { ResumeSectionItem } from '@features/edit-module';
+import type { SectionFocusHandler } from '@features/modules-panel';
 import { useI18n } from '@shared/i18n';
 import { memo, type ReactNode } from 'react';
 
@@ -16,7 +17,6 @@ import {
 } from './constants';
 import type { FieldHelpers } from './sectionFieldRenderers';
 import { renderSectionFields } from './sectionFieldRenderers';
-import type { SectionFocusHandler } from './types';
 
 type ResumeSectionProps = {
   sectionKey: StandardSectionKey;

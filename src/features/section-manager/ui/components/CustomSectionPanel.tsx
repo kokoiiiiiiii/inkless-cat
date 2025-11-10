@@ -1,7 +1,7 @@
+import { getCustomSectionKey } from '@entities/module';
 import type { ResumeCustomSection } from '@entities/resume';
 import { useI18n } from '@shared/i18n';
 
-import { getCustomSectionKey } from '../../lib/sections';
 import type { SectionToggleHandler } from '../../model/useSectionManager';
 
 type CustomSectionPanelProps = {

@@ -1,15 +1,15 @@
-import type { ResumeCustomSection } from '@entities/resume';
-import { useI18n } from '@shared/i18n';
-import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
-import { useCallback, useMemo } from 'react';
-
 import {
   getCustomSectionKey,
   isCustomSectionKey,
   sectionDefinitions,
   sectionOrder,
   type StandardSectionKey,
-} from '../lib/sections';
+} from '@entities/module';
+import type { ResumeCustomSection } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
+import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useMemo } from 'react';
+
 import { type DragState, useSectionDragController } from './useSectionDragController';
 
 export type SectionToggleHandler = (sectionKey: string, enabled: boolean) => void;

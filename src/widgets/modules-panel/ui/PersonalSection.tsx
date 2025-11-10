@@ -1,5 +1,6 @@
 import type { ResumePersonal, ResumePersonalExtra } from '@entities/resume';
 import { type PersonalSettings } from '@features/edit-module';
+import type { SectionFocusHandler } from '@features/modules-panel';
 import { useI18n } from '@shared/i18n';
 import { memo } from 'react';
 
@@ -13,7 +14,6 @@ import {
   textareaClass,
 } from './constants';
 import PhotoUpload from './PhotoUpload';
-import type { SectionFocusHandler } from './types';
 
 type PersonalSectionProps = {
   personal: ResumePersonal;

@@ -1,29 +1,26 @@
-import {
-  type ActiveSectionKey,
-  createEmptyResume,
-  useResumeActions,
-  useResumeState,
-} from '@entities/resume';
+import { useResumeActions, useResumeState } from '@entities/resume';
 import { templates as builtInTemplates } from '@entities/template';
 import { useUIActions, useUIState } from '@entities/ui';
+import {
+  useCustomSectionPrompt,
+  useEditorIoActions,
+  useEditorLifecycle,
+  useEditorPanels,
+  useEditorTemplatePanel,
+  useMobileSwitcher,
+  useScrollSync,
+} from '@features/editor-shell';
 import { useExportResume } from '@features/export-resume';
 import { useImportResume } from '@features/import-resume';
 import { useSortableSections } from '@features/sort-modules';
 import { useMediaQuery } from '@shared/hooks';
-import { type Locale, useI18n } from '@shared/i18n';
-import { useCallback, useDeferredValue } from 'react';
-
-import { isBrowser } from '../lib/storage';
-import { useEditorBootstrap } from './useEditorBootstrap';
-import { useEditorStorageSync } from './useEditorStorageSync';
-import { useMobileLayout } from './useMobileLayout';
-import { useScrollSync } from './useScrollSync';
-import { useTemplateLibrary } from './useTemplateLibrary';
+import { useI18n } from '@shared/i18n';
+import { useDeferredValue } from 'react';
 
 const defaultTemplateId = builtInTemplates[0]?.id ?? 'modern-blue';
 
 export const useEditorController = () => {
-  const { t, locale, setLocale } = useI18n();
+  const { locale, setLocale } = useI18n();
   const { resume, activeSections, hasResumeChanges } = useResumeState();
   const { updateResume, updateActiveSections, setHasResumeChanges, resetState } =
     useResumeActions();
@@ -46,10 +43,24 @@ export const useEditorController = () => {
   } = useSortableSections();
   const { importFromObject } = useImportResume();
   const { exportJson, exportMarkdown } = useExportResume();
-
   const deferredResume = useDeferredValue(resume);
   const deferredActiveSections = useDeferredValue(activeSections);
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+
+  useEditorLifecycle({
+    resetState,
+    updateActiveSections,
+    setTheme,
+    setTemplateId,
+    setCustomTemplates,
+    defaultTemplateId,
+    locale,
+    resume,
+    activeSections,
+    theme,
+    templateId,
+    customTemplates,
+  });
 
   const scrollSync = useScrollSync({ activeSections, resume });
   const {
@@ -60,41 +71,16 @@ export const useEditorController = () => {
     handleFieldFocus,
   } = scrollSync;
 
-  const setInitialActiveSections = useCallback(
-    (sections: ActiveSectionKey[]) => {
-      updateActiveSections(sections);
-    },
-    [updateActiveSections],
-  );
-
-  useEditorBootstrap({
-    resetState,
-    updateActiveSections: setInitialActiveSections,
-    setTheme,
-    setTemplateId,
-    setCustomTemplates,
-    defaultTemplateId,
-    locale,
-  });
-
-  useEditorStorageSync({
-    resume,
-    activeSections,
+  const panelState = useEditorPanels({
     theme,
-    templateId,
-    customTemplates,
+    setTheme,
+    templatePanelOpen,
+    setTemplatePanelOpen,
+    modulePanelOpen,
+    setModulePanelOpen,
   });
 
-  const {
-    activeTemplate,
-    handleResetSample,
-    handleTemplateStyleChange,
-    handleTemplateSampleLoad,
-    handleSaveCustomTemplate,
-    handleDeleteCustomTemplate,
-    handleUpdateCustomTemplate,
-    loadTemplateForLocale,
-  } = useTemplateLibrary({
+  const templatePanel = useEditorTemplatePanel({
     baseTemplates: builtInTemplates,
     templateId,
     customTemplates,
@@ -105,18 +91,22 @@ export const useEditorController = () => {
     hasResumeChanges,
     setHasResumeChanges,
     defaultTemplateId,
+    setLocale,
   });
-  const handleLocaleChange = useCallback(
-    (nextLocale: Locale, options?: { loadTemplate?: boolean }) => {
-      setLocale(nextLocale);
-      if (options?.loadTemplate) {
-        loadTemplateForLocale(nextLocale);
-      }
-    },
-    [loadTemplateForLocale, setLocale],
-  );
 
-  const { showEditor, showPreview } = useMobileLayout({
+  const ioActions = useEditorIoActions({
+    resetState,
+    setHasResumeChanges,
+    importFromObject,
+    exportJson,
+    exportMarkdown,
+    isLargeScreen,
+    setMobileView,
+  });
+
+  const addCustomSection = useCustomSectionPrompt({ appendCustomSection });
+
+  const { showEditor, showPreview } = useMobileSwitcher({
     isLargeScreen,
     mobileView,
     setMobileView,
@@ -124,70 +114,30 @@ export const useEditorController = () => {
     previewScrollContainerRef,
   });
 
-  const handleClear = useCallback(() => {
-    resetState(createEmptyResume());
-    setHasResumeChanges(false);
-  }, [resetState, setHasResumeChanges]);
+  const { handleClear, handleImport, handleExportJson, handleExportMarkdown, handlePrint } =
+    ioActions;
 
-  const handleImport = useCallback(
-    (payload: unknown) => {
-      const result = importFromObject(payload);
-      if (!result.success && result.message && isBrowser) {
-        globalThis.alert(result.message);
-      }
-    },
-    [importFromObject],
-  );
+  const {
+    theme: resolvedTheme,
+    toggleTheme,
+    templatePanelOpen: resolvedTemplatePanelOpen,
+    handleToggleTemplatePanel,
+    modulePanelOpen: resolvedModulePanelOpen,
+    toggleModulePanel,
+  } = panelState;
 
-  const handleExportJson = useCallback(() => {
-    exportJson();
-  }, [exportJson]);
-
-  const handleExportMarkdown = useCallback(() => {
-    exportMarkdown();
-  }, [exportMarkdown]);
-
-  const handlePrint = useCallback(() => {
-    if (!isBrowser) return;
-    if (!isLargeScreen) {
-      setMobileView('preview');
-      globalThis.requestAnimationFrame(() => {
-        globalThis.setTimeout(() => {
-          globalThis.print();
-        }, 120);
-      });
-      return;
-    }
-    globalThis.print();
-  }, [isLargeScreen, setMobileView]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => (current === 'light' ? 'dark' : 'light'));
-  }, [setTheme]);
-
-  const handleToggleTemplatePanel = useCallback(() => {
-    setTemplatePanelOpen((open) => !open);
-  }, [setTemplatePanelOpen]);
-
-  const toggleModulePanel = useCallback(() => {
-    setModulePanelOpen((open) => !open);
-  }, [setModulePanelOpen]);
-
-  const addCustomSection = useCallback(() => {
-    if (!isBrowser) {
-      appendCustomSection();
-      return;
-    }
-    const message = t('modules.customSection.promptTitle');
-    const placeholder = t('modules.customSection.promptPlaceholder');
-    const fallback = t('modules.customSection.defaultTitle');
-    const input = globalThis.prompt(
-      message === 'modules.customSection.promptTitle' ? 'Enter a module name' : message,
-      placeholder === 'modules.customSection.promptPlaceholder' ? fallback : placeholder,
-    );
-    if (input === null) return;
-    appendCustomSection(input.trim() || fallback);
-  }, [appendCustomSection, t]);
+  const {
+    baseTemplates,
+    activeTemplate,
+    customTemplates: resolvedCustomTemplates,
+    handleResetSample,
+    handleTemplateStyleChange,
+    handleTemplateSampleLoad,
+    handleSaveCustomTemplate,
+    handleDeleteCustomTemplate,
+    handleUpdateCustomTemplate,
+    handleLocaleChange,
+  } = templatePanel;
 
   return {
     resume,
@@ -202,14 +152,14 @@ export const useEditorController = () => {
     handleExportJson,
     handleExportMarkdown,
     handlePrint,
-    theme,
+    theme: resolvedTheme,
     toggleTheme,
-    templatePanelOpen,
+    templatePanelOpen: resolvedTemplatePanelOpen,
     handleToggleTemplatePanel,
-    modulePanelOpen,
+    modulePanelOpen: resolvedModulePanelOpen,
     toggleModulePanel,
     activeTemplate,
-    customTemplates,
+    customTemplates: resolvedCustomTemplates,
     handleTemplateStyleChange,
     handleTemplateSampleLoad,
     handleSaveCustomTemplate,
@@ -229,7 +179,7 @@ export const useEditorController = () => {
     isLargeScreen,
     mobileView,
     setMobileView,
-    baseTemplates: builtInTemplates,
+    baseTemplates,
     handleLocaleChange,
   };
 };
