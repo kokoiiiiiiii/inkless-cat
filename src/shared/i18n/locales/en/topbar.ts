@@ -12,4 +12,15 @@ export const topbar = {
   logoAlt: 'Inkless Cat logo',
   subtitle: 'Inkless Cat Resume Editor',
   githubLabel: 'GitHub Repository',
+  langSwitch: {
+    title: 'Switch language',
+    description:
+      'Switch to the {language} template? Loading the template clears your current content. Switching language only will keep your resume unchanged.',
+    languageOnly: 'Switch language only',
+    loadTemplate: 'Load {language} template',
+    localeNames: {
+      en: 'English',
+      'zh-CN': 'Chinese',
+    },
+  },
 } as const;

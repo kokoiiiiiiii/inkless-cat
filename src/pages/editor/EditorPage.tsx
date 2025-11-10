@@ -1,9 +1,9 @@
 import { useEditorController } from '@features/editor-shell';
 import { ResumePreview } from '@features/resume-preview';
+import { useI18n } from '@shared/i18n';
 import { ModulesPanel } from '@widgets/modules-panel';
 import { TemplateSelector } from '@widgets/template-selector';
 import { Topbar } from '@widgets/topbar';
-import { useI18n } from '@shared/i18n';
 
 function EditorPage() {
   const { t } = useI18n();
@@ -47,6 +47,7 @@ function EditorPage() {
     isLargeScreen,
     setMobileView,
     baseTemplates,
+    handleLocaleChange,
   } = useEditorController();
 
   return (
@@ -60,6 +61,7 @@ function EditorPage() {
         onPrint={handlePrint}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onLocaleChange={handleLocaleChange}
       />
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-4 pb-16 pt-4 sm:gap-6 sm:pt-6 lg:grid lg:grid-cols-2 print:max-w-none print:px-0 print:pb-0 print:pt-0">
         {!isLargeScreen && (
@@ -98,7 +100,9 @@ function EditorPage() {
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t('editor.title')}</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {t('editor.title')}
+              </h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('editor.desc')}</p>
             </div>
             <button
@@ -154,7 +158,9 @@ function EditorPage() {
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between print:hidden">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t('preview.title')}</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {t('preview.title')}
+              </h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {t('preview.template', { name: activeTemplate.name })}
               </p>

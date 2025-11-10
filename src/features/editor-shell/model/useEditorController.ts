@@ -5,7 +5,7 @@ import { useExportResume } from '@features/export-resume';
 import { useImportResume } from '@features/import-resume';
 import { useSortableSections } from '@features/sort-modules';
 import { useMediaQuery } from '@shared/hooks';
-import { useI18n } from '@shared/i18n';
+import { type Locale, useI18n } from '@shared/i18n';
 import { useCallback, useDeferredValue } from 'react';
 
 import { isBrowser } from '../lib/storage';
@@ -18,7 +18,7 @@ import { useTemplateLibrary } from './useTemplateLibrary';
 const defaultTemplateId = builtInTemplates[0]?.id ?? 'modern-blue';
 
 export const useEditorController = () => {
-  const { t, locale } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const { resume, activeSections, hasResumeChanges } = useResumeState();
   const { updateResume, updateActiveSections, setHasResumeChanges, resetState } =
     useResumeActions();
@@ -81,6 +81,7 @@ export const useEditorController = () => {
     handleSaveCustomTemplate,
     handleDeleteCustomTemplate,
     handleUpdateCustomTemplate,
+    loadTemplateForLocale,
   } = useTemplateLibrary({
     baseTemplates: builtInTemplates,
     templateId,
@@ -93,6 +94,15 @@ export const useEditorController = () => {
     setHasResumeChanges,
     defaultTemplateId,
   });
+  const handleLocaleChange = useCallback(
+    (nextLocale: Locale, options?: { loadTemplate?: boolean }) => {
+      setLocale(nextLocale);
+      if (options?.loadTemplate) {
+        loadTemplateForLocale(nextLocale);
+      }
+    },
+    [loadTemplateForLocale, setLocale],
+  );
 
   const { showEditor, showPreview } = useMobileLayout({
     isLargeScreen,
@@ -208,6 +218,7 @@ export const useEditorController = () => {
     mobileView,
     setMobileView,
     baseTemplates: builtInTemplates,
+    handleLocaleChange,
   };
 };
 

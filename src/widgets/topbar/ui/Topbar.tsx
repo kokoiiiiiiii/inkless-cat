@@ -1,3 +1,5 @@
+import type { Locale } from '@shared/i18n';
+
 import ActionButtons from './ActionButtons';
 import LogoSection from './LogoSection';
 import useResumeImportDialog from './useResumeImportDialog';
@@ -11,6 +13,7 @@ type TopbarProps = {
   onPrint: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  onLocaleChange: (nextLocale: Locale, options?: { loadTemplate?: boolean }) => void;
 };
 
 const Topbar = ({
@@ -22,6 +25,7 @@ const Topbar = ({
   onPrint,
   theme,
   onToggleTheme,
+  onLocaleChange,
 }: TopbarProps) => {
   const { inputRef, openPicker, handleFileChange } = useResumeImportDialog(onImport);
 
@@ -40,6 +44,7 @@ const Topbar = ({
           onToggleTheme={onToggleTheme}
           inputRef={inputRef}
           onFileChange={handleFileChange}
+          onLocaleChange={onLocaleChange}
         />
       </div>
     </header>

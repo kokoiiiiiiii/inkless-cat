@@ -1,8 +1,8 @@
 import { createSampleResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
 import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
-import { useI18n } from '@shared/i18n';
+import { type Locale, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib/clone';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { createCustomTemplateId, normalizeTemplateTheme } from '../lib/templateTheme';
 
@@ -32,7 +32,6 @@ export const useTemplateLibrary = ({
   defaultTemplateId,
 }: UseTemplateLibraryParams) => {
   const { t, locale } = useI18n();
-  const lastLocaleRef = useRef(locale);
 
   const allTemplates = useMemo<ResumeTemplate[]>(() => {
     if (!Array.isArray(customTemplates) || customTemplates.length === 0) {
@@ -47,9 +46,9 @@ export const useTemplateLibrary = ({
   }, [allTemplates, baseTemplates, templateId]);
 
   const selectTemplateSample = useCallback(
-    (template: ResumeTemplate) => {
-      const localized = template.localizedSamples?.[locale];
-      const baseSample = localized ?? template.sample ?? createSampleResume(locale);
+    (template: ResumeTemplate, targetLocale: Locale = locale) => {
+      const localized = template.localizedSamples?.[targetLocale];
+      const baseSample = localized ?? template.sample ?? createSampleResume(targetLocale);
       return normalizeResumeSchema(baseSample, { clone: true });
     },
     [locale],
@@ -93,21 +92,14 @@ export const useTemplateLibrary = ({
     [hasResumeChanges, resetState, selectTemplateSample, setTemplateId, setHasResumeChanges, t],
   );
 
-  useEffect(() => {
-    if (lastLocaleRef.current !== locale && !hasResumeChanges) {
-      const localizedSample = selectTemplateSample(activeTemplate);
+  const loadTemplateForLocale = useCallback(
+    (targetLocale: Locale) => {
+      const localizedSample = selectTemplateSample(activeTemplate, targetLocale);
       resetState(localizedSample);
       setHasResumeChanges(false);
-    }
-    lastLocaleRef.current = locale;
-  }, [
-    locale,
-    activeTemplate,
-    hasResumeChanges,
-    resetState,
-    selectTemplateSample,
-    setHasResumeChanges,
-  ]);
+    },
+    [activeTemplate, resetState, selectTemplateSample, setHasResumeChanges],
+  );
 
   const handleSaveCustomTemplate = useCallback(
     (payload: TemplateUpdatePayload) => {
@@ -211,5 +203,6 @@ export const useTemplateLibrary = ({
     handleSaveCustomTemplate,
     handleDeleteCustomTemplate,
     handleUpdateCustomTemplate,
+    loadTemplateForLocale,
   };
 };
