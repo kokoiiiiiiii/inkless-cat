@@ -1,4 +1,5 @@
 import {
+  type ActiveSectionKey,
   createCustomSection,
   getCustomSectionKey,
   sectionDefinitions,
@@ -14,8 +15,8 @@ import { useResumeActions, useResumeState } from '@entities/resume';
 import { useI18n } from '@shared/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 
-type ToggleHandler = (sectionKey: string, enabled: boolean) => void;
-type ReorderHandler = (order: string[]) => void;
+type ToggleHandler = (sectionKey: ActiveSectionKey, enabled: boolean) => void;
+type ReorderHandler = (order: ActiveSectionKey[]) => void;
 type AddCustomSectionHandler = (title?: string) => void;
 
 const ensureSectionInitialized = (resume: ResumeData, sectionKey: StandardSectionKey) => {
@@ -36,7 +37,7 @@ export const useSortableSections = () => {
   const { t } = useI18n();
   const { activeSections, resume } = useResumeState();
   const { updateActiveSections, updateResume } = useResumeActions();
-  const orderMemoryRef = useRef<Map<string, number>>(new Map());
+  const orderMemoryRef = useRef<Map<ActiveSectionKey, number>>(new Map());
 
   useEffect(() => {
     const memory = orderMemoryRef.current;

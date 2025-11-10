@@ -14,7 +14,8 @@ export const topbar = {
   githubLabel: 'GitHub 仓库',
   langSwitch: {
     title: '切换语言',
-    description: '是否切换到{language}模板？选择“加载{language}模板”将清空当前内容，仅切换语言则保留当前内容。',
+    description:
+      '是否切换到{language}模板？选择“加载{language}模板”将清空当前内容，仅切换语言则保留当前内容。',
     languageOnly: '仅切换语言',
     loadTemplate: '加载{language}模板',
     localeNames: {

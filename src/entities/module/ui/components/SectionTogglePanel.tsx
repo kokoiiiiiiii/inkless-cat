@@ -22,7 +22,9 @@ export const SectionTogglePanel = ({
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{t('modules.toggle.title')}</h4>
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+          {t('modules.toggle.title')}
+        </h4>
         <div className="flex items-center gap-2">
           <button
             type="button"

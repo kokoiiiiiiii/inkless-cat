@@ -102,6 +102,7 @@ const ResumePreviewViewComponent = ({ state, registerSectionRef }: ResumePreview
       registerSectionRef={effectiveRegisterRef}
       accentStyle={accentStyle}
       accentBulletStyle={accentBulletStyle}
+      setSectionRef={setSectionRef}
     />
   );
 

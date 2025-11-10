@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
-
 import { useI18n } from '@shared/i18n';
+import { useEffect } from 'react';
 
 import TemplateCard from './TemplateCard';
 import TemplateCreationForm from './TemplateCreationForm';
@@ -31,7 +30,9 @@ const TemplateSelector = ({
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">
             {t('template.panelTitle')}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{t('template.panelDescription')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t('template.panelDescription')}
+          </p>
         </div>
       </header>
 

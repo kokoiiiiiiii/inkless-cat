@@ -2,7 +2,7 @@ import { createSampleResume, normalizeResumeSchema, type ResumeData } from '@ent
 import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
 import { type Locale, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib/clone';
-import { useCallback, useMemo } from 'react';
+import { type Dispatch, type SetStateAction, useCallback, useMemo } from 'react';
 
 import { createCustomTemplateId, normalizeTemplateTheme } from '../lib/templateTheme';
 
@@ -10,8 +10,8 @@ type UseTemplateLibraryParams = {
   baseTemplates: ResumeTemplate[];
   templateId?: string;
   customTemplates: ResumeTemplate[];
-  setTemplateId: (value: string) => void;
-  setCustomTemplates: (updater: (prev: ResumeTemplate[]) => ResumeTemplate[]) => void;
+  setTemplateId: Dispatch<SetStateAction<string>>;
+  setCustomTemplates: Dispatch<SetStateAction<ResumeTemplate[]>>;
   resume: ResumeData;
   resetState: (value: ResumeData) => void;
   hasResumeChanges: boolean;
@@ -72,17 +72,15 @@ export const useTemplateLibrary = ({
   const handleTemplateSampleLoad = useCallback(
     (template: ResumeTemplate) => {
       if (!template?.sample && !template.localizedSamples) return;
-      if (
-        hasResumeChanges &&
-        typeof globalThis !== 'undefined' &&
-        !globalThis.confirm(
-          t(
-            'template.confirmLoadSample',
-            'This will replace your current resume with the template sample. Continue?',
-          ),
-        )
-      ) {
-        return;
+      if (hasResumeChanges && typeof globalThis !== 'undefined') {
+        const fallbackMessage =
+          'This will replace your current resume with the template sample. Continue?';
+        const translated = t('template.confirmLoadSample');
+        const confirmMessage =
+          translated === 'template.confirmLoadSample' ? fallbackMessage : translated;
+        if (!globalThis.confirm(confirmMessage)) {
+          return;
+        }
       }
       const normalized = selectTemplateSample(template);
       resetState(normalized);

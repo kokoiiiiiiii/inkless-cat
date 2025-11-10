@@ -56,6 +56,7 @@ export const sectionDefinitions: Record<SectionKey, SectionDefinition> = {
       role: '',
       summary: '',
       link: '',
+      highlights: [],
     }),
   },
   skills: {

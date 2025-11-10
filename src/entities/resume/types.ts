@@ -20,6 +20,7 @@ export type ResumeProject = {
   role?: string;
   summary?: string;
   link?: string;
+  highlights?: string[];
 };
 
 export type ResumeEducation = {

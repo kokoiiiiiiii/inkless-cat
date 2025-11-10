@@ -1,7 +1,7 @@
 import { useResumeState } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
 import { useCallback } from 'react';
 
-import { useI18n } from '@shared/i18n';
 import { downloadBlob, resumeToJson } from '../lib/json';
 import { resumeToMarkdown } from '../lib/markdown';
 

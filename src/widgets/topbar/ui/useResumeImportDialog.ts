@@ -1,6 +1,5 @@
-import { type ChangeEvent, useCallback, useRef } from 'react';
-
 import { useI18n } from '@shared/i18n';
+import { type ChangeEvent, useCallback, useRef } from 'react';
 
 type ResumeImportHandler = (payload: unknown) => void;
 

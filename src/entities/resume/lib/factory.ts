@@ -215,7 +215,11 @@ export const createSampleResume = (locale: Locale = 'zh-CN'): ResumeData => {
     projects: createProjects(locale),
     skills: createSkills(locale),
     languages: [
-      { id: generateId('lang'), name: isEnglish ? 'Chinese' : '中文', level: isEnglish ? 'Native' : '母语' },
+      {
+        id: generateId('lang'),
+        name: isEnglish ? 'Chinese' : '中文',
+        level: isEnglish ? 'Native' : '母语',
+      },
       {
         id: generateId('lang'),
         name: isEnglish ? 'English' : '英语',

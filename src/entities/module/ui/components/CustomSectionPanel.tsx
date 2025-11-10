@@ -23,7 +23,9 @@ export const CustomSectionPanel = ({
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{t('modules.custom.title')}</h4>
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+          {t('modules.custom.title')}
+        </h4>
         <button
           type="button"
           className="inline-flex items-center justify-center gap-1 rounded-full border border-transparent bg-brand-500 px-3 py-1 text-xs font-medium text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-400 dark:hover:bg-brand-300"

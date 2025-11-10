@@ -59,7 +59,9 @@ const PersonalSection = memo(
           <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start lg:gap-8">
             <div className="space-y-4">
               <label className={labelClass}>
-                <span className={labelTextClass}>{t('modules.personal.fields.fullName.label')}</span>
+                <span className={labelTextClass}>
+                  {t('modules.personal.fields.fullName.label')}
+                </span>
                 <input
                   className={inputClass}
                   type="text"
@@ -105,7 +107,9 @@ const PersonalSection = memo(
                 </label>
               </div>
               <label className={labelClass}>
-                <span className={labelTextClass}>{t('modules.personal.fields.location.label')}</span>
+                <span className={labelTextClass}>
+                  {t('modules.personal.fields.location.label')}
+                </span>
                 <input
                   className={inputClass}
                   type="text"

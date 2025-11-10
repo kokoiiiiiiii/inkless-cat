@@ -3,9 +3,8 @@ import type {
   ResumeCustomSection,
   ResumeCustomSectionMode,
 } from '@entities/resume';
-import { memo } from 'react';
-
 import { useI18n } from '@shared/i18n';
+import { memo } from 'react';
 
 import {
   cardClass,
@@ -64,7 +63,9 @@ const CustomSectionEditor = memo(
     return (
       <section ref={sectionRef} className="space-y-4">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">{fallbackTitle}</h3>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            {fallbackTitle}
+          </h3>
           <button
             type="button"
             className={dangerButtonClass}
@@ -152,7 +153,9 @@ const CustomSectionEditor = memo(
                       >
                         <div className="flex flex-col gap-3 md:flex-row">
                           <label className={`${labelClass} md:flex-1`}>
-                            <span className={labelTextClass}>{t('modules.customSection.fieldNameLabel')}</span>
+                            <span className={labelTextClass}>
+                              {t('modules.customSection.fieldNameLabel')}
+                            </span>
                             <input
                               className={inputClass}
                               type="text"
@@ -165,7 +168,9 @@ const CustomSectionEditor = memo(
                             />
                           </label>
                           <label className={`${labelClass} md:flex-1`}>
-                            <span className={labelTextClass}>{t('modules.customSection.fieldValueLabel')}</span>
+                            <span className={labelTextClass}>
+                              {t('modules.customSection.fieldValueLabel')}
+                            </span>
                             <input
                               className={inputClass}
                               type="text"

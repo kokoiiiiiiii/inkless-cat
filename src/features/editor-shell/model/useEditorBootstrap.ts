@@ -1,7 +1,8 @@
-import type { ResumeData } from '@entities/resume';
+import type { ActiveSectionKey, ResumeData } from '@entities/resume';
 import type { ResumeTemplate } from '@entities/template';
+import type { ThemeMode } from '@entities/ui';
 import type { Locale } from '@shared/i18n';
-import { useEffect, useRef } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
 
 import { loadInitialResume } from '../lib/resume';
 import {
@@ -17,10 +18,10 @@ import { normalizeTemplateTheme } from '../lib/templateTheme';
 
 type UseEditorBootstrapParams = {
   resetState: (value: ResumeData) => void;
-  updateActiveSections: (sections: string[]) => void;
-  setTheme: (value: string) => void;
-  setTemplateId: (value: string) => void;
-  setCustomTemplates: (templates: ResumeTemplate[]) => void;
+  updateActiveSections: (sections: ActiveSectionKey[]) => void;
+  setTheme: Dispatch<SetStateAction<ThemeMode>>;
+  setTemplateId: Dispatch<SetStateAction<string>>;
+  setCustomTemplates: Dispatch<SetStateAction<ResumeTemplate[]>>;
   defaultTemplateId: string;
   locale: Locale;
 };
@@ -48,7 +49,7 @@ export const useEditorBootstrap = ({
       try {
         const parsed = JSON.parse(storedSections) as string[];
         if (Array.isArray(parsed)) {
-          updateActiveSections(parsed);
+          updateActiveSections(parsed as ActiveSectionKey[]);
         }
       } catch {
         // ignore invalid section cache

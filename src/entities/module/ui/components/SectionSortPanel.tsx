@@ -37,9 +37,13 @@ export const SectionSortPanel = ({
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{t('modules.sort.title')}</h4>
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+          {t('modules.sort.title')}
+        </h4>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 dark:text-slate-400">{t('modules.sort.hint')}</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {t('modules.sort.hint')}
+          </span>
           <button
             type="button"
             className="inline-flex items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200"

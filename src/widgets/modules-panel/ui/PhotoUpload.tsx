@@ -1,6 +1,5 @@
-import { ChangeEvent, CSSProperties, useRef } from 'react';
-
 import { useI18n } from '@shared/i18n';
+import { ChangeEvent, CSSProperties, useRef } from 'react';
 
 type PhotoUploadProps = {
   value?: string;

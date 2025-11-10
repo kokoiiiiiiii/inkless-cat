@@ -1,12 +1,12 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 
 import en from './locales/en/index';
@@ -21,43 +21,56 @@ const DIR_MAP: Record<Locale, 'ltr' | 'rtl'> = { 'zh-CN': 'ltr', en: 'ltr' };
 
 const baseDict = { 'zh-CN': zhCN, en } as const;
 
-type Dict = Record<string, unknown>;
+type Dict = Record<string, unknown> | unknown[];
 type DictMap = Record<Locale, Dict>;
 
 type Interpolations = Record<string, string | number | boolean>;
 
 const interpolate = (tpl: string, vars?: Interpolations) =>
   typeof vars === 'object'
-    ? tpl.replace(/\{(\w+)\}/g, (_, k) => String(vars?.[k] ?? `{${k}}`))
+    ? tpl.replaceAll(/\{(\w+)\}/g, (_, k) => String(vars?.[k] ?? `{${k}}`))
     : tpl;
 
-const getByPath = (obj: unknown, path: string) =>
-  path.split('.').reduce<unknown>(
-    (acc, key) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[key] : undefined),
-    obj,
-  );
+const getByPath = (obj: unknown, path: string) => {
+  let current: unknown = obj;
+  for (const key of path.split('.')) {
+    if (!current || typeof current !== 'object') {
+      return;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current;
+};
 
 const deepMerge = (target: Dict, source: Dict): Dict => {
-  const out: Dict = Array.isArray(target) ? [...(target as unknown[])] : { ...target };
+  const out: Dict = Array.isArray(target) ? [...target] : { ...target };
   for (const [k, v] of Object.entries(source)) {
     const tv = (out as Record<string, unknown>)[k];
     (out as Record<string, unknown>)[k] =
-      tv && typeof tv === 'object' && v && typeof v === 'object' ? deepMerge(tv as Dict, v as Dict) : v;
+      tv && typeof tv === 'object' && v && typeof v === 'object'
+        ? deepMerge(tv as Dict, v as Dict)
+        : v;
   }
   return out;
 };
 
-type Join<K, P> = K extends string | number ? (P extends string | number ? `${K}.${P}` : never) : never;
+type Join<K, P> = K extends string | number
+  ? P extends string | number
+    ? `${K}.${P}`
+    : never
+  : never;
 type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 export type Paths<T, D extends number = 6> = [D] extends [never]
   ? never
   : T extends object
     ? {
-        [K in keyof T & (string | number)]: T[K] extends object ? `${K}` | Join<K, Paths<T[K], Prev[D]>> : `${K}`;
+        [K in keyof T & (string | number)]: T[K] extends object
+          ? `${K}` | Join<K, Paths<T[K], Prev[D]>>
+          : `${K}`;
       }[keyof T & (string | number)]
     : never;
 
-export type TranslationKey = Paths<typeof zhCN> | Paths<typeof en>;
+export type TranslationKey = Paths<typeof zhCN>;
 
 const dynamicLoaders: Record<Locale, (() => Promise<{ default: Dict }>) | undefined> = {
   'zh-CN': undefined,
@@ -67,7 +80,7 @@ const dynamicLoaders: Record<Locale, (() => Promise<{ default: Dict }>) | undefi
 type I18nContextValue = {
   locale: Locale;
   setLocale: (next: Locale) => void;
-  t: (key: TranslationKey | string, vars?: Interpolations) => string;
+  t: <K extends string>(key: TranslationKey | K, vars?: Interpolations) => string;
   register: (ns: string, resources: Partial<Record<Locale, Dict>>) => void;
   format: {
     date: (value: Date | number | string, opts?: Intl.DateTimeFormatOptions) => string;
@@ -119,7 +132,7 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const t = useCallback(
-    (key: string, vars?: Interpolations) => {
+    <K extends string>(key: TranslationKey | K, vars?: Interpolations) => {
       const raw = getByPath(dictRef.current[locale], key);
       if (raw === undefined && DEV) {
         console.warn(`[i18n] Missing key: ${key} in ${locale}`);
@@ -142,14 +155,21 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const format = useMemo(
     () => ({
       date: (value: Date | number | string, opts?: Intl.DateTimeFormatOptions) =>
-        new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: '2-digit', ...opts }).format(
-          value instanceof Date ? value : new Date(value),
-        ),
+        new Intl.DateTimeFormat(locale, {
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          ...opts,
+        }).format(value instanceof Date ? value : new Date(value)),
       number: (value: number, opts?: Intl.NumberFormatOptions) =>
         new Intl.NumberFormat(locale, opts).format(value),
-      currency: (value: number, currency = locale === 'zh-CN' ? 'CNY' : 'USD', opts?: Intl.NumberFormatOptions) =>
-        new Intl.NumberFormat(locale, { style: 'currency', currency, ...opts }).format(value),
-      plural: (count: number, forms: { one: string; other: string }) => (count === 1 ? forms.one : forms.other),
+      currency: (
+        value: number,
+        currency = locale === 'zh-CN' ? 'CNY' : 'USD',
+        opts?: Intl.NumberFormatOptions,
+      ) => new Intl.NumberFormat(locale, { style: 'currency', currency, ...opts }).format(value),
+      plural: (count: number, forms: { one: string; other: string }) =>
+        count === 1 ? forms.one : forms.other,
     }),
     [locale],
   );

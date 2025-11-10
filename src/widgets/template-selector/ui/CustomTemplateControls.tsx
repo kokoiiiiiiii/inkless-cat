@@ -139,7 +139,9 @@ export const CustomTemplateControls = ({
       <StyleSelector value={template.previewStyle || 'modern'} onChange={handleStyleChange} />
       <AccentColorPicker value={template.accentColor || '#2563eb'} onChange={handleAccentChange} />
       {isCustomStyle && <ThemeColorPickers theme={theme} onChange={onThemeChange} />}
-      <ControlButton onClick={handleUpdateExample}>{t('template.actions.updateSample')}</ControlButton>
+      <ControlButton onClick={handleUpdateExample}>
+        {t('template.actions.updateSample')}
+      </ControlButton>
       <ControlButton tone="danger" onClick={() => onDeleteTemplate?.(template.id)}>
         {t('template.actions.delete')}
       </ControlButton>

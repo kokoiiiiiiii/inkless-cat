@@ -1,4 +1,9 @@
-import { createEmptyResume, useResumeActions, useResumeState } from '@entities/resume';
+import {
+  type ActiveSectionKey,
+  createEmptyResume,
+  useResumeActions,
+  useResumeState,
+} from '@entities/resume';
 import { templates as builtInTemplates } from '@entities/template';
 import { useUIActions, useUIState } from '@entities/ui';
 import { useExportResume } from '@features/export-resume';
@@ -55,9 +60,16 @@ export const useEditorController = () => {
     handleFieldFocus,
   } = scrollSync;
 
+  const setInitialActiveSections = useCallback(
+    (sections: ActiveSectionKey[]) => {
+      updateActiveSections(sections);
+    },
+    [updateActiveSections],
+  );
+
   useEditorBootstrap({
     resetState,
-    updateActiveSections,
+    updateActiveSections: setInitialActiveSections,
     setTheme,
     setTemplateId,
     setCustomTemplates,

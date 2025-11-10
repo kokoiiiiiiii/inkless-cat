@@ -1,4 +1,9 @@
-import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
+import type {
+  ResumeTemplate,
+  TemplateUpdatePayload as TemplateUpdatePayloadSource,
+} from '@entities/template';
+
+export type TemplateUpdatePayload = TemplateUpdatePayloadSource;
 
 export type TemplateSelectorProps = {
   builtInTemplates?: ResumeTemplate[];

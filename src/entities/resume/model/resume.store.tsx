@@ -11,8 +11,9 @@ import {
 
 import { createEmptyResume } from '../lib/factory';
 import { normalizeResumeDraft, normalizeResumeSchema } from '../lib/normalizers';
+import type { ActiveSectionKey } from '../selectors';
 import { deriveSectionsFromResume, sanitizeSections } from '../selectors';
-import type { ActiveSectionKey, ResumeData } from '../types';
+import type { ResumeData } from '../types';
 
 type ResumeUpdater = (draft: ResumeData) => void;
 

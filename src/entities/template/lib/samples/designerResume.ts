@@ -60,7 +60,8 @@ export const designerResumeZh: ResumeData = buildResume({
       id: createId('proj'),
       name: 'Flow Habit App',
       role: '视觉负责人',
-      summary: '设计健康习惯应用的视觉系统，定义插画风格并输出 30+ UI 组件，获 2023 年度最佳 App 视觉奖。',
+      summary:
+        '设计健康习惯应用的视觉系统，定义插画风格并输出 30+ UI 组件，获 2023 年度最佳 App 视觉奖。',
       link: '',
     },
   ],
@@ -169,7 +170,8 @@ export const designerResumeEn: ResumeData = buildResume({
       degree: 'B.A. in Visual Communication',
       startDate: '2012',
       endDate: '2016',
-      details: 'Focused on visual communication and illustration; multiple Excellence in Design awards.',
+      details:
+        'Focused on visual communication and illustration; multiple Excellence in Design awards.',
     },
   ],
   skills: [

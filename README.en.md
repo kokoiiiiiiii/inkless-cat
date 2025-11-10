@@ -23,7 +23,7 @@ Live Demo: https://inkless-cat.pages.dev/
 
 - React 19 + TypeScript
 - Vite 7 (dev/build)
-- Tailwind CSS + SCSS (styling)
+- Tailwind CSS + PostCSS Nesting (styling)
 - Immer (immutable updates)
 - FSD‑inspired layering (pages/widgets/features/entities/shared) + path aliases
 
@@ -114,4 +114,3 @@ We welcome issues and PRs for features, fixes, and docs:
 ## License
 
 Apache License 2.0. See [LICENSE](./LICENSE).
-

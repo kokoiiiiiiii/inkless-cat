@@ -23,7 +23,7 @@ Inkless Cat 是一个纯前端、开箱即用的开源简历编辑器。它以�
 
 - React 19 + TypeScript
 - Vite 7（开发/构建）
-- Tailwind CSS + SCSS（样式）
+- Tailwind CSS + PostCSS Nesting（样式）
 - Immer（不可变数据与安全更新）
 - FSD 改良版分层（pages/widgets/features/entities/shared）+ 路径别名
 

@@ -1,5 +1,5 @@
-@use './styles/print';
-@use './styles/utilities';
+@import './styles/print.css';
+@import './styles/utilities.css';
 
 @tailwind base;
 @tailwind components;

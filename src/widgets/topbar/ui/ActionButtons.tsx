@@ -34,6 +34,10 @@ const ActionButtons = ({
   const { t, locale } = useI18n();
   const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
   const nextLocale = locale === 'en' ? 'zh-CN' : 'en';
+  const translateWithFallback = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
 
   const openLocaleDialog = () => setPendingLocale(nextLocale);
   const closeLocaleDialog = () => setPendingLocale(null);
@@ -42,7 +46,7 @@ const ActionButtons = ({
   const targetLocaleName =
     pendingLocale === null
       ? ''
-      : t(`topbar.langSwitch.localeNames.${pendingLocale}`, localeNameFallback);
+      : translateWithFallback(`topbar.langSwitch.localeNames.${pendingLocale}`, localeNameFallback);
 
   const handleLanguageOnly = () => {
     if (!pendingLocale) return;
@@ -99,7 +103,7 @@ const ActionButtons = ({
         >
           <div className="relative w-full max-w-md translate-y-6 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-2xl transition-transform dark:border-slate-700 dark:bg-slate-900 sm:translate-y-4 lg:translate-y-2">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {t('topbar.langSwitch.title', '切换语言')}
+              {translateWithFallback('topbar.langSwitch.title', '切换语言')}
             </h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {t('topbar.langSwitch.description', {
@@ -112,7 +116,7 @@ const ActionButtons = ({
                 className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
                 onClick={handleLanguageOnly}
               >
-                {t('topbar.langSwitch.languageOnly', '仅切换语言')}
+                {translateWithFallback('topbar.langSwitch.languageOnly', '仅切换语言')}
               </button>
               <button
                 type="button"

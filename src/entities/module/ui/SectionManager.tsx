@@ -70,7 +70,9 @@ export const SectionManager = memo(
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               {t('modules.manager.title')}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t('modules.manager.desc')}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('modules.manager.desc')}
+            </p>
           </div>
           <button
             type="button"

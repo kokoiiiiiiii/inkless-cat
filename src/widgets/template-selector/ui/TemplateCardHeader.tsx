@@ -32,10 +32,10 @@ export const TemplateCardHeader = ({
     return value === key ? undefined : value;
   };
 
-  const resolvedName = isCustom ? template.name : getSystemCopy('name') ?? template.name;
+  const resolvedName = isCustom ? template.name : (getSystemCopy('name') ?? template.name);
   const resolvedDescription = isCustom
     ? template.description
-    : getSystemCopy('description') ?? template.description;
+    : (getSystemCopy('description') ?? template.description);
 
   return (
     <div className="flex items-start justify-between gap-3">
@@ -74,9 +74,7 @@ export const TemplateCardHeader = ({
             onChange={handleDescriptionChange}
           />
         ) : (
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {resolvedDescription}
-          </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{resolvedDescription}</p>
         )}
       </div>
       <span
