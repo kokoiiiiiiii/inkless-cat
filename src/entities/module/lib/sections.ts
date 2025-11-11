@@ -1,5 +1,5 @@
 import type { ResumeCustomSection, ResumeCustomSectionMode } from '@entities/resume';
-import { createId } from '@shared/lib/id';
+import { createId } from '@shared/lib';
 
 import type { SectionDefinition, SectionKey } from '../types';
 

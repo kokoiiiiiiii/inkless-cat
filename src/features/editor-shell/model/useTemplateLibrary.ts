@@ -1,7 +1,7 @@
 import { createSampleResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
 import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
 import { type Locale, useI18n } from '@shared/i18n';
-import { clone } from '@shared/lib/clone';
+import { clone } from '@shared/lib';
 import { type Dispatch, type SetStateAction, useCallback, useMemo } from 'react';
 
 import { createCustomTemplateId, normalizeTemplateTheme } from '../lib/templateTheme';

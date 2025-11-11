@@ -1,6 +1,5 @@
 import { createCustomSection } from '@entities/module';
-import { clone } from '@shared/lib/clone';
-import { createId } from '@shared/lib/id';
+import { clone, createId } from '@shared/lib';
 
 import type { ResumeCustomField, ResumeCustomSection, ResumeData } from '../types';
 

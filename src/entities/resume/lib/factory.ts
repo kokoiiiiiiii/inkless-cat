@@ -1,5 +1,5 @@
 import type { Locale } from '@shared/i18n';
-import { createId } from '@shared/lib/id';
+import { createId } from '@shared/lib';
 
 import type {
   ResumeAward,

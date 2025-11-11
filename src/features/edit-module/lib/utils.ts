@@ -1,5 +1,5 @@
 import type { ResumeCustomField } from '@entities/resume';
-import { createId } from '@shared/lib/id';
+import { createId } from '@shared/lib';
 
 export const cleanListInput = (value: string): string[] =>
   value

@@ -1,5 +1,5 @@
 import type { ResumeData } from '@entities/resume';
-import { createId } from '@shared/lib/id';
+import { createId } from '@shared/lib';
 
 import { buildResume } from './helpers';
 
