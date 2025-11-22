@@ -6,7 +6,7 @@ Inkless Cat is a zero-backend, browser‑based resume editor. It organizes conte
 
 Language: English | [简体中文](./README.md)
 
-Live Demo: https://inkless-cat.pages.dev/
+Live Demo: <https://inkless-cat.pages.dev>
 
 ## Features
 
@@ -25,6 +25,7 @@ Live Demo: https://inkless-cat.pages.dev/
 - Vite 7 (dev/build)
 - Tailwind CSS + PostCSS Nesting (styling)
 - Immer (immutable updates)
+- Zustand + `persist` (entity/UI stores with browser persistence)
 - FSD‑inspired layering (pages/widgets/features/entities/shared) + path aliases
 
 ## How To Use
@@ -45,6 +46,9 @@ npm run dev           # start dev server (defaults to http://localhost:5173)
 npm run build         # build static assets to ./dist
 npm run preview       # preview the production build locally
 npm run lint          # run ESLint checks
+npm test              # run Zustand store unit tests (Vitest)
+npm run test:watch    # run tests in watch mode
+npm run test:bench    # run lightweight store benchmarks
 ```
 
 ## Architecture & Structure
@@ -78,6 +82,14 @@ src/
   main.tsx                # Entry
 ```
 
+## State Management & Persistence
+
+- Store layers: `entities/resume` owns resume data (draft, section order, dirty flag); `entities/ui` owns theme/template panel/mobile view; `shared/lib` exposes logging, storage helpers, and Zustand utilities.
+- Tooling: Zustand + `persist` + `devtools`, wrapped with a custom logger and error boundary; actions accept functional updates to stay compatible with previous `setState` usage.
+- Persistence: stores write to `localStorage` keys `inkless-cat/resume-store` and `inkless-cat/ui-store` while remaining backward compatible with legacy keys to avoid data loss.
+- DOM sync: theme changes update `document.documentElement` (`dark` class + `data-theme`) to avoid flicker.
+- Observability: store logs are prefixed with `[store:resume]` / `[store:ui]` for quick troubleshooting.
+
 ## Quality & Tooling
 
 - Linting: `eslint.config.js` integrates React/TS/import/jsx‑a11y/unicorn/security/tailwindcss, enforces import boundaries and alias usage.
@@ -93,6 +105,7 @@ This is a pure front‑end application — no servers, no databases. Your resume
 - `inkless-cat-template`: active template ID
 - `inkless-cat-sections`: enabled section order
 - `inkless-cat-custom-templates`: custom template list
+- `inkless-cat/resume-store`, `inkless-cat/ui-store`: Zustand stores (persisted state, still compatible with legacy keys)
 
 ## Roadmap
 

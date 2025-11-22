@@ -2,9 +2,6 @@ import type { ActiveSectionKey, ResumeData } from '@entities/resume';
 import type { ResumeTemplate } from '@entities/template';
 import type { ThemeMode } from '@entities/ui';
 import type { Locale } from '@shared/i18n';
-import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
-
-import { loadInitialResume } from '../lib/resume';
 import {
   CUSTOM_TEMPLATES_KEY,
   getStoredValue,
@@ -13,7 +10,10 @@ import {
   SECTIONS_KEY,
   TEMPLATE_KEY,
   THEME_KEY,
-} from '../lib/storage';
+} from '@shared/lib/storage';
+import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
+
+import { loadInitialResume } from '../lib/resume';
 import { normalizeTemplateTheme } from '../lib/templateTheme';
 
 type UseEditorBootstrapParams = {

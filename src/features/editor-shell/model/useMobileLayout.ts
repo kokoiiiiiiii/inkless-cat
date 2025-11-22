@@ -1,7 +1,5 @@
-import type { RefObject } from 'react';
-import { useEffect } from 'react';
-
-import { isBrowser } from '../lib/storage';
+import { isBrowser } from '@shared/lib/storage';
+import { type RefObject, useEffect } from 'react';
 
 type MobileView = 'editor' | 'preview';
 

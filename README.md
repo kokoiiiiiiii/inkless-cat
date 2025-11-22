@@ -6,7 +6,7 @@ Inkless Cat 是一个纯前端、开箱即用的开源简历编辑器。它以�
 
 语言：简体中文 | [English](./README.en.md)
 
-在线体验：https://inkless-cat.pages.dev/
+在线体验：<https://inkless-cat.pages.dev>
 
 ## 特性 ✨
 
@@ -25,6 +25,7 @@ Inkless Cat 是一个纯前端、开箱即用的开源简历编辑器。它以�
 - Vite 7（开发/构建）
 - Tailwind CSS + PostCSS Nesting（样式）
 - Immer（不可变数据与安全更新）
+- Zustand + `persist`（实体/UI 状态与本地持久化）
 - FSD 改良版分层（pages/widgets/features/entities/shared）+ 路径别名
 
 ## 使用说明 🧭
@@ -45,6 +46,9 @@ npm run dev           # 启动开发环境（默认 http://localhost:5173）
 npm run build         # 产出静态构建（./dist）
 npm run preview       # 本地预览构建产物
 npm run lint          # 运行 ESLint 检查
+npm test              # 运行 Zustand store 单元测试（Vitest）
+npm run test:watch    # 监听模式下调试测试
+npm run test:bench    # 运行基础性能基准
 ```
 
 ## 架构与目录 🧩
@@ -78,6 +82,14 @@ src/
   main.tsx                # 入口
 ```
 
+## 状态管理与持久化 🗂️
+
+- Store 分层：`entities/resume` 负责简历实体（数据草稿、模块顺序、脏标记），`entities/ui` 负责主题/模板开关/移动端视图等 UI 状态；`shared/lib` 暴露日志、存储与 Zustand 工具。
+- 工具链：Zustand + `persist` + `devtools`，配合自定义 `logger` 与错误边界，支持函数式更新（保持与旧的 `setState` API 兼容）。
+- 持久化：Zustand 默认写入 `localStorage` 中的 `inkless-cat/resume-store` 与 `inkless-cat/ui-store`，同步兼容旧版键值以避免数据丢失。
+- DOM 同步：主题切换自动写入 `document.documentElement` 的 `dark` class 与 `data-theme`，避免闪烁。
+- 监控：Store 日志输出前缀为 `[store:resume]` / `[store:ui]`，便于排查状态异常。
+
 ## 质量与工程 🔧
 
 - Lint：基于 `eslint.config.js`，集成 React/TS/import/jsx-a11y/unicorn/security/tailwindcss 等规则，约束跨层导入与路径穿透。
@@ -93,6 +105,7 @@ src/
   - `inkless-cat-template`：选中模板 ID
   - `inkless-cat-sections`：启用模块顺序
   - `inkless-cat-custom-templates`：自定义模板列表
+  - `inkless-cat/resume-store`、`inkless-cat/ui-store`：Zustand store（持久化状态，兼容旧键值）
 
 ## 路线图 🗺️
 

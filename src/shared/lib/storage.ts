@@ -4,6 +4,9 @@ export const TEMPLATE_KEY = 'inkless-cat-template';
 export const SECTIONS_KEY = 'inkless-cat-sections';
 export const CUSTOM_TEMPLATES_KEY = 'inkless-cat-custom-templates';
 
+export const RESUME_STORE_PERSIST_KEY = 'inkless-cat/resume-store';
+export const UI_STORE_PERSIST_KEY = 'inkless-cat/ui-store';
+
 export const LEGACY_KEYS = {
   data: 'resume-studio-data',
   theme: 'resume-studio-theme',
@@ -12,13 +15,33 @@ export const LEGACY_KEYS = {
   customTemplates: 'resume-studio-custom-templates',
 } as const;
 
-export const isBrowser = typeof globalThis !== 'undefined';
+export const isBrowser = Boolean(globalThis?.localStorage);
 
 type LegacyValue = (typeof LEGACY_KEYS)[keyof typeof LEGACY_KEYS];
 
+const memoryStorage = new Map<string, string>();
+
 const readFromStorage = (key: string) => {
-  if (!isBrowser) return null;
+  if (!isBrowser) {
+    return memoryStorage.get(key) ?? null;
+  }
   return globalThis.localStorage.getItem(key);
+};
+
+const writeToStorage = (key: string, value: string) => {
+  if (!isBrowser) {
+    memoryStorage.set(key, value);
+    return;
+  }
+  globalThis.localStorage.setItem(key, value);
+};
+
+const removeFromStorage = (key: string) => {
+  if (!isBrowser) {
+    memoryStorage.delete(key);
+    return;
+  }
+  globalThis.localStorage.removeItem(key);
 };
 
 export const getStoredValue = (key: string, legacyKey?: LegacyValue) => {
@@ -40,16 +63,13 @@ export const readStoredJson = <T>(key: string, legacyKey?: LegacyValue | null) =
 };
 
 export const writeStoredString = (key: string, value: string) => {
-  if (!isBrowser) return;
-  globalThis.localStorage.setItem(key, value);
+  writeToStorage(key, value);
 };
 
 export const writeStoredJson = (key: string, value: unknown) => {
-  if (!isBrowser) return;
-  globalThis.localStorage.setItem(key, JSON.stringify(value));
+  writeToStorage(key, JSON.stringify(value));
 };
 
 export const removeStoredValue = (key: string) => {
-  if (!isBrowser) return;
-  globalThis.localStorage.removeItem(key);
+  removeFromStorage(key);
 };

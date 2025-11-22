@@ -1,7 +1,6 @@
 import { useI18n } from '@shared/i18n';
+import { isBrowser } from '@shared/lib/storage';
 import { useCallback } from 'react';
-
-import { isBrowser } from '../lib/storage';
 
 type UseCustomSectionPromptOptions = {
   appendCustomSection: (title?: string) => void;

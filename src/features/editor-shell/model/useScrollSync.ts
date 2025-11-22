@@ -1,7 +1,6 @@
 import type { ResumeData } from '@entities/resume';
+import { isBrowser } from '@shared/lib/storage';
 import { useCallback, useEffect, useRef } from 'react';
-
-import { isBrowser } from '../lib/storage';
 
 type SectionRefMap = Map<string, HTMLElement>;
 

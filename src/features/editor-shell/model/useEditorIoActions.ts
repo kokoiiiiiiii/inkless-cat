@@ -1,9 +1,6 @@
-import type { ResumeData } from '@entities/resume';
-import { createEmptyResume } from '@entities/resume';
-import type { Dispatch, SetStateAction } from 'react';
-import { useCallback } from 'react';
-
-import { isBrowser } from '../lib/storage';
+import { createEmptyResume, type ResumeData } from '@entities/resume';
+import { isBrowser } from '@shared/lib/storage';
+import { type Dispatch, type SetStateAction, useCallback } from 'react';
 
 type UseEditorIoActionsOptions = {
   resetState: (nextResume?: ResumeData) => void;

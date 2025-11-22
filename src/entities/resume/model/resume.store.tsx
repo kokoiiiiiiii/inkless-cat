@@ -1,13 +1,17 @@
-import { produce } from 'immer';
+import { createStoreLogger } from '@shared/lib/logger';
 import {
-  createContext,
-  type Dispatch,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+  LEGACY_KEYS,
+  readStoredJson,
+  RESUME_STORE_PERSIST_KEY,
+  SECTIONS_KEY,
+  STORAGE_KEY,
+} from '@shared/lib/storage';
+import { createBrowserStorage, withStoreErrorBoundary } from '@shared/lib/store';
+import { produce } from 'immer';
+import type { ReactNode } from 'react';
+import { create } from 'zustand';
+import { createJSONStorage, devtools, persist } from 'zustand/middleware';
+import { shallow } from 'zustand/shallow';
 
 import { createEmptyResume } from '../lib/factory';
 import { normalizeResumeDraft, normalizeResumeSchema } from '../lib/normalizers';
@@ -36,123 +40,154 @@ type UpdateActiveSectionsOptions = {
   allowEmpty?: boolean;
 };
 
-type ResumeStoreContextValue = ResumeStoreState & {
+type ResumeStore = ResumeStoreState & {
   updateResume: (updater: UpdateResumeInput, options?: UpdateResumeOptions) => void;
   updateActiveSections: (input: ActiveSectionsInput, options?: UpdateActiveSectionsOptions) => void;
-  setHasResumeChanges: Dispatch<boolean>;
+  setHasResumeChanges: (value: boolean) => void;
   resetState: (nextResume?: ResumeData) => void;
 };
 
-const ResumeStoreContext = createContext<ResumeStoreContextValue | undefined>(undefined);
+const logger = createStoreLogger('resume');
 
 const createNormalizedResume = (value?: ResumeData): ResumeData =>
   normalizeResumeSchema(value ?? createEmptyResume(), { clone: true });
 
+const resolveInitialActiveSections = (resume: ResumeData): ActiveSectionKey[] => {
+  const storedSections = readStoredJson<ActiveSectionKey[]>(SECTIONS_KEY, LEGACY_KEYS.sections);
+  if (Array.isArray(storedSections) && storedSections.length > 0) {
+    return sanitizeSections(storedSections, resume, { fallbackToDefaults: true });
+  }
+  return deriveSectionsFromResume(resume);
+};
+
+const createInitialState = (): ResumeStoreState => {
+  const storedResume = readStoredJson<ResumeData>(STORAGE_KEY, LEGACY_KEYS.data);
+  const normalized = createNormalizedResume(storedResume ?? undefined);
+
+  return {
+    resume: normalized,
+    activeSections: resolveInitialActiveSections(normalized),
+    hasResumeChanges: false,
+  };
+};
+
+export const useResumeStore = create<ResumeStore>()(
+  devtools(
+    persist(
+      (set) => ({
+        ...createInitialState(),
+        updateResume: (updater, options: UpdateResumeOptions = {}) =>
+          withStoreErrorBoundary(logger, 'updateResume', () => {
+            const { markDirty = true, syncSections = true } = options;
+            set(
+              (state) => {
+                const nextResume =
+                  typeof updater === 'function'
+                    ? produce(state.resume, (draft: ResumeData) => {
+                        updater(draft);
+                        normalizeResumeDraft(draft);
+                      })
+                    : normalizeResumeSchema(updater, { clone: true });
+                const nextSections = syncSections
+                  ? sanitizeSections(state.activeSections, nextResume, { fallbackToDefaults: true })
+                  : state.activeSections;
+                return {
+                  resume: nextResume,
+                  activeSections: nextSections,
+                  hasResumeChanges: markDirty ? true : state.hasResumeChanges,
+                };
+              },
+              false,
+              'resume/updateResume',
+            );
+          }),
+        updateActiveSections: (input, options?: UpdateActiveSectionsOptions) =>
+          withStoreErrorBoundary(logger, 'updateActiveSections', () =>
+            set(
+              (state) => {
+                const next =
+                  typeof input === 'function'
+                    ? (input as (prevSections: ActiveSectionKey[]) => ActiveSectionKey[])(
+                        state.activeSections,
+                      )
+                    : input;
+                return {
+                  activeSections: sanitizeSections(next, state.resume, {
+                    fallbackToDefaults: !options?.allowEmpty,
+                  }),
+                };
+              },
+              false,
+              'resume/updateActiveSections',
+            ),
+          ),
+        setHasResumeChanges: (value) =>
+          withStoreErrorBoundary(logger, 'setHasResumeChanges', () =>
+            set({ hasResumeChanges: value }, false, 'resume/setHasResumeChanges'),
+          ),
+        resetState: (nextResume) =>
+          withStoreErrorBoundary(logger, 'resetState', () =>
+            set(
+              () => {
+                const normalized = createNormalizedResume(nextResume);
+                return {
+                  resume: normalized,
+                  activeSections: deriveSectionsFromResume(normalized),
+                  hasResumeChanges: false,
+                };
+              },
+              false,
+              'resume/resetState',
+            ),
+          ),
+      }),
+      {
+        name: RESUME_STORE_PERSIST_KEY,
+        storage: createJSONStorage(() => createBrowserStorage(logger, 'resume')),
+        partialize: ({ resume, activeSections, hasResumeChanges }) => ({
+          resume,
+          activeSections,
+          hasResumeChanges,
+        }),
+        onRehydrateStorage: () => (state, error) => {
+          if (error) {
+            logger.error('Resume store rehydration failed', error);
+            return;
+          }
+          logger.info('Resume store rehydrated');
+        },
+      },
+    ),
+    { name: 'resume-store' },
+  ),
+);
+
+export const useResumeState = () =>
+  useResumeStore(
+    (state) => ({
+      resume: state.resume,
+      activeSections: state.activeSections,
+      hasResumeChanges: state.hasResumeChanges,
+    }),
+    shallow,
+  );
+
+export const useResumeActions = () =>
+  useResumeStore(
+    (state) => ({
+      updateResume: state.updateResume,
+      updateActiveSections: state.updateActiveSections,
+      setHasResumeChanges: state.setHasResumeChanges,
+      resetState: state.resetState,
+    }),
+    shallow,
+  );
+
+export const useResumeSelector = <T,>(selector: (state: ResumeStoreState) => T): T =>
+  useResumeStore(selector);
+
 type ResumeStoreProviderProps = {
   children: ReactNode;
-  initialResume?: ResumeData;
-  initialSections?: ActiveSectionKey[];
 };
 
-export const ResumeStoreProvider = ({
-  children,
-  initialResume,
-  initialSections,
-}: ResumeStoreProviderProps) => {
-  const [resume, setResume] = useState<ResumeData>(() => createNormalizedResume(initialResume));
-  const [activeSections, setActiveSections] = useState<ActiveSectionKey[]>(() => {
-    if (Array.isArray(initialSections) && initialSections.length > 0) {
-      return sanitizeSections(initialSections, createNormalizedResume(initialResume), {
-        fallbackToDefaults: true,
-      });
-    }
-    return deriveSectionsFromResume(createNormalizedResume(initialResume));
-  });
-  const [hasResumeChanges, setHasResumeChanges] = useState<boolean>(false);
-
-  const updateActiveSections = useCallback(
-    (input: ActiveSectionsInput, options?: UpdateActiveSectionsOptions) => {
-      setActiveSections((prev) => {
-        const next =
-          typeof input === 'function'
-            ? (input as (prevSections: ActiveSectionKey[]) => ActiveSectionKey[])(prev)
-            : input;
-        return sanitizeSections(next, resume, {
-          fallbackToDefaults: !options?.allowEmpty,
-        });
-      });
-    },
-    [resume],
-  );
-
-  const resetState = useCallback((nextResume?: ResumeData) => {
-    const normalized = createNormalizedResume(nextResume);
-    setResume(normalized);
-    setActiveSections(deriveSectionsFromResume(normalized));
-    setHasResumeChanges(false);
-  }, []);
-
-  const updateResume = useCallback(
-    (updater: UpdateResumeInput, options: UpdateResumeOptions = {}) => {
-      const { markDirty = true, syncSections = true } = options;
-      setResume((prev) => {
-        const next =
-          typeof updater === 'function'
-            ? produce(prev, (draft: ResumeData) => {
-                updater(draft);
-                normalizeResumeDraft(draft);
-              })
-            : normalizeResumeSchema(updater, { clone: true });
-        if (syncSections) {
-          setActiveSections((current) =>
-            sanitizeSections(current, next, { fallbackToDefaults: true }),
-          );
-        }
-        return next;
-      });
-      if (markDirty) {
-        setHasResumeChanges(true);
-      }
-    },
-    [],
-  );
-
-  const contextValue = useMemo<ResumeStoreContextValue>(
-    () => ({
-      resume,
-      activeSections,
-      hasResumeChanges,
-      updateResume,
-      updateActiveSections,
-      setHasResumeChanges,
-      resetState,
-    }),
-    [resume, activeSections, hasResumeChanges, updateResume, updateActiveSections, resetState],
-  );
-
-  return <ResumeStoreContext.Provider value={contextValue}>{children}</ResumeStoreContext.Provider>;
-};
-
-const useResumeStoreContext = (): ResumeStoreContextValue => {
-  const context = useContext(ResumeStoreContext);
-  if (!context) {
-    throw new Error('useResumeStore 必须在 ResumeStoreProvider 内部使用');
-  }
-  return context;
-};
-
-export const useResumeState = () => {
-  const { resume, activeSections, hasResumeChanges } = useResumeStoreContext();
-  return { resume, activeSections, hasResumeChanges };
-};
-
-export const useResumeActions = () => {
-  const { updateResume, updateActiveSections, setHasResumeChanges, resetState } =
-    useResumeStoreContext();
-  return { updateResume, updateActiveSections, setHasResumeChanges, resetState };
-};
-
-export const useResumeSelector = <T,>(selector: (state: ResumeStoreState) => T): T => {
-  const { resume, activeSections, hasResumeChanges } = useResumeStoreContext();
-  return selector({ resume, activeSections, hasResumeChanges });
-};
+export const ResumeStoreProvider = ({ children }: ResumeStoreProviderProps) => children;

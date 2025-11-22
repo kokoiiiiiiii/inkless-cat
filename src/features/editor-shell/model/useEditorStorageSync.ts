@@ -1,7 +1,5 @@
 import type { ResumeData } from '@entities/resume';
 import type { ResumeTemplate } from '@entities/template';
-import { useEffect, useRef } from 'react';
-
 import {
   CUSTOM_TEMPLATES_KEY,
   isBrowser,
@@ -12,7 +10,8 @@ import {
   THEME_KEY,
   writeStoredJson,
   writeStoredString,
-} from '../lib/storage';
+} from '@shared/lib/storage';
+import { useEffect, useRef } from 'react';
 
 type UseEditorStorageSyncParams = {
   resume: ResumeData;
@@ -29,7 +28,8 @@ export const useEditorStorageSync = ({
   templateId,
   customTemplates,
 }: UseEditorStorageSyncParams) => {
-  const resumePersistTimeoutRef = useRef<number | null>(null);
+  type TimeoutId = ReturnType<typeof globalThis.setTimeout>;
+  const resumePersistTimeoutRef = useRef<TimeoutId | null>(null);
   const pendingResumeSnapshotRef = useRef<string | null>(null);
 
   useEffect(() => {

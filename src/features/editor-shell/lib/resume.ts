@@ -1,7 +1,6 @@
 import { createSampleResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
 import type { Locale } from '@shared/i18n';
-
-import { getStoredValue, isBrowser, LEGACY_KEYS, STORAGE_KEY } from './storage';
+import { getStoredValue, isBrowser, LEGACY_KEYS, STORAGE_KEY } from '@shared/lib/storage';
 
 export const loadInitialResume = (locale: Locale = 'zh-CN'): ResumeData => {
   if (!isBrowser) {
