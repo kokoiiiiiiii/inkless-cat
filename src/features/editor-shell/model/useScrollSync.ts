@@ -30,6 +30,24 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
         return;
       }
 
+      const editorMaxScroll = Math.max(editor.scrollHeight - editor.clientHeight, 0);
+      const previewMaxScroll = Math.max(preview.scrollHeight - preview.clientHeight, 0);
+
+      if (editorMaxScroll === 0) {
+        if (preview.scrollTop !== 0) {
+          preview.scrollTo({ top: 0, behavior: 'auto' });
+        }
+        ticking = false;
+        return;
+      }
+
+      const isEditorAtBottom = editor.scrollTop >= editorMaxScroll - 4;
+      if (isEditorAtBottom) {
+        preview.scrollTo({ top: previewMaxScroll, behavior: 'auto' });
+        ticking = false;
+        return;
+      }
+
       const orderedKeys = ['personal', ...activeSections];
       const sectionKeys = orderedKeys.filter(
         (key) =>
@@ -37,10 +55,8 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
       );
 
       if (sectionKeys.length === 0) {
-        const editorScrollable = editor.scrollHeight - editor.clientHeight;
-        const previewScrollable = preview.scrollHeight - preview.clientHeight;
-        const ratio = editorScrollable > 0 ? editor.scrollTop / editorScrollable : 0;
-        const target = previewScrollable > 0 ? ratio * previewScrollable : 0;
+        const ratio = editorMaxScroll > 0 ? editor.scrollTop / editorMaxScroll : 0;
+        const target = previewMaxScroll > 0 ? ratio * previewMaxScroll : 0;
         preview.scrollTo({ top: target, behavior: 'auto' });
         ticking = false;
         return;
