@@ -31,9 +31,9 @@ export const personal = {
     },
   },
   extras: {
-    title: '补充信息',
+    title: '信息',
     add: '添加',
-    empty: '暂无补充信息，点击“添加”可自定义标签与内容。',
+    empty: '暂无自定义信息，点击“添加”可自定义标签与内容。',
     label: { label: '标签', placeholder: '例如：个人网站' },
     value: { label: '内容', placeholder: 'https://example.com' },
   },

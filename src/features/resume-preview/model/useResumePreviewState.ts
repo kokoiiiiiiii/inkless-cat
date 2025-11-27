@@ -122,27 +122,47 @@ export const useResumePreviewState = ({
     const items: ContactItem[] = [];
 
     if (personal.email) {
-      items.push({ id: 'email', label: '邮箱', value: personal.email });
+      const emailLabel =
+        typeof personal.emailLabel === 'string' && personal.emailLabel.trim()
+          ? personal.emailLabel.trim()
+          : '邮箱';
+      items.push({ id: 'email', label: emailLabel, value: personal.email });
     }
 
     if (personal.phone) {
-      items.push({ id: 'phone', label: '电话', value: personal.phone });
+      const phoneLabel =
+        typeof personal.phoneLabel === 'string' && personal.phoneLabel.trim()
+          ? personal.phoneLabel.trim()
+          : '电话';
+      items.push({ id: 'phone', label: phoneLabel, value: personal.phone });
     }
 
     if (personal.location) {
-      items.push({ id: 'location', label: '所在地', value: personal.location });
+      const locationLabel =
+        typeof personal.locationLabel === 'string' && personal.locationLabel.trim()
+          ? personal.locationLabel.trim()
+          : '所在地';
+      items.push({ id: 'location', label: locationLabel, value: personal.location });
     }
 
     for (const [index, extra] of extras.entries()) {
       items.push({
         id: `extra-${extra.id ?? index}`,
-        label: extra.label || '补充信息',
+        label: extra.label || '信息',
         value: extra.value || '',
       });
     }
 
     return items;
-  }, [extras, personal.email, personal.phone, personal.location]);
+  }, [
+    extras,
+    personal.email,
+    personal.emailLabel,
+    personal.phone,
+    personal.phoneLabel,
+    personal.location,
+    personal.locationLabel,
+  ]);
 
   const customSections = useMemo<ResumeCustomSection[]>(
     () => (Array.isArray(resume.customSections) ? resume.customSections : []),

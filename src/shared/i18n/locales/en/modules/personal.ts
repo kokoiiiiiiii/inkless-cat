@@ -34,9 +34,9 @@ export const personal = {
     },
   },
   extras: {
-    title: 'Additional Info',
+    title: 'Info',
     add: 'Add',
-    empty: 'No extra info yet. Click “Add” to customize labels and values.',
+    empty: 'No custom info yet. Click “Add” to create your own labels and values.',
     label: { label: 'Label', placeholder: 'e.g. Personal Website' },
     value: { label: 'Value', placeholder: 'https://example.com' },
   },

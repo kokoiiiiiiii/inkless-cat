@@ -83,8 +83,11 @@ export type ResumePersonal = {
   fullName?: string;
   title?: string;
   email?: string;
+  emailLabel?: string;
   phone?: string;
+  phoneLabel?: string;
   location?: string;
+  locationLabel?: string;
   photo?: string;
   summary?: string;
   extras?: ResumePersonalExtra[];

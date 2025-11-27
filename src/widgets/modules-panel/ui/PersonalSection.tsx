@@ -47,6 +47,39 @@ const PersonalSection = memo(
     const showPhoto = settings.showPhoto !== false;
     const photoSize = Math.max(80, Math.min(settings.photoSize ?? 120, 260));
     const photoPosition = settings.photoPosition === 'left' ? 'left' : 'right';
+    const emailLabel = typeof personal.emailLabel === 'string' ? personal.emailLabel : undefined;
+    const phoneLabel = typeof personal.phoneLabel === 'string' ? personal.phoneLabel : undefined;
+    const locationLabel =
+      typeof personal.locationLabel === 'string' ? personal.locationLabel : undefined;
+    const contactCards = [
+      {
+        id: 'email',
+        labelKey: 'emailLabel',
+        valueKey: 'email',
+        labelValue: emailLabel ?? t('modules.personal.fields.email.label'),
+        value: personal.email || '',
+        valuePlaceholder: t('modules.personal.fields.email.placeholder'),
+        inputType: 'email',
+      },
+      {
+        id: 'phone',
+        labelKey: 'phoneLabel',
+        valueKey: 'phone',
+        labelValue: phoneLabel ?? t('modules.personal.fields.phone.label'),
+        value: personal.phone || '',
+        valuePlaceholder: t('modules.personal.fields.phone.placeholder'),
+        inputType: 'text',
+      },
+      {
+        id: 'location',
+        labelKey: 'locationLabel',
+        valueKey: 'location',
+        labelValue: locationLabel ?? t('modules.personal.fields.location.label'),
+        value: personal.location || '',
+        valuePlaceholder: t('modules.personal.fields.location.placeholder'),
+        inputType: 'text',
+      },
+    ] as const;
 
     return (
       <section ref={sectionRef} className="space-y-4">
@@ -79,43 +112,6 @@ const PersonalSection = memo(
                   value={personal.title}
                   placeholder={t('modules.personal.fields.title.placeholder')}
                   onChange={(event) => onChange('title', event.target.value)}
-                  onFocus={() => notifyFocus('personal', 'personal')}
-                />
-              </label>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className={labelClass}>
-                  <span className={labelTextClass}>{t('modules.personal.fields.email.label')}</span>
-                  <input
-                    className={inputClass}
-                    type="email"
-                    value={personal.email}
-                    placeholder={t('modules.personal.fields.email.placeholder')}
-                    onChange={(event) => onChange('email', event.target.value)}
-                    onFocus={() => notifyFocus('personal', 'personal')}
-                  />
-                </label>
-                <label className={labelClass}>
-                  <span className={labelTextClass}>{t('modules.personal.fields.phone.label')}</span>
-                  <input
-                    className={inputClass}
-                    type="text"
-                    value={personal.phone}
-                    placeholder={t('modules.personal.fields.phone.placeholder')}
-                    onChange={(event) => onChange('phone', event.target.value)}
-                    onFocus={() => notifyFocus('personal', 'personal')}
-                  />
-                </label>
-              </div>
-              <label className={labelClass}>
-                <span className={labelTextClass}>
-                  {t('modules.personal.fields.location.label')}
-                </span>
-                <input
-                  className={inputClass}
-                  type="text"
-                  value={personal.location}
-                  placeholder={t('modules.personal.fields.location.placeholder')}
-                  onChange={(event) => onChange('location', event.target.value)}
                   onFocus={() => notifyFocus('personal', 'personal')}
                 />
               </label>
@@ -206,12 +202,55 @@ const PersonalSection = memo(
                   {t('modules.personal.extras.add')}
                 </button>
               </div>
-              {extras.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-slate-300/60 bg-white/60 px-3 py-4 text-xs text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-400">
-                  {t('modules.personal.extras.empty')}
-                </p>
-              ) : (
+              <div className="space-y-3">
                 <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+                  {contactCards.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="rounded-xl border border-slate-200/60 bg-white/80 p-3 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/60"
+                    >
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className={labelClass}>
+                          <span className={labelTextClass}>
+                            {t('modules.personal.extras.label.label')}
+                          </span>
+                          <input
+                            className={inputClass}
+                            type="text"
+                            value={contact.labelValue}
+                            placeholder={t('modules.personal.extras.label.placeholder')}
+                            onChange={(event) => onChange(contact.labelKey, event.target.value)}
+                            onFocus={() => notifyFocus('personal', contact.id)}
+                          />
+                        </label>
+                        <label className={labelClass}>
+                          <span className={labelTextClass}>
+                            {t('modules.personal.extras.value.label')}
+                          </span>
+                          <input
+                            className={inputClass}
+                            type={contact.inputType}
+                            value={contact.value}
+                            placeholder={contact.valuePlaceholder}
+                            onChange={(event) => onChange(contact.valueKey, event.target.value)}
+                            onFocus={() => notifyFocus('personal', contact.id)}
+                          />
+                        </label>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          className={dangerButtonClass}
+                          onClick={() => {
+                            onChange(contact.valueKey, '');
+                            onChange(contact.labelKey, '');
+                          }}
+                        >
+                          {t('modules.actions.delete')}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                   {extras.map((extra) => (
                     <div
                       key={extra.id}
@@ -261,7 +300,12 @@ const PersonalSection = memo(
                     </div>
                   ))}
                 </div>
-              )}
+                {extras.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-slate-300/60 bg-white/60 px-3 py-4 text-xs text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-400">
+                    {t('modules.personal.extras.empty')}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
