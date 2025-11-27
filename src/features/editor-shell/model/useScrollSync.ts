@@ -62,34 +62,35 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
         return;
       }
 
+      const editorStarts: number[] = [];
+      const previewStarts: number[] = [];
       const editorHeights: number[] = [];
       const previewHeights: number[] = [];
 
       for (const key of sectionKeys) {
         const editorNode = editorSectionRefs.current.get(key);
         const previewNode = previewRefs.current.get(`${key}:__section__`);
+        editorStarts.push(editorNode ? editorNode.offsetTop : 0);
+        previewStarts.push(previewNode ? previewNode.offsetTop : 0);
         editorHeights.push(editorNode ? editorNode.offsetHeight : 0);
         previewHeights.push(previewNode ? previewNode.offsetHeight : 0);
       }
 
-      let editorAccum = 0;
-      let previewAccum = 0;
       const editorScrollTop = editor.scrollTop;
       let targetTop = 0;
 
       for (let index = 0; index < sectionKeys.length; index += 1) {
-        const editorHeight = editorHeights[index];
+        const sectionStart = editorStarts[index];
+        const sectionEnd = sectionStart + editorHeights[index];
+        const previewStart = previewStarts[index];
         const previewHeight = previewHeights[index];
-        const sectionStart = editorAccum;
-        const sectionEnd = sectionStart + editorHeight;
+
         if (editorScrollTop < sectionEnd || index === sectionKeys.length - 1) {
           const sectionProgress =
-            editorHeight > 0 ? (editorScrollTop - sectionStart) / editorHeight : 0;
-          targetTop = previewAccum + sectionProgress * previewHeight;
+            editorHeights[index] > 0 ? (editorScrollTop - sectionStart) / editorHeights[index] : 0;
+          targetTop = previewStart + sectionProgress * previewHeight;
           break;
         }
-        editorAccum += editorHeight;
-        previewAccum += previewHeight;
       }
 
       preview.scrollTo({ top: targetTop, behavior: 'auto' });

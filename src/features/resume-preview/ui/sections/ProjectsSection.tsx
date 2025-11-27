@@ -59,26 +59,19 @@ export const ProjectsSection = ({
                     target="_blank"
                     rel="noreferrer"
                     className={cn(
-                      'text-xs font-semibold uppercase tracking-wide underline underline-offset-4 print:hidden',
+                      'text-xs font-semibold tracking-wide underline underline-offset-4 break-all text-right sm:text-left',
                       variant.link,
+                      'print:block',
                     )}
                     style={themeStyles.link}
                   >
-                    项目链接
+                    {project.link}
                   </a>
                 )}
               </header>
-              {project.link && (
-                <p
-                  className={cn('mt-1 hidden break-all text-xs print:block', variant.metaValue)}
-                  style={themeStyles.text}
-                >
-                  {project.link}
-                </p>
-              )}
               {project.summary && (
                 <p
-                  className={cn('mt-2 text-sm leading-6', variant.metaValue)}
+                  className={cn('mt-2 whitespace-pre-wrap text-sm leading-6', variant.metaValue)}
                   style={themeStyles.text}
                 >
                   {project.summary}
