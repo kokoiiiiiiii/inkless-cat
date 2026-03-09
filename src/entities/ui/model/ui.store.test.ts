@@ -59,10 +59,14 @@ describe('ui store', () => {
   });
 
   it('persists ui state to storage', () => {
-    const { setTemplateId } = useUIStore.getState();
+    const { setTemplateId, setTemplatePanelOpen, setMobileView } = useUIStore.getState();
     setTemplateId('template-123');
+    setTemplatePanelOpen(true);
+    setMobileView('preview');
     const stored = localStorage.getItem(UI_STORE_PERSIST_KEY);
     expect(stored).not.toBeNull();
     expect(stored ?? '').toContain('template-123');
+    expect(stored ?? '').not.toContain('templatePanelOpen');
+    expect(stored ?? '').not.toContain('mobileView');
   });
 });

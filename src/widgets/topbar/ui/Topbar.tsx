@@ -7,8 +7,9 @@ import useResumeImportDialog from './useResumeImportDialog';
 type TopbarProps = {
   onResetSample: () => void;
   onClear: () => void;
-  onImport: (data: unknown) => void;
+  onImport: (content: string) => void;
   onExport: () => void;
+  onExportWorkspace: () => void;
   onExportMarkdown: () => void;
   onPrint: () => void;
   theme: 'light' | 'dark';
@@ -21,6 +22,7 @@ const Topbar = ({
   onClear,
   onImport,
   onExport,
+  onExportWorkspace,
   onExportMarkdown,
   onPrint,
   theme,
@@ -38,6 +40,7 @@ const Topbar = ({
           onClear={onClear}
           onImportClick={openPicker}
           onExport={onExport}
+          onExportWorkspace={onExportWorkspace}
           onExportMarkdown={onExportMarkdown}
           onPrint={onPrint}
           theme={theme}

@@ -1,6 +1,7 @@
 import type { Locale } from '@shared/i18n';
 import { createId } from '@shared/lib';
 
+import { RESUME_SCHEMA_VERSION } from '../schema/resume';
 import type {
   ResumeAward,
   ResumeCustomSection,
@@ -141,6 +142,7 @@ const createProjects = (locale: Locale): ResumeProject[] => {
         summary:
           'Built a visual resume editor with drag-and-drop layout, template switching, and PDF export, serving 50k+ users.',
         link: 'https://github.com/example/resume-craft',
+        highlights: [],
       },
       {
         id: generateId('proj'),
@@ -149,6 +151,7 @@ const createProjects = (locale: Locale): ResumeProject[] => {
         summary:
           'Implemented multi-user realtime collaboration via WebSocket and optimised drawing experience for the education sector.',
         link: '',
+        highlights: [],
       },
     ];
   }
@@ -159,6 +162,7 @@ const createProjects = (locale: Locale): ResumeProject[] => {
       role: '全栈开发者',
       summary: '打造可视化简历编辑器，支持拖拽排版、模板切换与 PDF 导出，服务 5w+ 用户',
       link: 'https://github.com/example/resume-craft',
+      highlights: [],
     },
     {
       id: generateId('proj'),
@@ -166,6 +170,7 @@ const createProjects = (locale: Locale): ResumeProject[] => {
       role: '前端负责人',
       summary: '基于 WebSocket 实现多人实时协作，优化绘制体验并在教育行业落地',
       link: '',
+      highlights: [],
     },
   ];
 };
@@ -188,6 +193,7 @@ const createSocials = (locale: Locale): ResumeData['socials'] => {
 export const createSampleResume = (locale: Locale = 'zh-CN'): ResumeData => {
   const isEnglish = locale === 'en';
   return {
+    schemaVersion: RESUME_SCHEMA_VERSION,
     personal: {
       fullName: isEnglish ? 'Qing Chen' : '陈情',
       title: isEnglish
@@ -251,6 +257,7 @@ export const createSampleResume = (locale: Locale = 'zh-CN'): ResumeData => {
 };
 
 export const createEmptyResume = (): ResumeData => ({
+  schemaVersion: RESUME_SCHEMA_VERSION,
   personal: {
     fullName: '',
     title: '',

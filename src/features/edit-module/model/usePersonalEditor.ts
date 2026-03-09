@@ -42,7 +42,7 @@ export const usePersonalEditor = (
   );
 
   const handlePersonalChange = useCallback(
-    (field: string, value: string) => {
+    (field: Exclude<keyof ResumeData['personal'], 'extras'>, value: string) => {
       updateDraft((draft) => {
         draft.personal[field] = value;
       });

@@ -59,6 +59,7 @@ describe('resume store', () => {
     const stored = localStorage.getItem(RESUME_STORE_PERSIST_KEY);
     expect(stored).not.toBeNull();
     expect(stored ?? '').toContain('Persisted User');
+    expect(stored ?? '').not.toContain('hasResumeChanges');
   });
 
   it('resets state to a clean baseline', () => {

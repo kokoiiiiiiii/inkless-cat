@@ -3,6 +3,7 @@ export const topbar = {
   clear: '清空',
   import: '导入',
   export: '导出',
+  exportWorkspace: '导出工作区',
   exportMarkdown: '导出 Markdown',
   print: '打印 / PDF',
   themeLight: '日间模式',

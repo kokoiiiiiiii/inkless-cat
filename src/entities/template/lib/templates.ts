@@ -10,9 +10,11 @@ const defaultSamples = {
   en: createSampleResume('en'),
 } as const;
 
+export const DEFAULT_TEMPLATE_ID = 'modern-blue';
+
 export const templates: ResumeTemplate[] = [
   {
-    id: 'modern-blue',
+    id: DEFAULT_TEMPLATE_ID,
     name: '现代蓝',
     description: '适合科技互联网岗位，强调清晰的信息层级与稳重的配色。',
     accentColor: '#2563eb',

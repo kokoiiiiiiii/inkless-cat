@@ -3,6 +3,7 @@ export const topbar = {
   clear: 'Clear',
   import: 'Import',
   export: 'Export',
+  exportWorkspace: 'Export Workspace',
   exportMarkdown: 'Export Markdown',
   print: 'Print / PDF',
   themeLight: 'Light Mode',

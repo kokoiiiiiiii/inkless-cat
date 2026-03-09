@@ -81,13 +81,24 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
 
       for (let index = 0; index < sectionKeys.length; index += 1) {
         const sectionStart = editorStarts[index];
-        const sectionEnd = sectionStart + editorHeights[index];
+        const editorHeight = editorHeights[index];
         const previewStart = previewStarts[index];
         const previewHeight = previewHeights[index];
 
+        if (
+          sectionStart === undefined ||
+          editorHeight === undefined ||
+          previewStart === undefined ||
+          previewHeight === undefined
+        ) {
+          continue;
+        }
+
+        const sectionEnd = sectionStart + editorHeight;
+
         if (editorScrollTop < sectionEnd || index === sectionKeys.length - 1) {
           const sectionProgress =
-            editorHeights[index] > 0 ? (editorScrollTop - sectionStart) / editorHeights[index] : 0;
+            editorHeight > 0 ? (editorScrollTop - sectionStart) / editorHeight : 0;
           targetTop = previewStart + sectionProgress * previewHeight;
           break;
         }

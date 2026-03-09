@@ -1,5 +1,9 @@
 import { createSampleResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
-import type { ResumeTemplate, TemplateUpdatePayload } from '@entities/template';
+import {
+  DEFAULT_TEMPLATE_ID,
+  type ResumeTemplate,
+  type TemplateUpdatePayload,
+} from '@entities/template';
 import { type Locale, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib';
 import { type Dispatch, type SetStateAction, useCallback, useMemo } from 'react';
@@ -41,9 +45,15 @@ export const useTemplateLibrary = ({
   }, [baseTemplates, customTemplates]);
 
   const activeTemplate = useMemo<ResumeTemplate>(() => {
+    const fallbackTemplate: ResumeTemplate = allTemplates[0] ??
+      baseTemplates[0] ?? {
+        id: templateId || defaultTemplateId || DEFAULT_TEMPLATE_ID,
+        name: 'Default Template',
+        sample: createSampleResume(locale),
+      };
     const found = allTemplates.find((item) => item.id === templateId);
-    return found ?? allTemplates[0] ?? baseTemplates[0];
-  }, [allTemplates, baseTemplates, templateId]);
+    return found ?? fallbackTemplate;
+  }, [allTemplates, baseTemplates, defaultTemplateId, locale, templateId]);
 
   const selectTemplateSample = useCallback(
     (template: ResumeTemplate, targetLocale: Locale = locale) => {
@@ -156,26 +166,33 @@ export const useTemplateLibrary = ({
             return template;
           }
           const next: ResumeTemplate = { ...template };
-          for (const [key, value] of Object.entries(updates)) {
-            if (key === 'sample') {
-              if (value === '__CURRENT__') {
-                next.sample = clone(resume);
-              } else if (value && typeof value === 'object') {
-                next.sample = clone(value as ResumeData);
-              }
-            } else if (key === 'theme') {
-              const normalized = normalizeTemplateTheme(value);
-              if (normalized) {
-                next.theme = normalized;
-              } else {
-                delete next.theme;
-              }
-            } else if (typeof value === 'string') {
-              (next as Record<string, unknown>)[key] = value;
-            } else if (value !== undefined) {
-              (next as Record<string, unknown>)[key] = value;
+
+          if (updates.name !== undefined) {
+            next.name = updates.name;
+          }
+          if (updates.description !== undefined) {
+            next.description = updates.description;
+          }
+          if (updates.accentColor !== undefined) {
+            next.accentColor = updates.accentColor;
+          }
+          if (updates.previewStyle !== undefined) {
+            next.previewStyle = updates.previewStyle;
+          }
+          if (updates.sample === '__CURRENT__') {
+            next.sample = clone(resume);
+          } else if (updates.sample) {
+            next.sample = clone(updates.sample as ResumeData);
+          }
+          if (updates.theme !== undefined) {
+            const normalized = normalizeTemplateTheme(updates.theme);
+            if (normalized) {
+              next.theme = normalized;
+            } else {
+              delete next.theme;
             }
           }
+
           if (updates.previewStyle && updates.previewStyle !== 'custom') {
             delete next.theme;
           }

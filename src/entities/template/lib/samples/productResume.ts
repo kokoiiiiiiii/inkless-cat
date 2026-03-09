@@ -60,6 +60,7 @@ export const productResumeZh: ResumeData = buildResume({
       summary:
         '构建智能推荐与策略编排模块，支持实时人群洞察、推送与 AB 实验，让 MA 操作效率提升 50%。',
       link: 'https://example.com/ai-marketing',
+      highlights: [],
     },
   ],
   education: [
@@ -149,6 +150,7 @@ export const productResumeEn: ResumeData = buildResume({
       summary:
         'Built recommendation and orchestration modules for real-time audience insights, messaging, and A/B testing, boosting marketing automation efficiency by 50%.',
       link: 'https://example.com/ai-marketing',
+      highlights: [],
     },
   ],
   education: [

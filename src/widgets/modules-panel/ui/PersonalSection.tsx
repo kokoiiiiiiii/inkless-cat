@@ -1,4 +1,4 @@
-import type { ResumePersonal, ResumePersonalExtra } from '@entities/resume';
+import type { ResumeData, ResumePersonal, ResumePersonalExtra } from '@entities/resume';
 import { type PersonalSettings } from '@features/edit-module';
 import type { SectionFocusHandler } from '@features/modules-panel';
 import { useI18n } from '@shared/i18n';
@@ -18,7 +18,7 @@ import PhotoUpload from './PhotoUpload';
 type PersonalSectionProps = {
   personal: ResumePersonal;
   settings: PersonalSettings;
-  onChange: (field: string, value: string) => void;
+  onChange: (field: Exclude<keyof ResumeData['personal'], 'extras'>, value: string) => void;
   notifyFocus: SectionFocusHandler;
   sectionRef?: (node: HTMLElement | null) => void;
   onExtraAdd: () => void;

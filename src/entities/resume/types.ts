@@ -1,119 +1,64 @@
-export type ResumeSocial = {
-  id: string;
-  label?: string;
-  url?: string;
-};
+import type { z } from 'zod';
 
-export type ResumeExperience = {
-  id: string;
-  company?: string;
-  role?: string;
-  location?: string;
-  startDate?: string;
-  endDate?: string;
-  highlights?: string[];
-};
+import type {
+  resumeAwardInputSchema,
+  resumeAwardSchema,
+  resumeCustomFieldInputSchema,
+  resumeCustomFieldSchema,
+  resumeCustomSectionInputSchema,
+  resumeCustomSectionModeSchema,
+  resumeCustomSectionSchema,
+  resumeEducationInputSchema,
+  resumeEducationSchema,
+  resumeExperienceInputSchema,
+  resumeExperienceSchema,
+  resumeInputSchema,
+  resumeInterestInputSchema,
+  resumeInterestSchema,
+  resumeLanguageInputSchema,
+  resumeLanguageSchema,
+  resumePersonalExtraInputSchema,
+  resumePersonalExtraSchema,
+  resumePersonalInputSchema,
+  resumePersonalSchema,
+  resumeProjectInputSchema,
+  resumeProjectSchema,
+  resumeSchema,
+  resumeSettingsInputSchema,
+  resumeSettingsSchema,
+  resumeSkillInputSchema,
+  resumeSkillSchema,
+  resumeSocialInputSchema,
+  resumeSocialSchema,
+} from './schema/resume';
 
-export type ResumeProject = {
-  id: string;
-  name?: string;
-  role?: string;
-  summary?: string;
-  link?: string;
-  highlights?: string[];
-};
+export type ResumeSocial = z.infer<typeof resumeSocialSchema>;
+export type ResumeExperience = z.infer<typeof resumeExperienceSchema>;
+export type ResumeProject = z.infer<typeof resumeProjectSchema>;
+export type ResumeEducation = z.infer<typeof resumeEducationSchema>;
+export type ResumeSkill = z.infer<typeof resumeSkillSchema>;
+export type ResumeLanguage = z.infer<typeof resumeLanguageSchema>;
+export type ResumeInterest = z.infer<typeof resumeInterestSchema>;
+export type ResumeAward = z.infer<typeof resumeAwardSchema>;
+export type ResumeCustomField = z.infer<typeof resumeCustomFieldSchema>;
+export type ResumeCustomSectionMode = z.infer<typeof resumeCustomSectionModeSchema>;
+export type ResumeCustomSection = z.infer<typeof resumeCustomSectionSchema>;
+export type ResumePersonalExtra = z.infer<typeof resumePersonalExtraSchema>;
+export type ResumePersonal = z.infer<typeof resumePersonalSchema>;
+export type ResumeSettings = z.infer<typeof resumeSettingsSchema>;
+export type ResumeData = z.infer<typeof resumeSchema>;
 
-export type ResumeEducation = {
-  id: string;
-  school?: string;
-  degree?: string;
-  startDate?: string;
-  endDate?: string;
-  details?: string;
-};
-
-export type ResumeSkill = {
-  id: string;
-  title?: string;
-  items?: string[];
-};
-
-export type ResumeLanguage = {
-  id: string;
-  name?: string;
-  level?: string;
-};
-
-export type ResumeInterest = {
-  id: string;
-  name?: string;
-};
-
-export type ResumeAward = {
-  id: string;
-  name?: string;
-  issuer?: string;
-  year?: string;
-};
-
-export type ResumeCustomField = {
-  id: string;
-  label: string;
-  value: string;
-};
-
-export type ResumeCustomSectionMode = 'list' | 'fields' | 'text';
-
-export type ResumeCustomSection = {
-  id: string;
-  title: string;
-  mode: ResumeCustomSectionMode;
-  items: string[];
-  fields: ResumeCustomField[];
-  text: string;
-};
-
-export type ResumePersonalExtra = {
-  id: string;
-  label?: string;
-  value?: string;
-};
-
-export type ResumePersonal = {
-  fullName?: string;
-  title?: string;
-  email?: string;
-  emailLabel?: string;
-  phone?: string;
-  phoneLabel?: string;
-  location?: string;
-  locationLabel?: string;
-  photo?: string;
-  summary?: string;
-  extras?: ResumePersonalExtra[];
-  [key: string]: unknown;
-};
-
-export type ResumeSettings = {
-  personal?: {
-    showPhoto?: boolean;
-    photoSize?: number;
-    photoPosition?: 'left' | 'right';
-  };
-  [key: string]: unknown;
-};
-
-export type ResumeData = {
-  personal: ResumePersonal;
-  socials: ResumeSocial[];
-  experience: ResumeExperience[];
-  projects: ResumeProject[];
-  education: ResumeEducation[];
-  skills: ResumeSkill[];
-  languages: ResumeLanguage[];
-  interests: ResumeInterest[];
-  awards: ResumeAward[];
-  customSections: ResumeCustomSection[];
-  settings?: ResumeSettings;
-  [key: string]: unknown;
-};
+export type ResumeSocialInput = z.infer<typeof resumeSocialInputSchema>;
+export type ResumeExperienceInput = z.infer<typeof resumeExperienceInputSchema>;
+export type ResumeProjectInput = z.infer<typeof resumeProjectInputSchema>;
+export type ResumeEducationInput = z.infer<typeof resumeEducationInputSchema>;
+export type ResumeSkillInput = z.infer<typeof resumeSkillInputSchema>;
+export type ResumeLanguageInput = z.infer<typeof resumeLanguageInputSchema>;
+export type ResumeInterestInput = z.infer<typeof resumeInterestInputSchema>;
+export type ResumeAwardInput = z.infer<typeof resumeAwardInputSchema>;
+export type ResumeCustomFieldInput = z.infer<typeof resumeCustomFieldInputSchema>;
+export type ResumeCustomSectionInput = z.infer<typeof resumeCustomSectionInputSchema>;
+export type ResumePersonalExtraInput = z.infer<typeof resumePersonalExtraInputSchema>;
+export type ResumePersonalInput = z.infer<typeof resumePersonalInputSchema>;
+export type ResumeSettingsInput = z.infer<typeof resumeSettingsInputSchema>;
+export type ResumeInputData = z.infer<typeof resumeInputSchema>;

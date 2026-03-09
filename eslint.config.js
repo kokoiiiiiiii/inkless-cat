@@ -188,6 +188,24 @@ const config = tseslint.config(
       '@typescript-eslint/no-unsafe-call': 'off',
     },
   },
+  {
+    files: [
+      'src/entities/resume/**/*.{ts,tsx}',
+      'src/entities/template/**/*.{ts,tsx}',
+      'src/entities/workspace/**/*.{ts,tsx}',
+      'src/features/import-resume/**/*.{ts,tsx}',
+      'src/features/export-resume/**/*.{ts,tsx}',
+      'src/shared/lib/errors/**/*.{ts,tsx}',
+      'src/shared/lib/result/**/*.{ts,tsx}',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+    },
+  },
   prettierConfig,
 );
 

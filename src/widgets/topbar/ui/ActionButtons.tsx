@@ -9,11 +9,12 @@ type ActionButtonsProps = {
   onClear: () => void;
   onImportClick: () => void;
   onExport: () => void;
+  onExportWorkspace: () => void;
   onExportMarkdown: () => void;
   onPrint: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
-  inputRef: RefObject<HTMLInputElement>;
+  inputRef: RefObject<HTMLInputElement | null>;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onLocaleChange: (nextLocale: Locale, options?: { loadTemplate?: boolean }) => void;
 };
@@ -23,6 +24,7 @@ const ActionButtons = ({
   onClear,
   onImportClick,
   onExport,
+  onExportWorkspace,
   onExportMarkdown,
   onPrint,
   theme,
@@ -75,6 +77,9 @@ const ActionButtons = ({
         <button type="button" className={baseButtonClass} onClick={onExport}>
           {t('topbar.export')}
         </button>
+        <button type="button" className={baseButtonClass} onClick={onExportWorkspace}>
+          {t('topbar.exportWorkspace')}
+        </button>
         <button type="button" className={baseButtonClass} onClick={onExportMarkdown}>
           {t('topbar.exportMarkdown')}
         </button>
@@ -91,7 +96,7 @@ const ActionButtons = ({
           ref={inputRef}
           className="sr-only"
           type="file"
-          accept="application/json"
+          accept="application/json,.json"
           onChange={onFileChange}
         />
       </div>

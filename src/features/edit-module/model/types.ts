@@ -58,7 +58,10 @@ export type CustomSectionHandlers = {
 
 export type PersonalHandlers = {
   personalSettings: PersonalSettings;
-  handlePersonalChange: (field: string, value: string) => void;
+  handlePersonalChange: (
+    field: Exclude<keyof ResumeData['personal'], 'extras'>,
+    value: string,
+  ) => void;
   handlePersonalExtraAdd: () => void;
   handlePersonalExtraChange: (
     extraId: string,

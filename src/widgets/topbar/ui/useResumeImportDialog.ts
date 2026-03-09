@@ -1,10 +1,13 @@
 import { useI18n } from '@shared/i18n';
+import { createAppError } from '@shared/lib/errors';
+import { useAppFeedback } from '@shared/ui/feedback';
 import { type ChangeEvent, useCallback, useRef } from 'react';
 
-type ResumeImportHandler = (payload: unknown) => void;
+type ResumeImportHandler = (content: string) => void;
 
 const useResumeImportDialog = (onImport: ResumeImportHandler) => {
   const { t } = useI18n();
+  const { showError } = useAppFeedback();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const openPicker = useCallback(() => {
@@ -23,17 +26,20 @@ const useResumeImportDialog = (onImport: ResumeImportHandler) => {
           if (!textContent) {
             throw new Error('EMPTY_FILE');
           }
-          onImport(JSON.parse(textContent));
+          onImport(textContent);
         } catch {
-          const message = t('topbar.importError');
-          globalThis.alert(message === 'topbar.importError' ? 'Import failed.' : message);
+          showError(createAppError('FILE_READ_FAILED', t('topbar.importError')));
         } finally {
           event.target.value = '';
         }
       });
+      reader.addEventListener('error', () => {
+        showError(createAppError('FILE_READ_FAILED', t('topbar.importError')));
+        event.target.value = '';
+      });
       reader.readAsText(file, 'utf-8');
     },
-    [onImport, t],
+    [onImport, showError, t],
   );
 
   return { inputRef, openPicker, handleFileChange };

@@ -1,38 +1,67 @@
-import { deriveSectionsFromResume, normalizeResumeSchema, type ResumeData } from '@entities/resume';
-import { useResumeActions } from '@entities/resume';
+import { deriveSectionsFromResume, migrateResume, useResumeActions } from '@entities/resume';
+import { useUIActions } from '@entities/ui';
+import { migrateWorkspace } from '@entities/workspace';
+import { type AppError, createAppError } from '@shared/lib/errors';
+import { err, isErr, ok, type Result } from '@shared/lib/result';
 import { useCallback } from 'react';
 
-type ImportResult = {
-  success: boolean;
-  message?: string;
-};
+type ImportedDocument =
+  | {
+      kind: 'resume';
+    }
+  | {
+      kind: 'workspace';
+    };
 
-const isResumeData = (value: unknown): value is ResumeData =>
-  Boolean(value && typeof value === 'object' && 'personal' in (value as Record<string, unknown>));
+type ImportResult = Result<ImportedDocument, AppError>;
+
+const isWorkspacePayload = (value: unknown): value is { resume: unknown } =>
+  Boolean(value && typeof value === 'object' && 'resume' in value);
 
 export const useImportResume = () => {
-  const { updateResume, updateActiveSections } = useResumeActions();
+  const { replaceState } = useResumeActions();
+  const { setTheme, setTemplateId, setCustomTemplates, resetPanels, setMobileView } =
+    useUIActions();
 
   const importFromObject = useCallback(
     (payload: unknown): ImportResult => {
-      if (!isResumeData(payload)) {
-        return { success: false, message: '导入的文件缺少必要的字段。' };
+      if (isWorkspacePayload(payload)) {
+        const workspaceResult = migrateWorkspace(payload);
+        if (isErr(workspaceResult)) {
+          return err(workspaceResult.error);
+        }
+
+        replaceState(workspaceResult.value.resume, workspaceResult.value.activeSections);
+        setTheme(workspaceResult.value.theme);
+        setCustomTemplates(workspaceResult.value.customTemplates);
+        setTemplateId(workspaceResult.value.templateId);
+        resetPanels();
+        setMobileView('editor');
+        return ok({ kind: 'workspace' });
       }
-      const normalized = normalizeResumeSchema(payload, { clone: true });
-      updateResume(normalized, { markDirty: true, syncSections: false });
-      updateActiveSections(() => deriveSectionsFromResume(normalized));
-      return { success: true };
+
+      const resumeResult = migrateResume(payload);
+      if (isErr(resumeResult)) {
+        return err(resumeResult.error);
+      }
+
+      replaceState(resumeResult.value, deriveSectionsFromResume(resumeResult.value));
+      return ok({ kind: 'resume' });
     },
-    [updateResume, updateActiveSections],
+    [replaceState, resetPanels, setCustomTemplates, setMobileView, setTemplateId, setTheme],
   );
 
   const importFromJson = useCallback(
     (content: string): ImportResult => {
       try {
-        const data = JSON.parse(content) as ResumeData;
+        const data = JSON.parse(content) as unknown;
         return importFromObject(data);
       } catch (error) {
-        return { success: false, message: `解析失败：${(error as Error).message}` };
+        return err(
+          createAppError('INVALID_JSON', 'Failed to parse imported JSON.', {
+            cause: error,
+          }),
+        );
       }
     },
     [importFromObject],

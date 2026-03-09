@@ -41,6 +41,9 @@ export const useDragOrderSync = ({
     }
 
     const [activeSection] = order.splice(fromIndex, 1);
+    if (!activeSection) {
+      return order;
+    }
 
     if (!over) {
       const insertIndex =

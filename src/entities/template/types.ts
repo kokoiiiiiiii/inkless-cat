@@ -1,29 +1,16 @@
-import type { ResumeData } from '@entities/resume';
-import type { Locale } from '@shared/i18n';
+import type { ResumeInputData } from '@entities/resume';
+import type { z } from 'zod';
 
-export type TemplateTheme = {
-  accent?: string;
-  background?: string;
-  heading?: string;
-  subheading?: string;
-  text?: string;
-  muted?: string;
-  cardBackground?: string;
-  cardBorder?: string;
-  divider?: string;
-};
+import type {
+  resumeTemplateInputSchema,
+  resumeTemplateSchema,
+  templateThemeSchema,
+} from './schema/template';
 
-export type ResumeTemplate = {
-  id: string;
-  name: string;
-  description?: string;
-  accentColor?: string;
-  previewStyle?: string;
-  theme?: TemplateTheme;
-  sample: ResumeData;
-  localizedSamples?: Partial<Record<Locale, ResumeData>>;
-};
+export type TemplateTheme = z.infer<typeof templateThemeSchema>;
+export type ResumeTemplate = z.infer<typeof resumeTemplateSchema>;
+export type ResumeTemplateInput = z.infer<typeof resumeTemplateInputSchema>;
 
 export type TemplateUpdatePayload = Partial<Omit<ResumeTemplate, 'sample'>> & {
-  sample?: ResumeData | '__CURRENT__';
+  sample?: ResumeInputData | '__CURRENT__';
 };

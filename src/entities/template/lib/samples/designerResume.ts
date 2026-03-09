@@ -55,6 +55,7 @@ export const designerResumeZh: ResumeData = buildResume({
       role: '主视觉设计师',
       summary: '打造完整品牌识别系统与包装插画，在新品上线三个月内带动销量提升 120%。',
       link: 'https://lisui.design/luna',
+      highlights: [],
     },
     {
       id: createId('proj'),
@@ -63,6 +64,7 @@ export const designerResumeZh: ResumeData = buildResume({
       summary:
         '设计健康习惯应用的视觉系统，定义插画风格并输出 30+ UI 组件，获 2023 年度最佳 App 视觉奖。',
       link: '',
+      highlights: [],
     },
   ],
   education: [
@@ -153,6 +155,7 @@ export const designerResumeEn: ResumeData = buildResume({
       summary:
         'Created a complete identity system and packaging illustration that boosted new product sales by 120% within three months.',
       link: 'https://lisui.design/luna',
+      highlights: [],
     },
     {
       id: createId('proj'),
@@ -161,6 +164,7 @@ export const designerResumeEn: ResumeData = buildResume({
       summary:
         'Defined the illustration style and shipped 30+ UI components for a wellness app, earning the 2023 Best App Visual Award.',
       link: '',
+      highlights: [],
     },
   ],
   education: [

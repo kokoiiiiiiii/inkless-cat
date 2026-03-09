@@ -1,29 +1,25 @@
 import type { ResumeTemplate } from '@entities/template';
-import { createStoreLogger } from '@shared/lib/logger';
 import {
-  CUSTOM_TEMPLATES_KEY,
-  getStoredValue,
-  isBrowser,
-  LEGACY_KEYS,
-  readStoredJson,
-  TEMPLATE_KEY,
-  THEME_KEY,
-  UI_STORE_PERSIST_KEY,
-} from '@shared/lib/storage';
+  createDefaultWorkspace,
+  ensureLegacyStorageMigration,
+  sanitizePersistedUIStoreState,
+  UI_STORE_PERSIST_VERSION,
+} from '@entities/workspace';
+import { createStoreLogger } from '@shared/lib/logger';
+import { isBrowser, UI_STORE_PERSIST_KEY } from '@shared/lib/storage';
 import {
   createBrowserStorage,
   resolveSetStateAction,
   StateSetter,
   withStoreErrorBoundary,
 } from '@shared/lib/store';
+import { useFeedbackStore } from '@shared/ui/feedback';
 import type { ReactNode } from 'react';
-import { create } from 'zustand';
 import { createJSONStorage, devtools, persist } from 'zustand/middleware';
 import { shallow } from 'zustand/shallow';
+import { createWithEqualityFn } from 'zustand/traditional';
 
-export type ThemeMode = 'light' | 'dark';
-
-type MobileView = 'editor' | 'preview';
+import type { MobileView, ThemeMode } from './types';
 
 type UIStoreState = {
   theme: ThemeMode;
@@ -47,6 +43,7 @@ type UIStoreActions = {
 type UIStore = UIStoreState & UIStoreActions;
 
 const logger = createStoreLogger('ui');
+ensureLegacyStorageMigration();
 
 const syncDocumentTheme = (theme: ThemeMode) => {
   if (!isBrowser) return;
@@ -55,26 +52,21 @@ const syncDocumentTheme = (theme: ThemeMode) => {
 };
 
 const createInitialState = (): UIStoreState => {
-  const theme = getStoredValue(THEME_KEY, LEGACY_KEYS.theme) === 'dark' ? 'dark' : 'light';
-  const templateId = getStoredValue(TEMPLATE_KEY, LEGACY_KEYS.template) ?? '';
-  const customTemplates =
-    readStoredJson<ResumeTemplate[]>(CUSTOM_TEMPLATES_KEY, LEGACY_KEYS.customTemplates)?.filter(
-      (item): item is ResumeTemplate => Boolean(item?.id),
-    ) ?? [];
+  const defaults = createDefaultWorkspace();
 
-  syncDocumentTheme(theme);
+  syncDocumentTheme(defaults.theme);
 
   return {
-    theme,
-    templateId,
-    customTemplates,
+    theme: defaults.theme,
+    templateId: defaults.templateId,
+    customTemplates: defaults.customTemplates,
     templatePanelOpen: false,
     modulePanelOpen: false,
     mobileView: 'editor',
   };
 };
 
-export const useUIStore = create<UIStore>()(
+export const useUIStore = createWithEqualityFn<UIStore>()(
   devtools(
     persist(
       (set) => ({
@@ -147,25 +139,23 @@ export const useUIStore = create<UIStore>()(
       }),
       {
         name: UI_STORE_PERSIST_KEY,
+        version: UI_STORE_PERSIST_VERSION,
         storage: createJSONStorage(() => createBrowserStorage(logger, 'ui')),
-        partialize: ({
+        migrate: (persistedState) => sanitizePersistedUIStoreState(persistedState),
+        partialize: ({ theme, templateId, customTemplates }) => ({
           theme,
           templateId,
           customTemplates,
-          templatePanelOpen,
-          modulePanelOpen,
-          mobileView,
-        }) => ({
-          theme,
-          templateId,
-          customTemplates,
-          templatePanelOpen,
-          modulePanelOpen,
-          mobileView,
         }),
         onRehydrateStorage: () => (state, error) => {
           if (error) {
             logger.error('UI store rehydration failed', error);
+            useFeedbackStore.getState().pushFeedback({
+              tone: 'error',
+              title: 'Storage Error',
+              message: 'Failed to restore local workspace preferences.',
+              durationMs: 6000,
+            });
             return;
           }
           if (state) {

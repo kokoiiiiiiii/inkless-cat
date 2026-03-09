@@ -1,4 +1,28 @@
 export const common = {
   ok: '确定',
   cancel: '取消',
+  feedback: {
+    errorTitle: '操作失败',
+    successTitle: '操作成功',
+    infoTitle: '提示',
+    importResumeSuccess: '简历已导入。',
+    importWorkspaceSuccess: '工作区已恢复。',
+    exportResumeSuccess: '简历 JSON 已导出。',
+    exportWorkspaceSuccess: '工作区 JSON 已导出。',
+    exportMarkdownSuccess: 'Markdown 已导出。',
+    printStarted: '已切换到预览并开始打印。',
+  },
+  errors: {
+    invalidJson: '导入失败，文件不是合法的 JSON。',
+    invalidResume: '导入失败，简历数据结构不合法。',
+    invalidWorkspace: '导入失败，工作区数据结构不合法。',
+    unsupportedResumeVersion: '导入失败，当前版本不支持该简历格式。',
+    unsupportedWorkspaceVersion: '导入失败，当前版本不支持该工作区格式。',
+    importFailed: '导入失败，请检查文件内容。',
+    exportFailed: '导出失败，请稍后重试。',
+    printFailed: '打印失败，请检查浏览器打印能力。',
+    fileReadFailed: '读取文件失败，请重试。',
+    fileTooLarge: '文件过大，请选择更小的文件。',
+    storageFailed: '本地存储异常，部分数据可能未恢复。',
+  },
 } as const;

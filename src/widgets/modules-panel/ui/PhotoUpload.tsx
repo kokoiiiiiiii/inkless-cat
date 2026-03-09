@@ -1,4 +1,6 @@
 import { useI18n } from '@shared/i18n';
+import { createAppError } from '@shared/lib/errors';
+import { useAppFeedback } from '@shared/ui/feedback';
 import { ChangeEvent, CSSProperties, useRef } from 'react';
 
 type PhotoUploadProps = {
@@ -23,6 +25,7 @@ const PhotoUpload = ({
   hidden = false,
 }: PhotoUploadProps) => {
   const { t } = useI18n();
+  const { showError } = useAppFeedback();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSelect = () => {
@@ -35,7 +38,7 @@ const PhotoUpload = ({
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      globalThis.alert(t('modules.personal.photo.errors.oversize'));
+      showError(createAppError('FILE_TOO_LARGE', t('modules.personal.photo.errors.oversize')));
       event.target.value = '';
       return;
     }
@@ -48,7 +51,7 @@ const PhotoUpload = ({
       event.target.value = '';
     });
     reader.onerror = () => {
-      globalThis.alert(t('modules.personal.photo.errors.read'));
+      showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.read')));
       event.target.value = '';
     };
     reader.readAsDataURL(file);

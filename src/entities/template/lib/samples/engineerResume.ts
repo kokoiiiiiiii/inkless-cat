@@ -60,6 +60,7 @@ export const engineerResumeZh: ResumeData = buildResume({
       summary:
         '搭建流程设计器与表单自动化工具，支持节点配置、版本管理与权限控制，帮助业务团队自主搭建运营活动。',
       link: 'https://github.com/yizhao-dev/flow-builder',
+      highlights: [],
     },
   ],
   education: [
@@ -150,6 +151,7 @@ export const engineerResumeEn: ResumeData = buildResume({
       summary:
         'Built a visual workflow and form automation tool with node configuration, versioning, and access control so ops teams could launch campaigns independently.',
       link: 'https://github.com/yizhao-dev/flow-builder',
+      highlights: [],
     },
   ],
   education: [

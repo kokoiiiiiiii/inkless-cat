@@ -9,12 +9,10 @@ import {
   useState,
 } from 'react';
 
+import { DEFAULT_LOCALE, type Locale, LOCALE_KEY, resolveStoredLocale } from './config';
 import en from './locales/en/index';
 import zhCN from './locales/zh-CN/index';
 
-export type Locale = 'zh-CN' | 'en';
-
-const LOCALE_KEY = 'inkless-cat-locale';
 const DEV = import.meta?.env?.DEV ?? false;
 
 const DIR_MAP: Record<Locale, 'ltr' | 'rtl'> = { 'zh-CN': 'ltr', en: 'ltr' };
@@ -94,8 +92,8 @@ const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    const saved = (globalThis?.localStorage?.getItem(LOCALE_KEY) as Locale | null) || 'zh-CN';
-    return saved === 'en' ? 'en' : 'zh-CN';
+    const saved = globalThis?.localStorage?.getItem(LOCALE_KEY);
+    return resolveStoredLocale(saved ?? DEFAULT_LOCALE);
   });
 
   const dictRef = useRef<DictMap>({ 'zh-CN': baseDict['zh-CN'], en: baseDict.en });
