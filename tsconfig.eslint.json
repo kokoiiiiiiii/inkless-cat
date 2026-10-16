@@ -17,6 +17,8 @@
     "postcss.config.js",
     "prettier.config.cjs",
     "vitest.config.ts",
-    "vitest.setup.ts"
+    "vitest.setup.ts",
+    "playwright.config.ts",
+    "e2e"
   ]
 }

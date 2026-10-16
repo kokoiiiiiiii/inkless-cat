@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { AwardItem, SectionCollectionProps } from './types';
@@ -13,11 +15,12 @@ export const AwardsSection = ({
   accentStyle,
   setSectionRef,
 }: AwardsSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="荣誉奖项"
+      title={t('preview.sections.awards')}
       sectionKey="awards"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}

@@ -1,4 +1,33 @@
 export const preview = {
   title: 'Live Preview',
   template: 'Template: {name}',
+  personalSummary: 'Personal Summary',
+  nameFallback: 'Your Name',
+  titleFallback: 'Professional title / target role',
+  candidatePhoto: 'Candidate photo',
+  contact: {
+    email: 'Email',
+    phone: 'Phone',
+    location: 'Location',
+    extra: 'Info',
+  },
+  placeholders: {
+    company: 'Company / Organization',
+    role: 'Role',
+    date: 'Date',
+    project: 'Project name',
+    school: 'School',
+    degree: 'Degree / Major',
+    skill: 'Skill area',
+  },
+  sections: {
+    socials: 'Socials & Links',
+    experience: 'Work Experience',
+    projects: 'Projects',
+    education: 'Education',
+    skills: 'Skills',
+    languages: 'Languages',
+    interests: 'Interests',
+    awards: 'Awards',
+  },
 } as const;

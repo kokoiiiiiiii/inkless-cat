@@ -1,6 +1,11 @@
-import { extractCustomSectionId, isCustomSectionKey, sectionOrder } from '@entities/module';
+import {
+  extractCustomSectionId,
+  isCustomSectionKey,
+  sectionOrder,
+  type StandardSectionKey,
+} from '@entities/module';
 import type { ResumeCustomSection } from '@entities/resume';
-import { type CSSProperties, Fragment, memo, type ReactNode } from 'react';
+import { Fragment, memo, type ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
 import type {
@@ -25,27 +30,8 @@ type ResumePreviewViewProps = {
   registerSectionRef?: RegisterSectionRef;
 };
 
-type SectionRenderer = (props: {
-  items: any[];
-  visible: boolean;
-  variant: UseResumePreviewStateResult['variant'];
-  themeStyles: UseResumePreviewStateResult['themeStyles'];
-  registerSectionRef?: RegisterSectionRef;
-  accentStyle?: CSSProperties;
-  accentBulletStyle?: CSSProperties;
-  setSectionRef: UseResumePreviewStateResult['setSectionRef'];
-}) => ReactNode;
-
-const standardSectionRenderers: Record<string, SectionRenderer> = {
-  socials: SocialsSection as SectionRenderer,
-  experience: ExperienceSection as SectionRenderer,
-  projects: ProjectsSection as SectionRenderer,
-  education: EducationSection as SectionRenderer,
-  skills: SkillsSection as SectionRenderer,
-  languages: LanguagesSection as SectionRenderer,
-  interests: InterestsSection as SectionRenderer,
-  awards: AwardsSection as SectionRenderer,
-};
+const isStandardSectionKey = (key: string): key is StandardSectionKey =>
+  sectionOrder.includes(key as StandardSectionKey);
 
 const ResumePreviewViewComponent = ({ state, registerSectionRef }: ResumePreviewViewProps) => {
   const {
@@ -67,26 +53,90 @@ const ResumePreviewViewComponent = ({ state, registerSectionRef }: ResumePreview
   } = state;
 
   const effectiveRegisterRef = registerSectionRef ?? stateRegisterSectionRef;
+  const commonSectionProps = {
+    variant,
+    themeStyles,
+    registerSectionRef: effectiveRegisterRef,
+    accentStyle,
+    accentBulletStyle,
+    setSectionRef,
+  };
 
-  const renderStandardSection = (sectionKey: string) => {
-    const renderer = standardSectionRenderers[sectionKey];
-    if (!renderer) {
-      return null;
+  const renderStandardSection = (sectionKey: StandardSectionKey): ReactNode => {
+    switch (sectionKey) {
+      case 'socials': {
+        return (
+          <SocialsSection
+            items={sections.socials}
+            visible={sectionFlags.socials}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'experience': {
+        return (
+          <ExperienceSection
+            items={sections.experience}
+            visible={sectionFlags.experience}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'education': {
+        return (
+          <EducationSection
+            items={sections.education}
+            visible={sectionFlags.education}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'projects': {
+        return (
+          <ProjectsSection
+            items={sections.projects}
+            visible={sectionFlags.projects}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'skills': {
+        return (
+          <SkillsSection
+            items={sections.skills}
+            visible={sectionFlags.skills}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'languages': {
+        return (
+          <LanguagesSection
+            items={sections.languages}
+            visible={sectionFlags.languages}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'interests': {
+        return (
+          <InterestsSection
+            items={sections.interests}
+            visible={sectionFlags.interests}
+            {...commonSectionProps}
+          />
+        );
+      }
+      case 'awards': {
+        return (
+          <AwardsSection
+            items={sections.awards}
+            visible={sectionFlags.awards}
+            {...commonSectionProps}
+          />
+        );
+      }
     }
-
-    const items = (sections as Record<string, any[]>)[sectionKey] ?? [];
-    const visible = (sectionFlags as Record<string, boolean>)[sectionKey] ?? false;
-
-    return renderer({
-      items,
-      visible,
-      variant,
-      themeStyles,
-      registerSectionRef: effectiveRegisterRef,
-      accentStyle,
-      accentBulletStyle,
-      setSectionRef,
-    });
   };
 
   const renderCustomSectionNode = (
@@ -108,12 +158,8 @@ const ResumePreviewViewComponent = ({ state, registerSectionRef }: ResumePreview
 
   const orderedSectionNodes = normalizedActiveSections
     .map((key) => {
-      if (sectionOrder.includes(key as (typeof sectionOrder)[number])) {
-        const sectionNode = renderStandardSection(key);
-        if (!sectionNode) {
-          return null;
-        }
-        return <Fragment key={key}>{sectionNode}</Fragment>;
+      if (isStandardSectionKey(key)) {
+        return <Fragment key={key}>{renderStandardSection(key)}</Fragment>;
       }
 
       if (isCustomSectionKey(key)) {

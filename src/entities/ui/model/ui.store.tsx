@@ -2,18 +2,18 @@ import type { ResumeTemplate } from '@entities/template';
 import {
   createDefaultWorkspace,
   ensureLegacyStorageMigration,
+  reportPersistenceIssue,
   sanitizePersistedUIStoreState,
   UI_STORE_PERSIST_VERSION,
 } from '@entities/workspace';
 import { createStoreLogger } from '@shared/lib/logger';
-import { isBrowser, UI_STORE_PERSIST_KEY } from '@shared/lib/storage';
+import { isBrowser, StorageIssueError, UI_STORE_PERSIST_KEY } from '@shared/lib/storage';
 import {
   createBrowserStorage,
   resolveSetStateAction,
   StateSetter,
   withStoreErrorBoundary,
 } from '@shared/lib/store';
-import { useFeedbackStore } from '@shared/ui/feedback';
 import type { ReactNode } from 'react';
 import { createJSONStorage, devtools, persist } from 'zustand/middleware';
 import { shallow } from 'zustand/shallow';
@@ -43,7 +43,14 @@ type UIStoreActions = {
 type UIStore = UIStoreState & UIStoreActions;
 
 const logger = createStoreLogger('ui');
-ensureLegacyStorageMigration();
+const reportUIStorageIssue = (error: StorageIssueError) => reportPersistenceIssue(error);
+const legacyMigrationSucceeded = ensureLegacyStorageMigration(reportUIStorageIssue);
+const uiStorage = createBrowserStorage(
+  logger,
+  'ui',
+  reportUIStorageIssue,
+  () => legacyMigrationSucceeded,
+);
 
 const syncDocumentTheme = (theme: ThemeMode) => {
   if (!isBrowser) return;
@@ -140,8 +147,27 @@ export const useUIStore = createWithEqualityFn<UIStore>()(
       {
         name: UI_STORE_PERSIST_KEY,
         version: UI_STORE_PERSIST_VERSION,
-        storage: createJSONStorage(() => createBrowserStorage(logger, 'ui')),
-        migrate: (persistedState) => sanitizePersistedUIStoreState(persistedState),
+        storage: createJSONStorage(() => uiStorage),
+        migrate: (persistedState) =>
+          sanitizePersistedUIStoreState(persistedState, (error) => {
+            uiStorage.preserveExistingBeforeNextWrite();
+            reportUIStorageIssue(error);
+          }),
+        merge: (persistedState, currentState) => {
+          if (persistedState === undefined) return currentState;
+          try {
+            return {
+              ...currentState,
+              ...sanitizePersistedUIStoreState(persistedState, (error) => {
+                uiStorage.preserveExistingBeforeNextWrite();
+                reportUIStorageIssue(error);
+              }),
+            };
+          } catch (error) {
+            uiStorage.blockWrites();
+            throw error;
+          }
+        },
         partialize: ({ theme, templateId, customTemplates }) => ({
           theme,
           templateId,
@@ -150,12 +176,14 @@ export const useUIStore = createWithEqualityFn<UIStore>()(
         onRehydrateStorage: () => (state, error) => {
           if (error) {
             logger.error('UI store rehydration failed', error);
-            useFeedbackStore.getState().pushFeedback({
-              tone: 'error',
-              title: 'Storage Error',
-              message: 'Failed to restore local workspace preferences.',
-              durationMs: 6000,
-            });
+            uiStorage.blockWrites();
+            reportUIStorageIssue(
+              error instanceof StorageIssueError
+                ? error
+                : new StorageIssueError('corrupt', 'UI store rehydration failed.', {
+                    cause: error,
+                  }),
+            );
             return;
           }
           if (state) {

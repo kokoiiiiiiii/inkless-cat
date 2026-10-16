@@ -45,7 +45,7 @@ export const EditorPageShell = () => {
         onToggleTheme={panelState.toggleTheme}
         onLocaleChange={templatePanel.handleLocaleChange}
       />
-      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-4 pb-16 pt-4 sm:gap-6 sm:pt-6 lg:grid lg:grid-cols-2 print:max-w-none print:px-0 print:pb-0 print:pt-0">
+      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-4 pb-16 pt-4 sm:gap-6 sm:pt-6 lg:grid lg:grid-cols-2 print:grid print:max-w-none print:grid-cols-1 print:px-0 print:pb-0 print:pt-0">
         {!isLargeScreen && (
           <MobileSwitcherBar
             showEditor={showEditor}

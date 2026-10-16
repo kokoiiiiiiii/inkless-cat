@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { ExperienceItem, SectionCollectionProps } from './types';
@@ -14,11 +16,12 @@ export const ExperienceSection = ({
   setSectionRef,
   accentBulletStyle,
 }: ExperienceSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="工作经历"
+      title={t('preview.sections.experience')}
       sectionKey="experience"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}
@@ -46,15 +49,16 @@ export const ExperienceSection = ({
                     className={cn('text-base font-semibold', variant.heading)}
                     style={themeStyles.heading}
                   >
-                    {exp.company || '公司 / 组织'}
+                    {exp.company || t('preview.placeholders.company')}
                   </h4>
                   <p className={cn('text-sm', variant.metaValue)} style={themeStyles.text}>
-                    {exp.role || '职位'}
+                    {exp.role || t('preview.placeholders.role')}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 text-xs uppercase tracking-[0.28em] sm:text-right">
                   <span className={cn(variant.timelineMeta)} style={themeStyles.muted}>
-                    {[exp.startDate, exp.endDate].filter(Boolean).join(' – ') || '时间'}
+                    {[exp.startDate, exp.endDate].filter(Boolean).join(' – ') ||
+                      t('preview.placeholders.date')}
                   </span>
                   {exp.location && (
                     <span className={cn(variant.timelineMeta)} style={themeStyles.muted}>

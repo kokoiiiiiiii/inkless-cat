@@ -1,6 +1,7 @@
 import { sectionOrder } from '@entities/module';
 import type { ResumeCustomSection, ResumeData } from '@entities/resume';
 import type { TemplateTheme } from '@entities/template';
+import { useI18n } from '@shared/i18n';
 import type { CSSProperties } from 'react';
 import { useCallback, useMemo } from 'react';
 
@@ -85,6 +86,7 @@ export const useResumePreviewState = ({
   theme,
   registerSectionRef,
 }: UseResumePreviewStateParams): UseResumePreviewStateResult => {
+  const { t } = useI18n();
   const {
     personal = {},
     socials = [],
@@ -125,7 +127,7 @@ export const useResumePreviewState = ({
       const emailLabel =
         typeof personal.emailLabel === 'string' && personal.emailLabel.trim()
           ? personal.emailLabel.trim()
-          : '邮箱';
+          : t('preview.contact.email');
       items.push({ id: 'email', label: emailLabel, value: personal.email });
     }
 
@@ -133,7 +135,7 @@ export const useResumePreviewState = ({
       const phoneLabel =
         typeof personal.phoneLabel === 'string' && personal.phoneLabel.trim()
           ? personal.phoneLabel.trim()
-          : '电话';
+          : t('preview.contact.phone');
       items.push({ id: 'phone', label: phoneLabel, value: personal.phone });
     }
 
@@ -141,14 +143,14 @@ export const useResumePreviewState = ({
       const locationLabel =
         typeof personal.locationLabel === 'string' && personal.locationLabel.trim()
           ? personal.locationLabel.trim()
-          : '所在地';
+          : t('preview.contact.location');
       items.push({ id: 'location', label: locationLabel, value: personal.location });
     }
 
     for (const [index, extra] of extras.entries()) {
       items.push({
         id: `extra-${extra.id ?? index}`,
-        label: extra.label || '信息',
+        label: extra.label || t('preview.contact.extra'),
         value: extra.value || '',
       });
     }
@@ -162,6 +164,7 @@ export const useResumePreviewState = ({
     personal.phoneLabel,
     personal.location,
     personal.locationLabel,
+    t,
   ]);
 
   const customSections = useMemo<ResumeCustomSection[]>(
@@ -208,24 +211,22 @@ export const useResumePreviewState = ({
     () => ({
       article:
         theme?.background || theme?.text
-          ? ({ background: theme?.background, color: theme?.text } as CSSProperties)
+          ? { background: theme?.background, color: theme?.text }
           : undefined,
-      heading: theme?.heading ? ({ color: theme.heading } as CSSProperties) : undefined,
-      subheading: theme?.subheading ? ({ color: theme.subheading } as CSSProperties) : undefined,
-      text: theme?.text ? ({ color: theme.text } as CSSProperties) : undefined,
-      muted: theme?.muted ? ({ color: theme.muted } as CSSProperties) : undefined,
+      heading: theme?.heading ? { color: theme.heading } : undefined,
+      subheading: theme?.subheading ? { color: theme.subheading } : undefined,
+      text: theme?.text ? { color: theme.text } : undefined,
+      muted: theme?.muted ? { color: theme.muted } : undefined,
       card:
         theme?.cardBackground || theme?.cardBorder
-          ? ({
+          ? {
               background: theme?.cardBackground,
               borderColor: theme?.cardBorder,
-            } as CSSProperties)
+            }
           : undefined,
-      divider: theme?.divider ? ({ borderColor: theme.divider } as CSSProperties) : undefined,
-      chip: resolvedAccent
-        ? ({ background: resolvedAccent, color: '#ffffff' } as CSSProperties)
-        : undefined,
-      link: resolvedAccent ? ({ color: resolvedAccent } as CSSProperties) : undefined,
+      divider: theme?.divider ? { borderColor: theme.divider } : undefined,
+      chip: resolvedAccent ? { background: resolvedAccent, color: '#ffffff' } : undefined,
+      link: resolvedAccent ? { color: resolvedAccent } : undefined,
     }),
     [
       resolvedAccent,
@@ -240,13 +241,12 @@ export const useResumePreviewState = ({
     ],
   );
 
-  const articleStyle = useMemo(
-    () =>
-      ({
-        ...themeStyles.article,
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact',
-      }) as CSSProperties,
+  const articleStyle = useMemo<CSSProperties>(
+    () => ({
+      ...themeStyles.article,
+      WebkitPrintColorAdjust: 'exact',
+      printColorAdjust: 'exact',
+    }),
     [themeStyles.article],
   );
 

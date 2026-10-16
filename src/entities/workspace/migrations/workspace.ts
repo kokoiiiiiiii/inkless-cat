@@ -3,12 +3,8 @@ import { err, isErr, ok, type Result } from '@shared/lib/result';
 
 import { normalizeResumeSchema } from '../../resume/lib/normalizers';
 import { migrateResume } from '../../resume/migrations/resume';
-import {
-  type ActiveSectionKey,
-  deriveSectionsFromResume,
-  sanitizeSections,
-} from '../../resume/selectors';
-import { DEFAULT_TEMPLATE_ID } from '../../template/lib/templates';
+import { sanitizeSections } from '../../resume/selectors';
+import { DEFAULT_TEMPLATE_ID } from '../../template/lib/constants';
 import { migrateTemplates } from '../../template/migrations/template';
 import {
   WORKSPACE_SCHEMA_VERSION,
@@ -69,16 +65,14 @@ export const migrateWorkspace = (input: unknown): Result<WorkspaceData, AppError
   }
 
   const normalizedResume = normalizeResumeSchema(resumeResult.value, { clone: true });
-  const activeSections = sanitizeSections(
-    parsed.data.activeSections as ActiveSectionKey[] | undefined,
-    normalizedResume,
-    { fallbackToDefaults: true },
-  );
+  const activeSections = sanitizeSections(parsed.data.activeSections, normalizedResume, {
+    fallbackToDefaults:
+      parsed.data.activeSections === undefined || parsed.data.activeSections.length > 0,
+  });
 
   return buildWorkspace({
     resume: normalizedResume,
-    activeSections:
-      activeSections.length > 0 ? activeSections : deriveSectionsFromResume(normalizedResume),
+    activeSections,
     theme: parsed.data.theme ?? 'light',
     templateId: parsed.data.templateId?.trim() || DEFAULT_TEMPLATE_ID,
     customTemplates: customTemplatesResult.value,

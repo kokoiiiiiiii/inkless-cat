@@ -1,3 +1,4 @@
+import { createCustomSection } from '@entities/module';
 import {
   createEmptyResume,
   deriveSectionsFromResume,
@@ -5,6 +6,7 @@ import {
   useResumeStore,
 } from '@entities/resume';
 import { I18nProvider } from '@shared/i18n';
+import { MAX_CUSTOM_SECTIONS } from '@shared/lib/limits';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -55,5 +57,18 @@ describe('useSortableSections', () => {
       result.current.removeCustomSection(customSection?.id ?? '');
     });
     expect(useResumeStore.getState().resume.customSections).toHaveLength(0);
+  });
+
+  it('does not add custom sections after the configured limit', () => {
+    const resume = normalizeResumeSchema(createEmptyResume(), { clone: true });
+    resume.customSections = Array.from({ length: MAX_CUSTOM_SECTIONS }, (_, index) =>
+      createCustomSection(`Section ${index}`),
+    );
+    useResumeStore.setState({ resume });
+    const { result } = renderHook(() => useSortableSections(), { wrapper });
+
+    act(() => result.current.addCustomSection('One too many'));
+
+    expect(useResumeStore.getState().resume.customSections).toHaveLength(MAX_CUSTOM_SECTIONS);
   });
 });

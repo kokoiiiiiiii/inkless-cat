@@ -1,6 +1,7 @@
 import { useI18n } from '@shared/i18n';
 
-const inklessCatLogo = new URL('../../../assets/Inkless Cat.png', import.meta.url).href;
+const inklessCatLogoWebp = new URL('../../../assets/inkless-cat-256.webp', import.meta.url).href;
+const inklessCatLogoPng = new URL('../../../assets/inkless-cat-256.png', import.meta.url).href;
 
 const LogoSection = () => {
   const { t } = useI18n();
@@ -9,11 +10,14 @@ const LogoSection = () => {
   const githubLabel = t('topbar.githubLabel');
   return (
     <div className="flex items-center gap-3">
-      <img
-        src={inklessCatLogo}
-        alt={logoAlt === 'topbar.logoAlt' ? 'Inkless Cat logo' : logoAlt}
-        className="size-10 rounded-full border border-slate-200/70 bg-white object-cover shadow-inner shadow-brand-200/60 dark:border-slate-700 dark:bg-slate-900"
-      />
+      <picture>
+        <source srcSet={inklessCatLogoWebp} type="image/webp" />
+        <img
+          src={inklessCatLogoPng}
+          alt={logoAlt === 'topbar.logoAlt' ? 'Inkless Cat logo' : logoAlt}
+          className="size-10 rounded-full border border-slate-200/70 bg-white object-cover shadow-inner shadow-brand-200/60 dark:border-slate-700 dark:bg-slate-900"
+        />
+      </picture>
       <div className="flex flex-col">
         <span className="text-base font-semibold tracking-wide text-slate-900 dark:text-white sm:text-lg">
           Inkless Cat

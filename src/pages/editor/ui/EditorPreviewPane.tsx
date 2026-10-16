@@ -32,7 +32,7 @@ export const EditorPreviewPane = ({
   theme,
 }: EditorPreviewPaneProps) => (
   <section
-    className={`flex min-h-0 flex-col gap-4 rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-soft backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-900/60 dark:shadow-[0_35px_60px_-25px_rgba(15,23,42,0.75)] sm:p-6 print:m-0 print:block print:w-full print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none ${
+    className={`flex min-h-0 flex-col gap-4 rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-soft backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-900/60 dark:shadow-[0_35px_60px_-25px_rgba(15,23,42,0.75)] sm:p-6 print:static print:m-0 print:block print:max-h-none print:min-h-0 print:w-full print:overflow-visible print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none ${
       visible ? '' : 'hidden print:block'
     } lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden`}
     aria-hidden={!visible && !isLargeScreen}
@@ -45,7 +45,7 @@ export const EditorPreviewPane = ({
     </div>
     <div
       ref={scrollRef}
-      className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2"
+      className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 print:min-h-0 print:flex-none print:overflow-visible print:pr-0"
     >
       <ResumePreview
         resume={resume}

@@ -19,8 +19,8 @@ import { useDeferredValue } from 'react';
 
 export const useEditorPageController = () => {
   const { t, setLocale } = useI18n();
-  const { resume, activeSections, hasResumeChanges } = useResumeState();
-  const { updateResume, setHasResumeChanges, resetState } = useResumeActions();
+  const { resume, activeSections } = useResumeState();
+  const { updateResume, resetState, setHasResumeChanges } = useResumeActions();
   const { theme, templateId, customTemplates, templatePanelOpen, modulePanelOpen, mobileView } =
     useUIState();
   const {
@@ -38,13 +38,13 @@ export const useEditorPageController = () => {
     addCustomSection: appendCustomSection,
     removeCustomSection,
   } = useSortableSections();
-  const { importFromJson } = useImportResume();
+  const { prepareImportFromJson, commitPreparedImport } = useImportResume();
   const { exportJson, exportWorkspaceJson, exportMarkdown } = useExportResume();
   const deferredResume = useDeferredValue(resume);
   const deferredActiveSections = useDeferredValue(activeSections);
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
 
-  const scrollSync = useScrollSync({ activeSections, resume });
+  const scrollSync = useScrollSync({ activeSections });
   const {
     handleFieldFocus,
     registerPreviewRef,
@@ -70,7 +70,6 @@ export const useEditorPageController = () => {
     setCustomTemplates,
     resume,
     resetState,
-    hasResumeChanges,
     setHasResumeChanges,
     defaultTemplateId: DEFAULT_TEMPLATE_ID,
     setLocale,
@@ -78,8 +77,8 @@ export const useEditorPageController = () => {
 
   const ioActions = useEditorIoActions({
     resetState,
-    setHasResumeChanges,
-    importFromJson,
+    prepareImportFromJson,
+    commitPreparedImport,
     exportJson,
     exportWorkspaceJson,
     exportMarkdown,

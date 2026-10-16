@@ -1,5 +1,7 @@
 import { useI18n } from '@shared/i18n';
 import { createAppError } from '@shared/lib/errors';
+import { MAX_IMAGE_DIMENSION, MAX_IMAGE_FILE_BYTES, MAX_IMAGE_PIXELS } from '@shared/lib/limits';
+import { normalizePhotoDataUrl } from '@shared/lib/urls';
 import { useAppFeedback } from '@shared/ui/feedback';
 import { ChangeEvent, CSSProperties, useRef } from 'react';
 
@@ -27,6 +29,7 @@ const PhotoUpload = ({
   const { t } = useI18n();
   const { showError } = useAppFeedback();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const photoSource = normalizePhotoDataUrl(value);
 
   const handleSelect = () => {
     inputRef.current?.click();
@@ -37,24 +40,64 @@ const PhotoUpload = ({
     const file = files && files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > MAX_IMAGE_FILE_BYTES) {
       showError(createAppError('FILE_TOO_LARGE', t('modules.personal.photo.errors.oversize')));
+      event.target.value = '';
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.type')));
       event.target.value = '';
       return;
     }
 
     const reader = new FileReader();
     reader.addEventListener('load', () => {
-      if (typeof reader.result === 'string') {
-        onChange(reader.result);
+      const dataUrl =
+        typeof reader.result === 'string' ? normalizePhotoDataUrl(reader.result) : undefined;
+      if (!dataUrl) {
+        showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.read')));
+        event.target.value = '';
+        return;
       }
-      event.target.value = '';
+
+      const image = new Image();
+      image.addEventListener('load', () => {
+        const hasValidDimensions =
+          image.naturalWidth > 0 &&
+          image.naturalHeight > 0 &&
+          image.naturalWidth <= MAX_IMAGE_DIMENSION &&
+          image.naturalHeight <= MAX_IMAGE_DIMENSION &&
+          image.naturalWidth * image.naturalHeight <= MAX_IMAGE_PIXELS;
+        if (hasValidDimensions) {
+          onChange(dataUrl);
+        } else {
+          showError(
+            createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.dimensions')),
+          );
+        }
+        event.target.value = '';
+      });
+      image.addEventListener('error', () => {
+        showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.read')));
+        event.target.value = '';
+      });
+      image.src = dataUrl;
     });
     reader.onerror = () => {
       showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.read')));
       event.target.value = '';
     };
-    reader.readAsDataURL(file);
+    reader.onabort = () => {
+      showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.read')));
+      event.target.value = '';
+    };
+    try {
+      reader.readAsDataURL(file);
+    } catch {
+      showError(createAppError('FILE_READ_FAILED', t('modules.personal.photo.errors.read')));
+      event.target.value = '';
+    }
   };
 
   if (hidden) {
@@ -72,9 +115,9 @@ const PhotoUpload = ({
         className="relative flex items-center justify-center overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
         style={boxStyle}
       >
-        {value ? (
+        {photoSource ? (
           <img
-            src={value}
+            src={photoSource}
             alt={t('modules.personal.photo.alt', { name: 'candidate' })}
             className="h-full w-full object-cover"
           />
@@ -129,7 +172,7 @@ const PhotoUpload = ({
         ref={inputRef}
         className="sr-only"
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif"
         onChange={handleFileChange}
       />
     </div>

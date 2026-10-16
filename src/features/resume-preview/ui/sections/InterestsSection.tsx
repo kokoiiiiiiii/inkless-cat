@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { InterestItem, SectionCollectionProps } from './types';
@@ -12,11 +14,12 @@ export const InterestsSection = ({
   registerSectionRef,
   accentStyle,
 }: InterestsSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="兴趣爱好"
+      title={t('preview.sections.interests')}
       sectionKey="interests"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}

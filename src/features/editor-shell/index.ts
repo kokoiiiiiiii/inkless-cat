@@ -1,4 +1,5 @@
 export * from './model/useCustomSectionPrompt';
+export * from './model/useDestructiveAction';
 export * from './model/useEditorIoActions';
 export * from './model/useEditorPanels';
 export * from './model/useEditorTemplatePanel';

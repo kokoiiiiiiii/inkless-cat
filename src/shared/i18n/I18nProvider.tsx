@@ -1,3 +1,4 @@
+import { getLocalStorage } from '@shared/lib/storage';
 import {
   createContext,
   type ReactNode,
@@ -92,8 +93,12 @@ const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    const saved = globalThis?.localStorage?.getItem(LOCALE_KEY);
-    return resolveStoredLocale(saved ?? DEFAULT_LOCALE);
+    try {
+      const saved = getLocalStorage()?.getItem(LOCALE_KEY);
+      return resolveStoredLocale(saved ?? DEFAULT_LOCALE);
+    } catch {
+      return DEFAULT_LOCALE;
+    }
   });
 
   const dictRef = useRef<DictMap>({ 'zh-CN': baseDict['zh-CN'], en: baseDict.en });
@@ -123,9 +128,9 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     try {
-      globalThis?.localStorage?.setItem(LOCALE_KEY, next);
+      getLocalStorage()?.setItem(LOCALE_KEY, next);
     } catch {
-      /* ignore */
+      // UI language still switches for this session if browser storage is unavailable.
     }
   }, []);
 

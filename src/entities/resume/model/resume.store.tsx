@@ -1,13 +1,13 @@
 import {
   createDefaultWorkspace,
   ensureLegacyStorageMigration,
+  reportPersistenceIssue,
   RESUME_STORE_PERSIST_VERSION,
   sanitizePersistedResumeStoreState,
 } from '@entities/workspace';
 import { createStoreLogger } from '@shared/lib/logger';
-import { RESUME_STORE_PERSIST_KEY } from '@shared/lib/storage';
+import { RESUME_STORE_PERSIST_KEY, StorageIssueError } from '@shared/lib/storage';
 import { createBrowserStorage, withStoreErrorBoundary } from '@shared/lib/store';
-import { useFeedbackStore } from '@shared/ui/feedback';
 import { produce } from 'immer';
 import type { ReactNode } from 'react';
 import { createJSONStorage, devtools, persist } from 'zustand/middleware';
@@ -49,7 +49,14 @@ type ResumeStore = ResumeStoreState & {
 };
 
 const logger = createStoreLogger('resume');
-ensureLegacyStorageMigration();
+const reportResumeStorageIssue = (error: StorageIssueError) => reportPersistenceIssue(error);
+const legacyMigrationSucceeded = ensureLegacyStorageMigration(reportResumeStorageIssue);
+const resumeStorage = createBrowserStorage(
+  logger,
+  'resume',
+  reportResumeStorageIssue,
+  () => legacyMigrationSucceeded,
+);
 
 const createNormalizedResume = (value?: ResumeData): ResumeData =>
   normalizeResumeSchema(value ?? createDefaultWorkspace().resume, { clone: true });
@@ -101,12 +108,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
           withStoreErrorBoundary(logger, 'updateActiveSections', () =>
             set(
               (state) => {
-                const next =
-                  typeof input === 'function'
-                    ? (input as (prevSections: ActiveSectionKey[]) => ActiveSectionKey[])(
-                        state.activeSections,
-                      )
-                    : input;
+                const next = typeof input === 'function' ? input(state.activeSections) : input;
                 return {
                   activeSections: sanitizeSections(next, state.resume, {
                     fallbackToDefaults: !options?.allowEmpty,
@@ -129,7 +131,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                 return {
                   resume: normalized,
                   activeSections: sanitizeSections(nextSections, normalized, {
-                    fallbackToDefaults: true,
+                    fallbackToDefaults: nextSections === undefined || nextSections.length > 0,
                   }),
                   hasResumeChanges: false,
                 };
@@ -157,8 +159,17 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
       {
         name: RESUME_STORE_PERSIST_KEY,
         version: RESUME_STORE_PERSIST_VERSION,
-        storage: createJSONStorage(() => createBrowserStorage(logger, 'resume')),
+        storage: createJSONStorage(() => resumeStorage),
         migrate: (persistedState) => sanitizePersistedResumeStoreState(persistedState),
+        merge: (persistedState, currentState) => {
+          if (persistedState === undefined) return currentState;
+          try {
+            return { ...currentState, ...sanitizePersistedResumeStoreState(persistedState) };
+          } catch (error) {
+            resumeStorage.blockWrites();
+            throw error;
+          }
+        },
         partialize: ({ resume, activeSections }) => ({
           resume,
           activeSections,
@@ -166,12 +177,14 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
         onRehydrateStorage: () => (state, error) => {
           if (error) {
             logger.error('Resume store rehydration failed', error);
-            useFeedbackStore.getState().pushFeedback({
-              tone: 'error',
-              title: 'Storage Error',
-              message: 'Failed to restore local resume data.',
-              durationMs: 6000,
-            });
+            resumeStorage.blockWrites();
+            reportResumeStorageIssue(
+              error instanceof StorageIssueError
+                ? error
+                : new StorageIssueError('corrupt', 'Resume store rehydration failed.', {
+                    cause: error,
+                  }),
+            );
             return;
           }
           logger.info('Resume store rehydrated');

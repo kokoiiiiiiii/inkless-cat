@@ -1,6 +1,14 @@
 export const common = {
   ok: '确定',
   cancel: '取消',
+  dismiss: '关闭提示',
+  confirmations: {
+    clearResume: '确定清空当前简历的全部内容吗？可在 12 秒内撤销。',
+    importResume: '导入将替换当前简历；若文件是工作区，还会替换工作区设置。是否继续？',
+    loadSample: '确定用所选示例替换当前简历吗？可在 12 秒内撤销。',
+    updateTemplateSample: '确定用当前简历替换此模板保存的示例吗？',
+    deleteTemplate: '确定删除自定义模板“{name}”吗？可在 12 秒内撤销。',
+  },
   feedback: {
     errorTitle: '操作失败',
     successTitle: '操作成功',
@@ -11,6 +19,12 @@ export const common = {
     exportWorkspaceSuccess: '工作区 JSON 已导出。',
     exportMarkdownSuccess: 'Markdown 已导出。',
     printStarted: '已切换到预览并开始打印。',
+    undoAvailableTitle: '可短暂撤销此操作',
+    undo: '撤销',
+    undoLastChange: '已临时保留上一个简历和工作区设置，可在 12 秒内撤销。',
+    undoThisSessionOnly: '当前页面内可在 12 秒内撤销；刷新页面后将无法撤销。',
+    undoComplete: '已恢复上一个简历和工作区设置。',
+    undoUnavailable: '操作后内容又发生了变化。为保护新修改，这次撤销已取消。',
   },
   errors: {
     invalidJson: '导入失败，文件不是合法的 JSON。',
@@ -23,6 +37,8 @@ export const common = {
     printFailed: '打印失败，请检查浏览器打印能力。',
     fileReadFailed: '读取文件失败，请重试。',
     fileTooLarge: '文件过大，请选择更小的文件。',
+    limitExceeded: '已达到内容上限（{limit}），未应用这次修改。',
+    operationFailed: '操作失败，之前的数据已恢复。',
     storageFailed: '本地存储异常，部分数据可能未恢复。',
   },
 } as const;

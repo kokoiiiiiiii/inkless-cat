@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { LanguageItem, SectionCollectionProps } from './types';
@@ -13,11 +15,12 @@ export const LanguagesSection = ({
   accentStyle,
   setSectionRef,
 }: LanguagesSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="语言能力"
+      title={t('preview.sections.languages')}
       sectionKey="languages"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}

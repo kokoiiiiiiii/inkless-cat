@@ -5,6 +5,8 @@ export const sort = {
   restoreTitle: '恢复原始排序',
   undo: '撤销',
   undoTitle: '撤销上一次排序 (Ctrl/⌘+Z)',
+  moveUp: '将{title}上移',
+  moveDown: '将{title}下移',
   empty: '暂无启用的模块，先在下方开启需要的模块。',
   aria: '拖动调整{title}的位置',
 } as const;

@@ -1,4 +1,12 @@
 import type { ResumeData, ResumePersonalExtra } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
+import { createAppError } from '@shared/lib/errors';
+import {
+  MAX_PHOTO_DATA_URL_LENGTH,
+  MAX_RESUME_TEXT_LENGTH,
+  MAX_SECTION_ITEMS,
+} from '@shared/lib/limits';
+import { useAppFeedback } from '@shared/ui/feedback';
 import { useCallback, useMemo } from 'react';
 
 import { clampPhotoSize, DEFAULT_PERSONAL_SETTINGS, ensureId } from '../lib';
@@ -36,6 +44,13 @@ export const usePersonalEditor = (
   resume: ResumeData,
   updateDraft: UpdateDraft,
 ): PersonalHandlers => {
+  const { t } = useI18n();
+  const { showError } = useAppFeedback();
+  const reportLimitExceeded = useCallback(
+    (limit: number) =>
+      showError(createAppError('LIMIT_EXCEEDED', t('common.errors.limitExceeded', { limit }))),
+    [showError, t],
+  );
   const personalSettings = useMemo<PersonalSettings>(
     () => resolvePersonalSettings(resume),
     [resume],
@@ -43,14 +58,23 @@ export const usePersonalEditor = (
 
   const handlePersonalChange = useCallback(
     (field: Exclude<keyof ResumeData['personal'], 'extras'>, value: string) => {
+      const limit = field === 'photo' ? MAX_PHOTO_DATA_URL_LENGTH : MAX_RESUME_TEXT_LENGTH;
+      if (value.length > limit) {
+        reportLimitExceeded(limit);
+        return;
+      }
       updateDraft((draft) => {
         draft.personal[field] = value;
       });
     },
-    [updateDraft],
+    [reportLimitExceeded, updateDraft],
   );
 
   const handlePersonalExtraAdd = useCallback(() => {
+    if ((resume.personal.extras?.length ?? 0) >= MAX_SECTION_ITEMS) {
+      reportLimitExceeded(MAX_SECTION_ITEMS);
+      return;
+    }
     updateDraft((draft) => {
       const extras = ensureExtrasArray(draft);
       extras.push({
@@ -59,10 +83,14 @@ export const usePersonalEditor = (
         value: '',
       });
     });
-  }, [updateDraft]);
+  }, [reportLimitExceeded, resume.personal.extras?.length, updateDraft]);
 
   const handlePersonalExtraChange = useCallback(
     (extraId: string, field: keyof ResumePersonalExtra, value: string) => {
+      if (value.length > MAX_RESUME_TEXT_LENGTH) {
+        reportLimitExceeded(MAX_RESUME_TEXT_LENGTH);
+        return;
+      }
       updateDraft((draft) => {
         const extras = ensureExtrasArray(draft);
         const target = extras.find((item) => item.id === extraId);
@@ -71,7 +99,7 @@ export const usePersonalEditor = (
         }
       });
     },
-    [updateDraft],
+    [reportLimitExceeded, updateDraft],
   );
 
   const handlePersonalExtraRemove = useCallback(

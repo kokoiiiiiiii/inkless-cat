@@ -73,4 +73,19 @@ describe('resume store', () => {
     expect(state.hasResumeChanges).toBe(false);
     expect(state.activeSections).toEqual(deriveSectionsFromResume(state.resume));
   });
+
+  it('preserves invalid same-version data instead of overwriting it with defaults', async () => {
+    const raw = JSON.stringify({
+      state: { resume: { personal: 'invalid' }, activeSections: [] },
+      version: 1,
+    });
+    localStorage.setItem(RESUME_STORE_PERSIST_KEY, raw);
+
+    await useResumeStore.persist?.rehydrate();
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.fullName = 'In memory only';
+    });
+
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toBe(raw);
+  });
 });
