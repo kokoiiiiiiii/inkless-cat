@@ -1,11 +1,11 @@
-import { beforeEach, bench } from 'vitest';
+import { test } from 'vitest';
 
 import { createEmptyResume } from '../lib/factory';
 import { normalizeResumeSchema } from '../lib/normalizers';
 import { deriveSectionsFromResume } from '../selectors';
 import { useResumeStore } from './resume.store';
 
-beforeEach(() => {
+const resetResumeStore = () => {
   const baseResume = normalizeResumeSchema(createEmptyResume(), { clone: true });
   useResumeStore.setState({
     resume: baseResume,
@@ -13,15 +13,17 @@ beforeEach(() => {
     hasResumeChanges: false,
   });
   useResumeStore.persist?.clearStorage();
-});
+};
 
-bench('resume store update throughput', () => {
-  const { updateResume } = useResumeStore.getState();
-  updateResume(
-    (draft) => {
-      draft.personal.fullName = 'Benchmark User';
-      draft.personal.title = 'Performance Run';
-    },
-    { markDirty: false },
-  );
+test('resume store update throughput', async ({ bench }) => {
+  await bench('update resume', { beforeEach: resetResumeStore }, () => {
+    const { updateResume } = useResumeStore.getState();
+    updateResume(
+      (draft) => {
+        draft.personal.fullName = 'Benchmark User';
+        draft.personal.title = 'Performance Run';
+      },
+      { markDirty: false },
+    );
+  }).run();
 });
