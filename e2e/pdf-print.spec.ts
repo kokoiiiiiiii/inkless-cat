@@ -37,14 +37,19 @@ const makeFixture = (
       ...base.resume.personal,
       fullName: `Print QA ${kind}`,
       title: 'Principal Frontend Engineer',
+      email: 'print-qa@example.test',
+      phone: '+1 202-555-0147',
+      location: 'Test City',
       summary:
         kind === 'single'
           ? 'Single-page print fixture. Product-focused engineer with clear, concise experience.'
           : 'Print QA fixture for validating A4 pagination, typography, and content boundaries. '.repeat(
               kind === 'long' ? 5 : 2,
             ),
+      extras: [],
       ...(kind === 'complex' ? { photo: photoDataUrl } : { photo: '' }),
     },
+    socials: [],
     experience: kind === 'long' ? createLongExperience() : [],
     projects:
       kind === 'complex'

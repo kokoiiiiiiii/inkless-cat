@@ -27,7 +27,7 @@ const createOptions = () => {
   return {
     resetState: vi.fn(),
     prepareImportFromJson: vi.fn((): Result<PreparedImport, AppError> => ok(prepared)),
-    commitPreparedImport: vi.fn(() => ok({ kind: 'resume' as const })),
+    commitPreparedImport: vi.fn((imported: PreparedImport) => ok({ kind: imported.kind })),
     exportJson: vi.fn(() => successfulExport),
     exportWorkspaceJson: vi.fn(() => successfulExport),
     exportMarkdown: vi.fn(() => successfulExport),
@@ -183,6 +183,44 @@ describe('editor destructive actions', () => {
     const latestUndo = useFeedbackStore
       .getState()
       .items.findLast((item) => Boolean(item.action))?.action;
+    act(() => latestUndo?.onClick());
+
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('');
+    expect(sessionStorage.getItem('inkless-cat/pending-destructive-undo')).toBeNull();
+  });
+
+  it('replaces a clear undo with the snapshot from a following import', () => {
+    vi.useFakeTimers();
+    const previousResume = createEmptyResume();
+    previousResume.personal.fullName = 'Before clear and import';
+    useResumeStore.setState({ resume: previousResume, activeSections: [], hasResumeChanges: true });
+    const importedResume = createEmptyResume();
+    importedResume.personal.fullName = 'Imported after clear';
+    const options = createOptions();
+    options.resetState.mockImplementation((nextResume) => {
+      useResumeStore.getState().resetState(nextResume);
+    });
+    options.prepareImportFromJson.mockReturnValue(
+      ok({ kind: 'resume', resume: importedResume, activeSections: [] }),
+    );
+    options.commitPreparedImport.mockImplementation((prepared) => {
+      if (prepared.kind === 'resume') {
+        useResumeStore.getState().replaceState(prepared.resume, prepared.activeSections);
+      }
+      return ok({ kind: prepared.kind });
+    });
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+    const { result } = renderHook(() => useEditorIoActions(options), { wrapper });
+
+    act(() => result.current.handleClear());
+    act(() => result.current.handleImport('{"valid":true}'));
+
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Imported after clear');
+    expect(useFeedbackStore.getState().items.filter((item) => item.action)).toHaveLength(1);
+    const latestUndo = useFeedbackStore.getState().items.find((item) => item.action)?.action;
     act(() => latestUndo?.onClick());
 
     expect(useResumeStore.getState().resume.personal.fullName).toBe('');
