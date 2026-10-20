@@ -5,3 +5,9 @@ export type DragState = {
   over: string | null;
   position: DragPosition;
 };
+
+export type DragCompletion = {
+  sectionKey: string;
+  position: number;
+  total: number;
+};

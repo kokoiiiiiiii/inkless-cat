@@ -38,6 +38,12 @@ export const SectionManager = memo(
     const { t } = useI18n();
     const open = typeof isOpen === 'boolean' ? isOpen : true;
 
+    const { canRestore, canUndo, handleReorder, handleRestore, handleUndo } =
+      useSectionOrderHistory({
+        activeSections,
+        onReorderSections,
+      });
+
     const {
       resolvedActiveSections,
       customList,
@@ -45,6 +51,7 @@ export const SectionManager = memo(
       standardAnyEnabled,
       displayOrder,
       dragState,
+      dragCompletion,
       dragListRef,
       getSectionTitle,
       handleToggleAllStandard,
@@ -53,12 +60,7 @@ export const SectionManager = memo(
       activeSections,
       customSections,
       onToggleSection,
-      onReorderSections,
-    });
-
-    const { canRestore, canUndo, handleRestore, handleUndo } = useSectionOrderHistory({
-      activeSections,
-      onReorderSections,
+      onReorderSections: onReorderSections ? handleReorder : undefined,
     });
 
     useUndoHotkey(open, handleUndo);
@@ -89,12 +91,13 @@ export const SectionManager = memo(
               resolvedActiveSections={resolvedActiveSections}
               displayOrder={displayOrder}
               dragState={dragState}
+              dragCompletion={dragCompletion}
               dragListRef={dragListRef}
               getSectionTitle={getSectionTitle}
               handlePointerDown={handlePointerDown}
               canRestore={canRestore}
               canUndo={canUndo}
-              onReorderSections={onReorderSections}
+              onReorderSections={onReorderSections ? handleReorder : undefined}
               onRestore={handleRestore}
               onUndo={handleUndo}
             />
