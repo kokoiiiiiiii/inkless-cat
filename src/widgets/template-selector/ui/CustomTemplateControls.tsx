@@ -8,7 +8,7 @@ import type { TemplateUpdatePayload } from './types';
 
 type CustomTemplateControlsProps = {
   template: ResumeTemplate;
-  theme: TemplateTheme;
+  theme: Required<TemplateTheme>;
   isCustomStyle: boolean;
   onDeleteTemplate?: (id: string) => void;
   onUpdateTemplate?: (id: string, updates: TemplateUpdatePayload) => void;
@@ -23,11 +23,11 @@ type ControlButtonProps = {
 
 const ControlButton = ({ children, tone = 'default', onClick }: ControlButtonProps) => {
   const baseClass =
-    'inline-flex items-center justify-center rounded-full border border-transparent px-3 py-1.5 text-xs font-medium transition';
+    'inline-flex min-h-10 items-center justify-center rounded-full border border-transparent px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 motion-reduce:transition-none';
   const toneClass =
     tone === 'danger'
-      ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-300 dark:hover:bg-red-500/30'
-      : 'bg-slate-200/70 text-slate-600 hover:bg-slate-300/80 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-700/60';
+      ? 'bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-200 dark:hover:bg-red-500/30'
+      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700';
   return (
     <button type="button" className={`${baseClass} ${toneClass}`} onClick={onClick}>
       {children}
@@ -44,10 +44,10 @@ const StyleSelector = ({
 }) => {
   const { t } = useI18n();
   return (
-    <label className="inline-flex items-center gap-1">
+    <label className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
       {t('template.controls.styleLabel')}
       <select
-        className="rounded border border-slate-300/70 bg-white/70 px-1 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900/70"
+        className="min-h-10 rounded-lg border border-slate-300/70 bg-white px-2 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         value={value}
         onChange={onChange}
       >
@@ -73,9 +73,14 @@ const AccentColorPicker = ({
 }) => {
   const { t } = useI18n();
   return (
-    <label className="inline-flex items-center gap-1">
+    <label className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
       {t('template.controls.accentLabel')}
-      <input type="color" value={value} onChange={onChange} />
+      <input
+        className="h-9 w-11 cursor-pointer rounded-md border border-slate-300 bg-white p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900"
+        type="color"
+        value={value}
+        onChange={onChange}
+      />
     </label>
   );
 };
@@ -84,16 +89,20 @@ const ThemeColorPickers = ({
   theme,
   onChange,
 }: {
-  theme: TemplateTheme;
+  theme: Required<TemplateTheme>;
   onChange: (key: keyof TemplateTheme, value: string) => void;
 }) => {
   const { t } = useI18n();
   return (
     <>
       {TEMPLATE_THEME_FIELDS.map(({ key, labelKey, fallback }) => (
-        <label key={key} className="inline-flex items-center gap-1">
+        <label
+          key={key}
+          className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+        >
           {t(labelKey)}
           <input
+            className="h-9 w-11 cursor-pointer rounded-md border border-slate-300 bg-white p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900"
             type="color"
             value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
             onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
@@ -117,6 +126,14 @@ export const CustomTemplateControls = ({
     return <></>;
   }
 
+  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onUpdateTemplate(template.id, { name: event.target.value });
+  };
+
+  const handleDescriptionChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onUpdateTemplate(template.id, { description: event.target.value });
+  };
+
   const handleStyleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     onUpdateTemplate(template.id, { previewStyle: event.target.value });
   };
@@ -135,16 +152,44 @@ export const CustomTemplateControls = ({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-      <StyleSelector value={template.previewStyle || 'modern'} onChange={handleStyleChange} />
-      <AccentColorPicker value={template.accentColor || '#2563eb'} onChange={handleAccentChange} />
-      {isCustomStyle && <ThemeColorPickers theme={theme} onChange={onThemeChange} />}
-      <ControlButton onClick={handleUpdateExample}>
-        {t('template.actions.updateSample')}
-      </ControlButton>
-      <ControlButton tone="danger" onClick={() => onDeleteTemplate?.(template.id)}>
-        {t('template.actions.delete')}
-      </ControlButton>
+    <div className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+          {t('template.creation.nameLabel')}
+          <input
+            className="min-h-10 w-full rounded-lg border border-slate-300/70 bg-white px-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            type="text"
+            value={template.name}
+            placeholder={t('template.inputs.namePlaceholder')}
+            onChange={handleNameChange}
+          />
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+          {t('template.creation.descriptionLabel')}
+          <input
+            className="min-h-10 w-full rounded-lg border border-slate-300/70 bg-white px-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            type="text"
+            value={template.description || ''}
+            placeholder={t('template.inputs.descriptionPlaceholder')}
+            onChange={handleDescriptionChange}
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-600 dark:text-slate-300">
+        <StyleSelector value={template.previewStyle || 'modern'} onChange={handleStyleChange} />
+        <AccentColorPicker
+          value={template.accentColor || '#2563eb'}
+          onChange={handleAccentChange}
+        />
+        {isCustomStyle && <ThemeColorPickers theme={theme} onChange={onThemeChange} />}
+        <ControlButton onClick={handleUpdateExample}>
+          {t('template.actions.updateSample')}
+        </ControlButton>
+        <ControlButton tone="danger" onClick={() => onDeleteTemplate?.(template.id)}>
+          {t('template.actions.delete')}
+        </ControlButton>
+      </div>
     </div>
   );
 };

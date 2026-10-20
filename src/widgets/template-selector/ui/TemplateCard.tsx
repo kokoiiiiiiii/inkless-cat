@@ -1,15 +1,18 @@
-import type { ResumeTemplate, TemplateTheme } from '@entities/template';
+import { resolveCustomTemplateTheme, type ResumeTemplate } from '@entities/template';
 import { useI18n } from '@shared/i18n';
 import { useMemo } from 'react';
 
-import { activeCardClass, baseCardClass, DEFAULT_CUSTOM_THEME } from './constants';
+import { activeCardClass, baseCardClass } from './constants';
 import { CustomTemplateControls } from './CustomTemplateControls';
 import { TemplateCardHeader } from './TemplateCardHeader';
+import { TemplateThumbnail } from './TemplateThumbnail';
 import type { TemplateUpdatePayload } from './types';
 
 type TemplateCardProps = {
   template: ResumeTemplate;
   activeId: string;
+  radioGroupName: string;
+  radioId: string;
   onStyleChange: (template: ResumeTemplate) => void;
   onLoadSample: (template: ResumeTemplate) => void;
   onDeleteTemplate?: (id: string) => void;
@@ -20,6 +23,8 @@ type TemplateCardProps = {
 const TemplateCard = ({
   template,
   activeId,
+  radioGroupName,
+  radioId,
   onStyleChange,
   onLoadSample,
   onDeleteTemplate,
@@ -29,55 +34,68 @@ const TemplateCard = ({
   const { t } = useI18n();
   const isActive = template.id === activeId;
   const isCustomStyle = template.previewStyle === 'custom';
-  const theme = useMemo<TemplateTheme>(() => {
-    if (!template.theme) {
-      return { ...DEFAULT_CUSTOM_THEME };
-    }
-    return { ...DEFAULT_CUSTOM_THEME, ...template.theme };
-  }, [template.theme]);
+  const nameId = `${radioId}-name`;
+  const descriptionId = `${radioId}-description`;
+  const statusId = `${radioId}-status`;
+  const theme = useMemo(() => resolveCustomTemplateTheme(template.theme), [template.theme]);
 
-  const handleThemeColorChange = (key: keyof TemplateTheme, value: string) => {
+  const handleThemeColorChange = (key: keyof typeof theme, value: string) => {
     if (!onUpdateTemplate) {
       return;
     }
-    const nextTheme = { ...theme, [key]: value };
-    onUpdateTemplate(template.id, { theme: nextTheme });
+    onUpdateTemplate(template.id, { theme: { ...theme, [key]: value } });
   };
 
   return (
-    <article className={`${baseCardClass} ${isActive ? activeCardClass : ''}`}>
-      <TemplateCardHeader
-        template={template}
-        isActive={isActive}
-        isCustom={isCustom}
-        onUpdateTemplate={onUpdateTemplate}
-      />
-      <div className="flex flex-wrap gap-2">
+    <article
+      className={`${baseCardClass} ${isActive ? activeCardClass : ''}`}
+      data-template-id={template.id}
+    >
+      <div className="grid grid-cols-[auto,56px,minmax(0,1fr)] items-start gap-3 xl:grid-cols-[auto,56px,minmax(0,1fr),auto]">
+        <input
+          id={radioId}
+          className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
+          type="radio"
+          name={radioGroupName}
+          value={template.id}
+          checked={isActive}
+          tabIndex={isActive ? 0 : -1}
+          aria-labelledby={nameId}
+          aria-describedby={isActive ? `${descriptionId} ${statusId}` : descriptionId}
+          onChange={() => onStyleChange(template)}
+        />
+        <TemplateThumbnail
+          previewStyle={template.previewStyle}
+          accentColor={template.accentColor}
+          theme={template.theme}
+        />
+        <TemplateCardHeader
+          template={template}
+          isActive={isActive}
+          isCustom={isCustom}
+          radioId={radioId}
+          nameId={nameId}
+          descriptionId={descriptionId}
+          statusId={statusId}
+        />
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-slate-200/70 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200"
-          onClick={() => onStyleChange(template)}
-        >
-          {t('template.actions.useStyle')}
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center rounded-full border border-transparent bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-brand-500/30 transition hover:bg-brand-500 dark:bg-brand-500 dark:hover:bg-brand-400"
+          className="col-span-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-slate-300/80 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-brand-400 hover:bg-brand-50/70 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 motion-reduce:transition-none dark:border-slate-700 dark:text-slate-200 dark:hover:border-brand-400 dark:hover:bg-brand-400/10 dark:hover:text-brand-100 xl:col-span-1 xl:col-start-4 xl:row-start-1 xl:w-auto xl:min-w-36 xl:self-center"
           onClick={() => onLoadSample(template)}
         >
           {t('template.actions.loadSample')}
         </button>
-        {isCustom && (
-          <CustomTemplateControls
-            template={template}
-            theme={theme}
-            isCustomStyle={isCustomStyle}
-            onDeleteTemplate={onDeleteTemplate}
-            onUpdateTemplate={onUpdateTemplate}
-            onThemeChange={handleThemeColorChange}
-          />
-        )}
       </div>
+      {isCustom && (
+        <CustomTemplateControls
+          template={template}
+          theme={theme}
+          isCustomStyle={isCustomStyle}
+          onDeleteTemplate={onDeleteTemplate}
+          onUpdateTemplate={onUpdateTemplate}
+          onThemeChange={handleThemeColorChange}
+        />
+      )}
     </article>
   );
 };

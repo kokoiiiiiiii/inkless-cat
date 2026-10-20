@@ -75,10 +75,7 @@ export const CustomSection = ({
           ))}
         </ul>
       ) : (
-        <p
-          className={cn('text-slate-500 dark:text-slate-400', variant.metaValue)}
-          style={themeStyles.muted}
-        >
+        <p className={cn('text-slate-500', variant.metaValue)} style={themeStyles.muted}>
           {t('modules.customSection.empty')}
         </p>
       )}

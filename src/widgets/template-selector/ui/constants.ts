@@ -1,22 +1,12 @@
-import type { TemplateTheme } from '@entities/template';
+import { DEFAULT_TEMPLATE_THEME } from '@entities/template';
 
 export const baseCardClass =
-  'relative flex flex-col gap-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition hover:border-brand-400/60 hover:shadow-lg dark:border-slate-700/70 dark:bg-slate-900/70 dark:hover:border-brand-400/60 dark:hover:shadow-brand-500/20';
+  'relative flex flex-col gap-3 rounded-2xl border border-slate-200/70 bg-white/80 p-3 shadow-sm transition-colors hover:border-slate-300 hover:shadow-md focus-within:ring-2 focus-within:ring-brand-300/80 focus-within:ring-offset-2 motion-reduce:transition-none dark:border-slate-700/70 dark:bg-slate-900/70 dark:hover:border-slate-600 dark:focus-within:ring-brand-400/40 dark:focus-within:ring-offset-slate-900';
 
 export const activeCardClass =
-  'border-brand-500/70 shadow-lg shadow-brand-500/20 ring-2 ring-brand-500/30 dark:ring-brand-400/30';
+  'border-brand-500/70 bg-brand-50/50 ring-2 ring-brand-500/20 dark:border-brand-400/70 dark:bg-brand-400/5 dark:ring-brand-400/25';
 
-export const DEFAULT_CUSTOM_THEME: TemplateTheme = {
-  accent: '#2563eb',
-  background: '#ffffff',
-  heading: '#0f172a',
-  subheading: '#2563eb',
-  text: '#1f2937',
-  muted: '#64748b',
-  cardBackground: '#f8fafc',
-  cardBorder: '#e2e8f0',
-  divider: '#e2e8f0',
-};
+export const DEFAULT_CUSTOM_THEME = DEFAULT_TEMPLATE_THEME;
 
 export type StyleOption = {
   value: string;
