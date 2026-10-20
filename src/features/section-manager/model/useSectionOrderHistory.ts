@@ -89,18 +89,26 @@ export const useSectionOrderHistory = ({
   );
 
   const handleRestore = useCallback(() => {
-    if (!onReorderSections) return;
+    if (!onReorderSections) return false;
+    const currentOrder = currentOrderRef.current;
+    if (
+      arraysShallowEqual(currentOrder, targetRestoreOrder) ||
+      !sameMembers(currentOrder, targetRestoreOrder)
+    ) {
+      return false;
+    }
     handleReorder(targetRestoreOrder);
+    return true;
   }, [handleReorder, onReorderSections, targetRestoreOrder]);
 
   const handleUndo = useCallback(() => {
-    if (!onReorderSections) return;
+    if (!onReorderSections) return false;
     const previousOrder = undoOrderRef.current;
     const currentOrder = currentOrderRef.current;
     if (!previousOrder || !sameMembers(currentOrder, previousOrder)) {
       undoOrderRef.current = null;
       setUndoOrder(null);
-      return;
+      return false;
     }
 
     const restoredOrder = [...previousOrder];
@@ -109,6 +117,7 @@ export const useSectionOrderHistory = ({
     setUndoOrder(null);
     // Applying the snapshot directly consumes the one-step history instead of recording Undo as a new sort.
     onReorderSections(restoredOrder);
+    return true;
   }, [onReorderSections]);
 
   const canUndo = Boolean(onReorderSections && undoOrder?.length);

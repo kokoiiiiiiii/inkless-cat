@@ -11,7 +11,6 @@ import { useSectionOrderHistory } from '../model/useSectionOrderHistory';
 import { CustomSectionPanel } from './components/CustomSectionPanel';
 import { SectionSortPanel } from './components/SectionSortPanel';
 import { SectionTogglePanel } from './components/SectionTogglePanel';
-import { useUndoHotkey } from './hooks/useUndoHotkey';
 
 type SectionManagerProps = {
   activeSections?: string[];
@@ -62,8 +61,6 @@ export const SectionManager = memo(
       onToggleSection,
       onReorderSections: onReorderSections ? handleReorder : undefined,
     });
-
-    useUndoHotkey(open, handleUndo);
 
     return (
       <section className="space-y-3">

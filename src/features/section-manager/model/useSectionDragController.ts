@@ -5,6 +5,7 @@ import type { DragCompletion, DragState } from './drag/types';
 import { useDragOrderSync } from './drag/useDragOrderSync';
 import { usePointerController } from './drag/usePointerController';
 import { useScrollLock } from './drag/useScrollLock';
+import { arraysShallowEqual } from './drag/utils';
 import type { SectionReorderHandler } from './useSectionManager';
 
 type DragOverRect = { top: number; bottom: number; height: number };
@@ -14,6 +15,7 @@ type PendingDrag = {
   startX: number;
   startY: number;
   listNode: HTMLUListElement;
+  activeSections: string[];
 };
 
 const DRAG_START_DISTANCE = 6;
@@ -40,6 +42,8 @@ export const useSectionDragController = ({
   const dragListRef = useRef<HTMLUListElement | null>(null);
   const lastProcessYRef = useRef<number | null>(null);
   const pendingDragRef = useRef<PendingDrag | null>(null);
+  const resolvedActiveSectionsRef = useRef(resolvedActiveSections);
+  resolvedActiveSectionsRef.current = resolvedActiveSections;
   const dragStartedRef = useRef(false);
 
   const { lockScroll, unlockScroll } = useScrollLock();
@@ -176,6 +180,13 @@ export const useSectionDragController = ({
     resetDragState();
   }, [finalizeOrder, processDragOver, resetDragState, resolvedActiveSections]);
 
+  useEffect(() => {
+    const pendingDrag = pendingDragRef.current;
+    if (pendingDrag && !arraysShallowEqual(pendingDrag.activeSections, resolvedActiveSections)) {
+      resetDragState();
+    }
+  }, [resetDragState, resolvedActiveSections]);
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>, sectionKey: string) => {
       if (event.button !== 0 || event.isPrimary === false || activePointerRef.current.id !== null) {
@@ -194,6 +205,7 @@ export const useSectionDragController = ({
         startX: event.clientX,
         startY: event.clientY,
         listNode: dragListNode,
+        activeSections: [...resolvedActiveSections],
       };
 
       const handleMove = (nativeEvent: PointerEvent) => {
@@ -202,6 +214,10 @@ export const useSectionDragController = ({
         }
         const pending = pendingDragRef.current;
         if (!pending) return;
+        if (!arraysShallowEqual(pending.activeSections, resolvedActiveSectionsRef.current)) {
+          resetDragState();
+          return;
+        }
 
         if (!dragStartedRef.current) {
           const distance = Math.hypot(
@@ -224,6 +240,14 @@ export const useSectionDragController = ({
 
       const handleUp = (nativeEvent: PointerEvent) => {
         if (nativeEvent.pointerId !== activePointerRef.current.id) {
+          return;
+        }
+        const pending = pendingDragRef.current;
+        if (
+          pending &&
+          !arraysShallowEqual(pending.activeSections, resolvedActiveSectionsRef.current)
+        ) {
+          resetDragState();
           return;
         }
         if (nativeEvent.cancelable) {
@@ -274,6 +298,7 @@ export const useSectionDragController = ({
       requestHoverFrame,
       resetDragState,
       updateDragState,
+      resolvedActiveSections,
     ],
   );
 

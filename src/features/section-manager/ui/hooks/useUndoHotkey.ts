@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export const useUndoHotkey = (enabled: boolean, handler: () => void) => {
+export const useUndoHotkey = (enabled: boolean, handler: () => boolean) => {
   useEffect(() => {
     if (!enabled) return;
     const listener = (event: KeyboardEvent) => {
@@ -12,9 +12,8 @@ export const useUndoHotkey = (enabled: boolean, handler: () => void) => {
         (event.ctrlKey || event.metaKey) &&
         !event.shiftKey &&
         (event.key === 'z' || event.key === 'Z');
-      if (isUndo) {
+      if (isUndo && handler()) {
         event.preventDefault();
-        handler();
       }
     };
     globalThis.addEventListener('keydown', listener, { passive: false });

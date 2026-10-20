@@ -1,11 +1,13 @@
 import { useI18n } from '@shared/i18n';
 import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DragCompletion, DragState } from '../../model/useSectionDragController';
 import type { SectionReorderHandler } from '../../model/useSectionManager';
+import { useUndoHotkey } from '../hooks/useUndoHotkey';
 
 type MoveDirection = 'up' | 'down';
+type PendingActionFocus = 'restore' | 'undo';
 
 type SectionSortPanelProps = {
   resolvedActiveSections: string[];
@@ -17,8 +19,8 @@ type SectionSortPanelProps = {
   handlePointerDown: (event: ReactPointerEvent<HTMLElement>, sectionKey: string) => void;
   canRestore: boolean;
   canUndo: boolean;
-  onRestore: () => void;
-  onUndo: () => void;
+  onRestore: () => boolean;
+  onUndo: () => boolean;
   onReorderSections?: SectionReorderHandler;
 };
 
@@ -46,7 +48,39 @@ export const SectionSortPanel = ({
   const { t } = useI18n();
   const [announcement, setAnnouncement] = useState('');
   const pendingFocusRef = useRef<{ sectionKey: string; direction: MoveDirection } | null>(null);
+  const pendingActionFocusRef = useRef<PendingActionFocus | null>(null);
   const moveButtonRefs = useRef(new Map<string, Map<MoveDirection, HTMLButtonElement>>());
+  const restoreButtonRef = useRef<HTMLButtonElement | null>(null);
+  const undoButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const focusFirstAvailableMoveButton = useCallback(() => {
+    for (const sectionKey of displayOrder) {
+      const sectionButtons = moveButtonRefs.current.get(sectionKey);
+      for (const direction of ['down', 'up'] as const) {
+        const button = sectionButtons?.get(direction);
+        if (button && !button.disabled) {
+          button.focus({ preventScroll: true });
+          return;
+        }
+      }
+    }
+  }, [displayOrder]);
+
+  const applyUndo = useCallback(
+    (focusAfter: boolean) => {
+      const didUndo = onUndo();
+      if (!didUndo) return false;
+
+      setAnnouncement(t('modules.sort.undone'));
+      if (focusAfter || document.activeElement === undoButtonRef.current) {
+        pendingActionFocusRef.current = 'undo';
+      }
+      return true;
+    },
+    [onUndo, t],
+  );
+
+  useUndoHotkey(canUndo, () => applyUndo(document.activeElement === undoButtonRef.current));
 
   useEffect(() => {
     if (!dragCompletion) return;
@@ -76,6 +110,21 @@ export const SectionSortPanel = ({
     if (alternateButton && !alternateButton.disabled) alternateButton.focus();
   }, [displayOrder]);
 
+  useEffect(() => {
+    const pendingActionFocus = pendingActionFocusRef.current;
+    if (!pendingActionFocus) return;
+    pendingActionFocusRef.current = null;
+
+    const preferredButton =
+      pendingActionFocus === 'restore' ? undoButtonRef.current : restoreButtonRef.current;
+    if (preferredButton && !preferredButton.disabled) {
+      preferredButton.focus({ preventScroll: true });
+      return;
+    }
+
+    focusFirstAvailableMoveButton();
+  }, [canRestore, canUndo, displayOrder, focusFirstAvailableMoveButton]);
+
   const announceOrderChange = (title: string, position: number, total: number) => {
     setAnnouncement(t('modules.sort.movedToPosition', { title, position, total }));
   };
@@ -91,10 +140,15 @@ export const SectionSortPanel = ({
             {t('modules.sort.hint')}
           </span>
           <button
+            ref={restoreButtonRef}
             type="button"
             className={actionButtonClass}
             onClick={() => {
-              onRestore();
+              pendingActionFocusRef.current = 'restore';
+              if (!onRestore()) {
+                pendingActionFocusRef.current = null;
+                return;
+              }
               setAnnouncement(t('modules.sort.restored'));
             }}
             disabled={!canRestore}
@@ -103,11 +157,11 @@ export const SectionSortPanel = ({
             {t('modules.sort.restore')}
           </button>
           <button
+            ref={undoButtonRef}
             type="button"
             className={actionButtonClass}
             onClick={() => {
-              onUndo();
-              setAnnouncement(t('modules.sort.undone'));
+              if (!applyUndo(true)) pendingActionFocusRef.current = null;
             }}
             disabled={!canUndo}
             title={t('modules.sort.undoTitle')}

@@ -74,6 +74,9 @@ const DragHarness = ({ onReorder }: { onReorder: SectionReorderHandler }) => {
           </li>
         ))}
       </ul>
+      <button type="button" data-testid="remove-a" onClick={() => setSections(['b'])}>
+        Remove active section
+      </button>
       <output data-testid="drag-active">{controller.dragState.active ?? ''}</output>
     </>
   );
@@ -150,6 +153,49 @@ describe('useSectionDragController pointer lifecycle', () => {
     expect(screen.getByTestId('drag-active').textContent).toBe('');
     expect(setPointerCaptureMock).toHaveBeenCalledTimes(2);
     expect(releasePointerCaptureMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts dragging when movement reaches exactly six pixels', () => {
+    const onReorder = vi.fn();
+    render(<DragHarness onReorder={onReorder} />);
+    const handle = screen.getByTestId('handle-a');
+
+    fireEvent(handle, createPointerEvent('pointerdown', { clientX: 4, clientY: 10 }));
+    fireEvent(document, createPointerEvent('pointermove', { clientX: 10, clientY: 10 }));
+
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(screen.getByTestId('drag-active').textContent).toBe('a');
+
+    fireEvent(document, createPointerEvent('pointercancel'));
+
+    expect(document.body.style.overflow).toBe('');
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(releasePointerCaptureMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels an active drag when the section snapshot changes', () => {
+    const onReorder = vi.fn();
+    render(<DragHarness onReorder={onReorder} />);
+    fireEvent(screen.getByTestId('handle-a'), createPointerEvent('pointerdown'));
+    fireEvent(document, createPointerEvent('pointermove', { clientY: 10 }));
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(screen.getByTestId('drag-active').textContent).toBe('a');
+
+    fireEvent.click(screen.getByTestId('remove-a'));
+
+    expect(screen.queryByTestId('handle-a')).toBeNull();
+    expect(
+      [...screen.getByTestId('drag-list').querySelectorAll('[data-section-key]')].map(
+        (element) => (element as HTMLElement).dataset.sectionKey,
+      ),
+    ).toEqual(['b']);
+    expect(document.body.style.overflow).toBe('');
+    expect(document.body.style.userSelect).toBe('');
+    expect(screen.getByTestId('drag-active').textContent).toBe('');
+    expect(releasePointerCaptureMock).toHaveBeenCalledTimes(1);
+
+    fireEvent(document, createPointerEvent('pointerup', { clientY: 80 }));
+    expect(onReorder).not.toHaveBeenCalled();
   });
 
   it.each(['pointercancel', 'lostpointercapture'] as const)(

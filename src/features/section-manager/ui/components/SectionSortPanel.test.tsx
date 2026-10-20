@@ -10,10 +10,10 @@ const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider>{childr
 
 const ControlledPanel = ({ initialOrder }: { initialOrder: string[] }) => {
   const [order, setOrder] = useState(initialOrder);
-  const [canUndo, setCanUndo] = useState(false);
+  const [undoOrder, setUndoOrder] = useState<string[] | null>(null);
   const handleReorder = (nextOrder: string[]) => {
+    setUndoOrder(order);
     setOrder(nextOrder);
-    setCanUndo(true);
   };
 
   return (
@@ -26,14 +26,18 @@ const ControlledPanel = ({ initialOrder }: { initialOrder: string[] }) => {
       getSectionTitle={(key) => key}
       handlePointerDown={vi.fn()}
       canRestore={order.some((key, index) => key !== initialOrder[index])}
-      canUndo={canUndo}
+      canUndo={Boolean(undoOrder)}
       onRestore={() => {
+        if (!order.some((key, index) => key !== initialOrder[index])) return false;
+        setUndoOrder(order);
         setOrder(initialOrder);
-        setCanUndo(false);
+        return true;
       }}
       onUndo={() => {
-        setOrder(initialOrder);
-        setCanUndo(false);
+        if (!undoOrder) return false;
+        setOrder(undoOrder);
+        setUndoOrder(null);
+        return true;
       }}
       onReorderSections={handleReorder}
     />
@@ -77,6 +81,28 @@ describe('SectionSortPanel keyboard controls', () => {
     );
   });
 
+  it('moves focus to an enabled control after Undo and Reset', () => {
+    render(<ControlledPanel initialOrder={['projects', 'experience', 'education']} />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /experience.*上移/u }));
+    const undo = screen.getByRole<HTMLButtonElement>('button', { name: '撤销' });
+    undo.focus();
+    fireEvent.click(undo);
+
+    expect(undo.disabled).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /projects.*下移/u }));
+    expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: /experience.*上移/u }));
+    const restore = screen.getByRole<HTMLButtonElement>('button', { name: '复原' });
+    restore.focus();
+    fireEvent.click(restore);
+
+    expect(restore.disabled).toBe(true);
+    expect(undo.disabled).toBe(false);
+    expect(document.activeElement).toBe(undo);
+  });
+
   it('uses the dedicated touch drag handle and keeps the rest of the row scrollable', () => {
     const handlePointerDown = vi.fn();
     render(
@@ -90,8 +116,8 @@ describe('SectionSortPanel keyboard controls', () => {
         handlePointerDown={handlePointerDown}
         canRestore={false}
         canUndo={false}
-        onRestore={vi.fn()}
-        onUndo={vi.fn()}
+        onRestore={() => true}
+        onUndo={() => true}
         onReorderSections={vi.fn()}
       />,
       { wrapper },
@@ -120,8 +146,8 @@ describe('SectionSortPanel keyboard controls', () => {
         handlePointerDown={vi.fn()}
         canRestore={true}
         canUndo={true}
-        onRestore={vi.fn()}
-        onUndo={vi.fn()}
+        onRestore={() => true}
+        onUndo={() => true}
         onReorderSections={vi.fn()}
       />,
       { wrapper },
