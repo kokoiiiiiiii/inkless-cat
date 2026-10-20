@@ -1,4 +1,5 @@
 import { createEmptyResume, type ResumeData } from '@entities/resume';
+import type { PreparedImport } from '@features/import-resume';
 import { useI18n } from '@shared/i18n';
 import type { AppError } from '@shared/lib/errors';
 import { isErr, type Result } from '@shared/lib/result';
@@ -6,18 +7,14 @@ import { isBrowser } from '@shared/lib/storage';
 import { useAppFeedback } from '@shared/ui/feedback';
 import { type Dispatch, type SetStateAction, useCallback } from 'react';
 
+import { useDestructiveAction } from './useDestructiveAction';
+
 type UseEditorIoActionsOptions = {
   resetState: (nextResume?: ResumeData) => void;
-  setHasResumeChanges: (hasChanges: boolean) => void;
-  importFromJson: (content: string) => Result<
-    | {
-        kind: 'resume';
-      }
-    | {
-        kind: 'workspace';
-      },
-    AppError
-  >;
+  prepareImportFromJson: (content: string) => Result<PreparedImport, AppError>;
+  commitPreparedImport: (
+    prepared: PreparedImport,
+  ) => Result<{ kind: PreparedImport['kind'] }, AppError>;
   exportJson: () => Result<void, AppError>;
   exportWorkspaceJson: () => Result<void, AppError>;
   exportMarkdown: () => Result<void, AppError>;
@@ -27,8 +24,8 @@ type UseEditorIoActionsOptions = {
 
 export const useEditorIoActions = ({
   resetState,
-  setHasResumeChanges,
-  importFromJson,
+  prepareImportFromJson,
+  commitPreparedImport,
   exportJson,
   exportWorkspaceJson,
   exportMarkdown,
@@ -37,28 +34,38 @@ export const useEditorIoActions = ({
 }: UseEditorIoActionsOptions) => {
   const { t } = useI18n();
   const { showError, showInfo, showSuccess } = useAppFeedback();
+  const runDestructiveAction = useDestructiveAction();
 
   const handleClear = useCallback(() => {
-    resetState(createEmptyResume());
-    setHasResumeChanges(false);
-  }, [resetState, setHasResumeChanges]);
+    runDestructiveAction(t('common.confirmations.clearResume'), () => {
+      resetState(createEmptyResume());
+      return true;
+    });
+  }, [resetState, runDestructiveAction, t]);
 
   const handleImport = useCallback(
     (content: string) => {
-      const result = importFromJson(content);
-      if (isErr(result)) {
-        showError(result.error);
+      const preparedResult = prepareImportFromJson(content);
+      if (isErr(preparedResult)) {
+        showError(preparedResult.error);
         return;
       }
 
-      setHasResumeChanges(false);
-      showSuccess(
-        result.value.kind === 'workspace'
-          ? t('common.feedback.importWorkspaceSuccess')
-          : t('common.feedback.importResumeSuccess'),
-      );
+      runDestructiveAction(t('common.confirmations.importResume'), () => {
+        const result = commitPreparedImport(preparedResult.value);
+        if (isErr(result)) {
+          showError(result.error);
+          return false;
+        }
+        showSuccess(
+          result.value.kind === 'workspace'
+            ? t('common.feedback.importWorkspaceSuccess')
+            : t('common.feedback.importResumeSuccess'),
+        );
+        return true;
+      });
     },
-    [importFromJson, setHasResumeChanges, showError, showSuccess, t],
+    [commitPreparedImport, prepareImportFromJson, runDestructiveAction, showError, showSuccess, t],
   );
 
   const handleExportJson = useCallback(() => {

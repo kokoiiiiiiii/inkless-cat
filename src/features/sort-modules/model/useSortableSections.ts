@@ -13,6 +13,9 @@ import {
 } from '@entities/resume';
 import { useResumeActions, useResumeState } from '@entities/resume';
 import { useI18n } from '@shared/i18n';
+import { createAppError } from '@shared/lib/errors';
+import { MAX_CUSTOM_SECTIONS, MAX_RESUME_TEXT_LENGTH } from '@shared/lib/limits';
+import { useAppFeedback } from '@shared/ui/feedback';
 import { useCallback, useEffect, useRef } from 'react';
 
 type ToggleHandler = (sectionKey: ActiveSectionKey, enabled: boolean) => void;
@@ -35,6 +38,7 @@ const ensureSectionInitialized = (resume: ResumeData, sectionKey: StandardSectio
 
 export const useSortableSections = () => {
   const { t } = useI18n();
+  const { showError } = useAppFeedback();
   const { activeSections, resume } = useResumeState();
   const { updateActiveSections, updateResume } = useResumeActions();
   const orderMemoryRef = useRef<Map<ActiveSectionKey, number>>(new Map());
@@ -103,6 +107,24 @@ export const useSortableSections = () => {
 
   const addCustomSection = useCallback<AddCustomSectionHandler>(
     (title) => {
+      if (resume.customSections.length >= MAX_CUSTOM_SECTIONS) {
+        showError(
+          createAppError(
+            'LIMIT_EXCEEDED',
+            t('common.errors.limitExceeded', { limit: MAX_CUSTOM_SECTIONS }),
+          ),
+        );
+        return;
+      }
+      if ((title?.length ?? 0) > MAX_RESUME_TEXT_LENGTH) {
+        showError(
+          createAppError(
+            'LIMIT_EXCEEDED',
+            t('common.errors.limitExceeded', { limit: MAX_RESUME_TEXT_LENGTH }),
+          ),
+        );
+        return;
+      }
       const fallback = t('modules.customSection.defaultTitle');
       const newSection = createCustomSection(title || fallback);
       updateResume((draft) => {
@@ -120,7 +142,7 @@ export const useSortableSections = () => {
         { allowEmpty: true },
       );
     },
-    [t, updateResume, updateActiveSections],
+    [resume.customSections.length, showError, t, updateResume, updateActiveSections],
   );
 
   const removeCustomSection = useCallback(

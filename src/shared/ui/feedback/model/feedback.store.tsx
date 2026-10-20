@@ -4,11 +4,17 @@ import { create } from 'zustand';
 
 export type FeedbackTone = 'info' | 'success' | 'error';
 
+export type FeedbackAction = {
+  label: string;
+  onClick: () => void;
+};
+
 export type FeedbackItem = {
   id: string;
   tone: FeedbackTone;
   title?: string;
   message: string;
+  action?: FeedbackAction;
 };
 
 type CreateFeedbackInput = Omit<FeedbackItem, 'id'> & {

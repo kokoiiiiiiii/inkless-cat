@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.e2e.json",
     "test:watch": "vitest",
     "test:bench": "vitest bench",
     "preview": "vite preview"
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.10.0",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",

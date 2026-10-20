@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { useFeedbackActions, useFeedbackItems } from '../model/feedback.store';
 
 const toneClassMap = {
@@ -9,6 +11,7 @@ const toneClassMap = {
 } as const;
 
 export const FeedbackViewport = () => {
+  const { t } = useI18n();
   const items = useFeedbackItems();
   const { dismissFeedback } = useFeedbackActions();
 
@@ -17,7 +20,7 @@ export const FeedbackViewport = () => {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-20 z-[60] flex flex-col items-center gap-3 px-4 sm:items-end sm:px-6">
+    <div className="pointer-events-none fixed inset-x-0 top-20 z-[60] flex flex-col items-center gap-3 px-4 sm:items-end sm:px-6 print:hidden">
       {items.map((item) => (
         <div
           key={item.id}
@@ -28,12 +31,24 @@ export const FeedbackViewport = () => {
             <div className="min-w-0 flex-1">
               {item.title && <p className="text-sm font-semibold">{item.title}</p>}
               <p className="mt-1 text-sm leading-6">{item.message}</p>
+              {item.action && (
+                <button
+                  type="button"
+                  className="border-current/20 mt-3 rounded-full border px-3 py-1 text-xs font-semibold underline underline-offset-2"
+                  onClick={() => {
+                    item.action?.onClick();
+                    dismissFeedback(item.id);
+                  }}
+                >
+                  {item.action.label}
+                </button>
+              )}
             </div>
             <button
               type="button"
               className="text-current/70 rounded-full p-1 transition hover:bg-black/5 hover:text-current dark:hover:bg-white/10"
               onClick={() => dismissFeedback(item.id)}
-              aria-label="Dismiss notification"
+              aria-label={t('common.dismiss')}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

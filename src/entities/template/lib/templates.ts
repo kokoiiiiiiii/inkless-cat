@@ -1,6 +1,7 @@
 import { createSampleResume } from '@entities/resume';
 
 import type { ResumeTemplate } from '../types';
+import { DEFAULT_TEMPLATE_ID } from './constants';
 import { designerSamples } from './samples/designerResume';
 import { engineerSamples } from './samples/engineerResume';
 import { productSamples } from './samples/productResume';
@@ -10,7 +11,7 @@ const defaultSamples = {
   en: createSampleResume('en'),
 } as const;
 
-export const DEFAULT_TEMPLATE_ID = 'modern-blue';
+export { DEFAULT_TEMPLATE_ID } from './constants';
 
 export const templates: ResumeTemplate[] = [
   {

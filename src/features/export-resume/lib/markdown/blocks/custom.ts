@@ -1,7 +1,7 @@
 import { getCustomSectionKey } from '@entities/module';
 import type { ResumeCustomSection, ResumeData } from '@entities/resume';
 
-import { formatList, normalizeField } from '../../formatters';
+import { escapeMarkdownText, formatList, normalizeField } from '../../formatters';
 import type { IncludePredicate, MarkdownContext } from '../types';
 
 const renderCustomSectionContent = (
@@ -18,18 +18,18 @@ const renderCustomSectionContent = (
     }
     return fields.map((field) => {
       if (field.label && field.value) {
-        return `- **${field.label}**${ctx.colon}${field.value}`;
+        return `- **${escapeMarkdownText(field.label)}**${ctx.colon}${escapeMarkdownText(field.value)}`;
       }
       if (field.label) {
-        return `- **${field.label}**`;
+        return `- **${escapeMarkdownText(field.label)}**`;
       }
-      return `- ${field.value}`;
+      return `- ${escapeMarkdownText(field.value)}`;
     });
   }
 
   if (mode === 'text') {
     const text = typeof section.text === 'string' ? section.text.trim() : '';
-    return text ? [text] : [];
+    return text ? [escapeMarkdownText(text)] : [];
   }
 
   if (Array.isArray(section.items) && section.items.length > 0) {
@@ -58,7 +58,7 @@ export const renderCustomSections = (
       continue;
     }
     const fallback = ctx.translate('exporter.markdown.customHeadingFallback', 'Custom Module');
-    lines.push(`## ${section.title || fallback}`);
+    lines.push(`## ${escapeMarkdownText(section.title || fallback)}`);
     const content = renderCustomSectionContent(section, ctx);
     if (content.length > 0) {
       lines.push(...content);

@@ -1,3 +1,4 @@
+import { MAX_RESUME_TEXT_LENGTH, MAX_SECTION_ITEMS } from '@shared/lib/limits';
 import { isErr } from '@shared/lib/result';
 import { describe, expect, it } from 'vitest';
 
@@ -35,5 +36,20 @@ describe('migrateResume', () => {
     if (isErr(result)) {
       expect(result.error.code).toBe('INVALID_RESUME');
     }
+  });
+
+  it('rejects oversized fields and collection counts', () => {
+    const longName = migrateResume({
+      personal: { fullName: 'x'.repeat(MAX_RESUME_TEXT_LENGTH + 1) },
+    });
+    const oversizedCollection = migrateResume({
+      personal: {},
+      projects: Array.from({ length: MAX_SECTION_ITEMS + 1 }, (_, index) => ({
+        name: `p${index}`,
+      })),
+    });
+
+    expect(isErr(longName)).toBe(true);
+    expect(isErr(oversizedCollection)).toBe(true);
   });
 });

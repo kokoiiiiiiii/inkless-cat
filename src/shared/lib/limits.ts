@@ -1,0 +1,12 @@
+export const MAX_IMPORT_JSON_BYTES = 10 * 1024 * 1024;
+export const MAX_RESUME_TEXT_LENGTH = 30_000;
+export const MAX_LABEL_LENGTH = 500;
+export const MAX_SECTION_ITEMS = 100;
+export const MAX_CUSTOM_SECTIONS = 50;
+export const MAX_CUSTOM_TEMPLATES = 20;
+export const MAX_TEMPLATE_NAME_LENGTH = 120;
+export const MAX_TEMPLATE_DESCRIPTION_LENGTH = 2000;
+export const MAX_PHOTO_DATA_URL_LENGTH = 2_900_000;
+export const MAX_IMAGE_FILE_BYTES = 2 * 1024 * 1024;
+export const MAX_IMAGE_DIMENSION = 8192;
+export const MAX_IMAGE_PIXELS = 40_000_000;

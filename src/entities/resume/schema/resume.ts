@@ -1,15 +1,26 @@
+import {
+  MAX_CUSTOM_SECTIONS,
+  MAX_PHOTO_DATA_URL_LENGTH,
+  MAX_RESUME_TEXT_LENGTH,
+  MAX_SECTION_ITEMS,
+} from '@shared/lib/limits';
 import { z } from 'zod';
 
 export const RESUME_SCHEMA_VERSION = 1 as const;
 
-const optionalString = z.string().optional();
-const optionalStringArray = z.array(z.string()).optional();
+const optionalString = z.string().max(MAX_RESUME_TEXT_LENGTH).optional();
+const optionalStringArray = z
+  .array(z.string().max(MAX_RESUME_TEXT_LENGTH))
+  .max(MAX_SECTION_ITEMS)
+  .optional();
+const optionalId = z.string().max(128).optional();
+const idSchema = z.string().min(1).max(128);
 
 export const resumeCustomSectionModeSchema = z.enum(['list', 'fields', 'text']);
 
 export const resumeSocialInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     label: optionalString,
     url: optionalString,
   })
@@ -17,7 +28,7 @@ export const resumeSocialInputSchema = z
 
 export const resumeExperienceInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     company: optionalString,
     role: optionalString,
     location: optionalString,
@@ -29,7 +40,7 @@ export const resumeExperienceInputSchema = z
 
 export const resumeProjectInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     name: optionalString,
     role: optionalString,
     summary: optionalString,
@@ -40,7 +51,7 @@ export const resumeProjectInputSchema = z
 
 export const resumeEducationInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     school: optionalString,
     degree: optionalString,
     startDate: optionalString,
@@ -51,7 +62,7 @@ export const resumeEducationInputSchema = z
 
 export const resumeSkillInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     title: optionalString,
     items: optionalStringArray,
   })
@@ -59,7 +70,7 @@ export const resumeSkillInputSchema = z
 
 export const resumeLanguageInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     name: optionalString,
     level: optionalString,
   })
@@ -67,14 +78,14 @@ export const resumeLanguageInputSchema = z
 
 export const resumeInterestInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     name: optionalString,
   })
   .strip();
 
 export const resumeAwardInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     name: optionalString,
     issuer: optionalString,
     year: optionalString,
@@ -83,7 +94,7 @@ export const resumeAwardInputSchema = z
 
 export const resumeCustomFieldInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     label: optionalString,
     value: optionalString,
   })
@@ -91,18 +102,18 @@ export const resumeCustomFieldInputSchema = z
 
 export const resumeCustomSectionInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     title: optionalString,
     mode: resumeCustomSectionModeSchema.optional(),
     items: optionalStringArray,
-    fields: z.array(resumeCustomFieldInputSchema).optional(),
+    fields: z.array(resumeCustomFieldInputSchema).max(MAX_SECTION_ITEMS).optional(),
     text: optionalString,
   })
   .strip();
 
 export const resumePersonalExtraInputSchema = z
   .object({
-    id: z.string().optional(),
+    id: optionalId,
     label: optionalString,
     value: optionalString,
   })
@@ -118,9 +129,9 @@ export const resumePersonalInputSchema = z
     phoneLabel: optionalString,
     location: optionalString,
     locationLabel: optionalString,
-    photo: optionalString,
+    photo: z.string().max(MAX_PHOTO_DATA_URL_LENGTH).optional(),
     summary: optionalString,
-    extras: z.array(resumePersonalExtraInputSchema).optional(),
+    extras: z.array(resumePersonalExtraInputSchema).max(MAX_SECTION_ITEMS).optional(),
   })
   .strip();
 
@@ -141,22 +152,22 @@ export const resumeInputSchema = z
   .object({
     schemaVersion: z.number().int().optional(),
     personal: resumePersonalInputSchema,
-    socials: z.array(resumeSocialInputSchema).optional(),
-    experience: z.array(resumeExperienceInputSchema).optional(),
-    projects: z.array(resumeProjectInputSchema).optional(),
-    education: z.array(resumeEducationInputSchema).optional(),
-    skills: z.array(resumeSkillInputSchema).optional(),
-    languages: z.array(resumeLanguageInputSchema).optional(),
-    interests: z.array(resumeInterestInputSchema).optional(),
-    awards: z.array(resumeAwardInputSchema).optional(),
-    customSections: z.array(resumeCustomSectionInputSchema).optional(),
+    socials: z.array(resumeSocialInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    experience: z.array(resumeExperienceInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    projects: z.array(resumeProjectInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    education: z.array(resumeEducationInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    skills: z.array(resumeSkillInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    languages: z.array(resumeLanguageInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    interests: z.array(resumeInterestInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    awards: z.array(resumeAwardInputSchema).max(MAX_SECTION_ITEMS).optional(),
+    customSections: z.array(resumeCustomSectionInputSchema).max(MAX_CUSTOM_SECTIONS).optional(),
     settings: resumeSettingsInputSchema.optional(),
   })
   .strip();
 
 export const resumeSocialSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     label: optionalString,
     url: optionalString,
   })
@@ -164,30 +175,30 @@ export const resumeSocialSchema = z
 
 export const resumeExperienceSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     company: optionalString,
     role: optionalString,
     location: optionalString,
     startDate: optionalString,
     endDate: optionalString,
-    highlights: z.array(z.string()),
+    highlights: z.array(z.string().max(MAX_RESUME_TEXT_LENGTH)).max(MAX_SECTION_ITEMS),
   })
   .strip();
 
 export const resumeProjectSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     name: optionalString,
     role: optionalString,
     summary: optionalString,
     link: optionalString,
-    highlights: z.array(z.string()),
+    highlights: z.array(z.string().max(MAX_RESUME_TEXT_LENGTH)).max(MAX_SECTION_ITEMS),
   })
   .strip();
 
 export const resumeEducationSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     school: optionalString,
     degree: optionalString,
     startDate: optionalString,
@@ -198,15 +209,15 @@ export const resumeEducationSchema = z
 
 export const resumeSkillSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     title: optionalString,
-    items: z.array(z.string()),
+    items: z.array(z.string().max(MAX_RESUME_TEXT_LENGTH)).max(MAX_SECTION_ITEMS),
   })
   .strip();
 
 export const resumeLanguageSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     name: optionalString,
     level: optionalString,
   })
@@ -214,14 +225,14 @@ export const resumeLanguageSchema = z
 
 export const resumeInterestSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     name: optionalString,
   })
   .strip();
 
 export const resumeAwardSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     name: optionalString,
     issuer: optionalString,
     year: optionalString,
@@ -230,26 +241,26 @@ export const resumeAwardSchema = z
 
 export const resumeCustomFieldSchema = z
   .object({
-    id: z.string(),
-    label: z.string(),
-    value: z.string(),
+    id: idSchema,
+    label: z.string().max(MAX_RESUME_TEXT_LENGTH),
+    value: z.string().max(MAX_RESUME_TEXT_LENGTH),
   })
   .strip();
 
 export const resumeCustomSectionSchema = z
   .object({
-    id: z.string(),
-    title: z.string(),
+    id: idSchema,
+    title: z.string().max(MAX_RESUME_TEXT_LENGTH),
     mode: resumeCustomSectionModeSchema,
-    items: z.array(z.string()),
-    fields: z.array(resumeCustomFieldSchema),
-    text: z.string(),
+    items: z.array(z.string().max(MAX_RESUME_TEXT_LENGTH)).max(MAX_SECTION_ITEMS),
+    fields: z.array(resumeCustomFieldSchema).max(MAX_SECTION_ITEMS),
+    text: z.string().max(MAX_RESUME_TEXT_LENGTH),
   })
   .strip();
 
 export const resumePersonalExtraSchema = z
   .object({
-    id: z.string(),
+    id: idSchema,
     label: optionalString,
     value: optionalString,
   })
@@ -265,9 +276,9 @@ export const resumePersonalSchema = z
     phoneLabel: optionalString,
     location: optionalString,
     locationLabel: optionalString,
-    photo: optionalString,
+    photo: z.string().max(MAX_PHOTO_DATA_URL_LENGTH).optional(),
     summary: optionalString,
-    extras: z.array(resumePersonalExtraSchema).optional(),
+    extras: z.array(resumePersonalExtraSchema).max(MAX_SECTION_ITEMS).optional(),
   })
   .strip();
 
@@ -288,15 +299,15 @@ export const resumeSchema = z
   .object({
     schemaVersion: z.literal(RESUME_SCHEMA_VERSION),
     personal: resumePersonalSchema,
-    socials: z.array(resumeSocialSchema),
-    experience: z.array(resumeExperienceSchema),
-    projects: z.array(resumeProjectSchema),
-    education: z.array(resumeEducationSchema),
-    skills: z.array(resumeSkillSchema),
-    languages: z.array(resumeLanguageSchema),
-    interests: z.array(resumeInterestSchema),
-    awards: z.array(resumeAwardSchema),
-    customSections: z.array(resumeCustomSectionSchema),
+    socials: z.array(resumeSocialSchema).max(MAX_SECTION_ITEMS),
+    experience: z.array(resumeExperienceSchema).max(MAX_SECTION_ITEMS),
+    projects: z.array(resumeProjectSchema).max(MAX_SECTION_ITEMS),
+    education: z.array(resumeEducationSchema).max(MAX_SECTION_ITEMS),
+    skills: z.array(resumeSkillSchema).max(MAX_SECTION_ITEMS),
+    languages: z.array(resumeLanguageSchema).max(MAX_SECTION_ITEMS),
+    interests: z.array(resumeInterestSchema).max(MAX_SECTION_ITEMS),
+    awards: z.array(resumeAwardSchema).max(MAX_SECTION_ITEMS),
+    customSections: z.array(resumeCustomSectionSchema).max(MAX_CUSTOM_SECTIONS),
     settings: resumeSettingsSchema.optional(),
   })
   .strip();

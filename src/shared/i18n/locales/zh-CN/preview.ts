@@ -1,4 +1,33 @@
 export const preview = {
   title: '实时预览',
   template: '模板：{name}',
+  personalSummary: '个人简介',
+  nameFallback: '你的姓名',
+  titleFallback: '职业定位 / 目标',
+  candidatePhoto: '候选人照片',
+  contact: {
+    email: '邮箱',
+    phone: '电话',
+    location: '所在地',
+    extra: '信息',
+  },
+  placeholders: {
+    company: '公司 / 组织',
+    role: '职位',
+    date: '时间',
+    project: '项目名称',
+    school: '学校',
+    degree: '学历 / 专业',
+    skill: '技能方向',
+  },
+  sections: {
+    socials: '社交与链接',
+    experience: '工作经历',
+    projects: '项目经历',
+    education: '教育背景',
+    skills: '技能特长',
+    languages: '语言能力',
+    interests: '兴趣爱好',
+    awards: '荣誉奖项',
+  },
 } as const;

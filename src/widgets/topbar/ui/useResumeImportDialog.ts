@@ -1,5 +1,6 @@
 import { useI18n } from '@shared/i18n';
 import { createAppError } from '@shared/lib/errors';
+import { MAX_IMPORT_JSON_BYTES } from '@shared/lib/limits';
 import { useAppFeedback } from '@shared/ui/feedback';
 import { type ChangeEvent, useCallback, useRef } from 'react';
 
@@ -18,6 +19,11 @@ const useResumeImportDialog = (onImport: ResumeImportHandler) => {
     (event: ChangeEvent<HTMLInputElement>) => {
       const [file] = event.target.files || [];
       if (!file) return;
+      if (file.size > MAX_IMPORT_JSON_BYTES) {
+        showError(createAppError('FILE_TOO_LARGE', t('common.errors.fileTooLarge')));
+        event.target.value = '';
+        return;
+      }
 
       const reader = new FileReader();
       reader.addEventListener('load', () => {
@@ -37,7 +43,12 @@ const useResumeImportDialog = (onImport: ResumeImportHandler) => {
         showError(createAppError('FILE_READ_FAILED', t('topbar.importError')));
         event.target.value = '';
       });
-      reader.readAsText(file, 'utf-8');
+      try {
+        reader.readAsText(file, 'utf-8');
+      } catch (error) {
+        showError(createAppError('FILE_READ_FAILED', t('topbar.importError'), { cause: error }));
+        event.target.value = '';
+      }
     },
     [onImport, showError, t],
   );

@@ -1,4 +1,3 @@
-import type { ResumeData } from '@entities/resume';
 import { isBrowser } from '@shared/lib/storage';
 import { useCallback, useEffect, useRef } from 'react';
 
@@ -6,10 +5,9 @@ type SectionRefMap = Map<string, HTMLElement>;
 
 type UseScrollSyncParams = {
   activeSections: string[];
-  resume: ResumeData;
 };
 
-export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) => {
+export const useScrollSync = ({ activeSections }: UseScrollSyncParams) => {
   const editorScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const previewScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const previewRefs = useRef<SectionRefMap>(new Map());
@@ -20,13 +18,12 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
     const previewEl = previewScrollContainerRef.current;
     if (!editorEl || !previewEl) return;
 
-    let ticking = false;
+    let pendingFrame: number | null = null;
 
     const syncScroll = () => {
       const editor = editorScrollContainerRef.current;
       const preview = previewScrollContainerRef.current;
       if (!editor || !preview) {
-        ticking = false;
         return;
       }
 
@@ -37,14 +34,12 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
         if (preview.scrollTop !== 0) {
           preview.scrollTo({ top: 0, behavior: 'auto' });
         }
-        ticking = false;
         return;
       }
 
       const isEditorAtBottom = editor.scrollTop >= editorMaxScroll - 4;
       if (isEditorAtBottom) {
         preview.scrollTo({ top: previewMaxScroll, behavior: 'auto' });
-        ticking = false;
         return;
       }
 
@@ -58,7 +53,6 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
         const ratio = editorMaxScroll > 0 ? editor.scrollTop / editorMaxScroll : 0;
         const target = previewMaxScroll > 0 ? ratio * previewMaxScroll : 0;
         preview.scrollTo({ top: target, behavior: 'auto' });
-        ticking = false;
         return;
       }
 
@@ -105,21 +99,26 @@ export const useScrollSync = ({ activeSections, resume }: UseScrollSyncParams) =
       }
 
       preview.scrollTo({ top: targetTop, behavior: 'auto' });
-      ticking = false;
     };
 
     const handleScroll = () => {
-      if (!ticking) {
-        globalThis.requestAnimationFrame(syncScroll);
-        ticking = true;
+      if (pendingFrame === null) {
+        pendingFrame = globalThis.requestAnimationFrame(() => {
+          pendingFrame = null;
+          syncScroll();
+        });
       }
     };
 
     editorEl.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       editorEl.removeEventListener('scroll', handleScroll);
+      if (pendingFrame !== null) {
+        globalThis.cancelAnimationFrame(pendingFrame);
+        pendingFrame = null;
+      }
     };
-  }, [resume, activeSections]);
+  }, [activeSections]);
 
   const registerPreviewRef = useCallback(
     (sectionKey: string, itemKey: string, node: HTMLElement | null) => {

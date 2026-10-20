@@ -1,4 +1,6 @@
 import type { ResumeData } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
+import { normalizePhotoDataUrl } from '@shared/lib/urls';
 import type { CSSProperties } from 'react';
 
 import { cn } from '../../lib/cn';
@@ -40,7 +42,9 @@ export const PersonalHeader = ({
   resolvedAccent,
   registerSectionRef,
 }: PersonalHeaderProps) => {
+  const { t } = useI18n();
   const { photoSize, photoPosition, shouldShowPhoto } = personalSettings;
+  const photoSource = normalizePhotoDataUrl(personal.photo);
 
   return (
     <div className={cn('flex flex-col gap-6 pb-6', variant.divider)} style={themeStyles.divider}>
@@ -60,19 +64,19 @@ export const PersonalHeader = ({
               className={cn('text-3xl font-semibold tracking-tight', variant.heading)}
               style={themeStyles.heading}
             >
-              {personal.fullName || '你的姓名'}
+              {personal.fullName || t('preview.nameFallback')}
             </h1>
             <p
               className={cn('text-base font-medium', variant.subheading)}
               style={themeStyles.subheading}
             >
-              {personal.title || '职业定位 / 目标'}
+              {personal.title || t('preview.titleFallback')}
             </p>
           </div>
-          {shouldShowPhoto && personal.photo && (
+          {shouldShowPhoto && photoSource && (
             <img
-              src={personal.photo}
-              alt={`${personal.fullName || '候选人'} 的照片`}
+              src={photoSource}
+              alt={t('preview.candidatePhoto')}
               className="flex-shrink-0 rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40"
               style={{
                 width: `${photoSize}px`,
@@ -102,7 +106,7 @@ export const PersonalHeader = ({
       </div>
       {personal.summary && (
         <SectionContainer
-          title="个人简介"
+          title={t('preview.personalSummary')}
           sectionKey="summary"
           registerSectionRef={registerSectionRef}
           accentStyle={accentStyle}

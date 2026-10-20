@@ -32,6 +32,43 @@ describe('resume store', () => {
     expect(state.hasResumeChanges).toBe(true);
   });
 
+  it('keeps all sections disabled when the name is edited', () => {
+    useResumeStore.setState({ activeSections: [] });
+
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.fullName = 'Name with no enabled sections';
+    });
+
+    expect(useResumeStore.getState().activeSections).toEqual([]);
+  });
+
+  it('keeps all sections disabled when the personal summary is edited', () => {
+    useResumeStore.setState({ activeSections: [] });
+
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = 'A fictional summary';
+    });
+
+    expect(useResumeStore.getState().activeSections).toEqual([]);
+  });
+
+  it('preserves an explicitly selected section order when resume content changes', () => {
+    const selectedOrder: ActiveSectionKey[] = ['projects', 'experience', 'socials'];
+    useResumeStore.setState({ activeSections: selectedOrder });
+
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = 'Updated without changing module order';
+    });
+
+    expect(useResumeStore.getState().activeSections).toEqual(selectedOrder);
+  });
+
+  it('initializes default modules from the default resume', () => {
+    const initialState = useResumeStore.getInitialState();
+
+    expect(initialState.activeSections).toEqual(deriveSectionsFromResume(initialState.resume));
+  });
+
   it('respects markDirty flag when updating resume', () => {
     const { updateResume } = useResumeStore.getState();
     updateResume(
@@ -72,5 +109,20 @@ describe('resume store', () => {
     const state = useResumeStore.getState();
     expect(state.hasResumeChanges).toBe(false);
     expect(state.activeSections).toEqual(deriveSectionsFromResume(state.resume));
+  });
+
+  it('preserves invalid same-version data instead of overwriting it with defaults', async () => {
+    const raw = JSON.stringify({
+      state: { resume: { personal: 'invalid' }, activeSections: [] },
+      version: 1,
+    });
+    localStorage.setItem(RESUME_STORE_PERSIST_KEY, raw);
+
+    await useResumeStore.persist?.rehydrate();
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.fullName = 'In memory only';
+    });
+
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toBe(raw);
   });
 });

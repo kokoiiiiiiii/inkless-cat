@@ -1,6 +1,6 @@
 import { type Locale, useI18n } from '@shared/i18n';
 import type { ChangeEvent, RefObject } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { baseButtonClass, primaryButtonClass } from './constants';
 
@@ -35,6 +35,8 @@ const ActionButtons = ({
 }: ActionButtonsProps) => {
   const { t, locale } = useI18n();
   const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
+  const localeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const nextLocale = locale === 'en' ? 'zh-CN' : 'en';
   const translateWithFallback = (key: string, fallback: string) => {
     const translated = t(key);
@@ -61,6 +63,48 @@ const ActionButtons = ({
     onLocaleChange(pendingLocale, { loadTemplate: true });
     closeLocaleDialog();
   };
+
+  useEffect(() => {
+    if (!pendingLocale) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const localeTrigger = localeTriggerRef.current;
+
+    const getFocusableElements = () => [
+      ...dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ];
+    getFocusableElements()[0]?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPendingLocale(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusableElements = getFocusableElements();
+      const first = focusableElements[0];
+      const last = focusableElements.at(-1);
+      if (!first || !last) {
+        event.preventDefault();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      localeTrigger?.focus();
+    };
+  }, [pendingLocale]);
 
   return (
     <>
@@ -89,7 +133,12 @@ const ActionButtons = ({
         <button type="button" className={baseButtonClass} onClick={onToggleTheme}>
           {theme === 'light' ? t('topbar.themeDark') : t('topbar.themeLight')}
         </button>
-        <button type="button" className={baseButtonClass} onClick={openLocaleDialog}>
+        <button
+          ref={localeTriggerRef}
+          type="button"
+          className={baseButtonClass}
+          onClick={openLocaleDialog}
+        >
           {t('topbar.toggleLang')}
         </button>
         <input
@@ -102,15 +151,24 @@ const ActionButtons = ({
       </div>
       {pendingLocale && (
         <div
+          ref={dialogRef}
           className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm dark:bg-slate-900/70 sm:px-6"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="locale-dialog-title"
+          aria-describedby="locale-dialog-description"
         >
           <div className="relative w-full max-w-md translate-y-6 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-2xl transition-transform dark:border-slate-700 dark:bg-slate-900 sm:translate-y-4 lg:translate-y-2">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h3
+              id="locale-dialog-title"
+              className="text-lg font-semibold text-slate-900 dark:text-white"
+            >
               {translateWithFallback('topbar.langSwitch.title', '切换语言')}
             </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            <p
+              id="locale-dialog-description"
+              className="mt-2 text-sm text-slate-600 dark:text-slate-300"
+            >
               {t('topbar.langSwitch.description', {
                 language: targetLocaleName || localeNameFallback,
               })}

@@ -69,4 +69,26 @@ describe('ui store', () => {
     expect(stored ?? '').not.toContain('templatePanelOpen');
     expect(stored ?? '').not.toContain('mobileView');
   });
+
+  it('keeps valid templates when recovering a same-version state with one invalid template', async () => {
+    const raw = JSON.stringify({
+      state: {
+        theme: 'dark',
+        templateId: 'custom-1',
+        customTemplates: [mockTemplate, { id: 'broken', name: 'Broken', sample: null }],
+      },
+      version: 1,
+    });
+    localStorage.setItem(UI_STORE_PERSIST_KEY, raw);
+
+    await useUIStore.persist?.rehydrate();
+
+    expect(useUIStore.getState().customTemplates.map((template) => template.id)).toEqual([
+      mockTemplate.id,
+    ]);
+    expect(localStorage.getItem(UI_STORE_PERSIST_KEY)).toBe(raw);
+
+    useUIStore.getState().setTheme('light');
+    expect(localStorage.getItem(`${UI_STORE_PERSIST_KEY}/recovery`)).toBe(raw);
+  });
 });

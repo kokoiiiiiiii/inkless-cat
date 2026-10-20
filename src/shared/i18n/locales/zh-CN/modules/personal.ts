@@ -22,6 +22,8 @@ export const personal = {
     errors: {
       oversize: '图片大小超过 2MB，请选择更小的文件。',
       read: '读取图片失败，请重试或更换文件。',
+      type: '请选择 JPG、PNG、WebP 或 GIF 图片。',
+      dimensions: '图片尺寸过大，请选择尺寸更小的图片。',
     },
     tipsTitle: '照片小贴士',
     tips: {

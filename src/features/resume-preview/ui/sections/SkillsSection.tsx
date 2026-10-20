@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { SectionCollectionProps, SkillsItem } from './types';
@@ -13,11 +15,12 @@ export const SkillsSection = ({
   accentStyle,
   setSectionRef,
 }: SkillsSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="技能特长"
+      title={t('preview.sections.skills')}
       sectionKey="skills"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}
@@ -39,7 +42,7 @@ export const SkillsSection = ({
               className={cn('text-sm font-semibold', variant.heading)}
               style={themeStyles.heading}
             >
-              {skill.title || '技能方向'}
+              {skill.title || t('preview.placeholders.skill')}
             </h4>
             <p className={cn('mt-2 text-sm leading-6', variant.metaValue)} style={themeStyles.text}>
               {(skill.items || []).filter(Boolean).join(' / ')}

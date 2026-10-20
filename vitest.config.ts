@@ -6,7 +6,13 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
       environment: 'jsdom',
+      environmentOptions: {
+        jsdom: {
+          url: 'http://localhost',
+        },
+      },
       globals: true,
       setupFiles: './vitest.setup.ts',
     },

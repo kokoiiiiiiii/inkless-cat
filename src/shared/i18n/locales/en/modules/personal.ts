@@ -25,6 +25,8 @@ export const personal = {
     errors: {
       oversize: 'Image exceeds 2MB. Please choose a smaller file.',
       read: 'Failed to read the image. Try again or pick another file.',
+      type: 'Choose a JPG, PNG, WebP, or GIF image.',
+      dimensions: 'Image dimensions are too large. Choose a smaller image.',
     },
     tipsTitle: 'Photo Tips',
     tips: {

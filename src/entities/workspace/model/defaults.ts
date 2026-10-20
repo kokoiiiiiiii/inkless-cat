@@ -2,7 +2,7 @@ import { resolveInitialLocale } from '@shared/i18n';
 
 import { createSampleResume } from '../../resume/lib/factory';
 import { deriveSectionsFromResume } from '../../resume/selectors';
-import { DEFAULT_TEMPLATE_ID } from '../../template/lib/templates';
+import { DEFAULT_TEMPLATE_ID } from '../../template/lib/constants';
 import { WORKSPACE_SCHEMA_VERSION } from '../schema/workspace';
 import type { WorkspaceData } from '../types';
 

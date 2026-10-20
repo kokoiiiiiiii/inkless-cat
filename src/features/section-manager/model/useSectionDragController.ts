@@ -37,10 +37,7 @@ export const useSectionDragController = ({
   const updateDragState = useCallback(
     (valueOrUpdater: DragState | ((prev: DragState) => DragState)) => {
       setDragState((prev) => {
-        const next =
-          typeof valueOrUpdater === 'function'
-            ? (valueOrUpdater as (prevValue: DragState) => DragState)(prev)
-            : valueOrUpdater;
+        const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(prev) : valueOrUpdater;
         dragStateRef.current = next;
         return next;
       });

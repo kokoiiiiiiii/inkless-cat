@@ -2,6 +2,9 @@ import { useI18n } from '@shared/i18n';
 import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 
 import type { DragState } from '../../model/useSectionDragController';
+import type { SectionReorderHandler } from '../../model/useSectionManager';
+
+type MoveDirection = 'up' | 'down';
 
 type SectionSortPanelProps = {
   resolvedActiveSections: string[];
@@ -14,6 +17,7 @@ type SectionSortPanelProps = {
   canUndo: boolean;
   onRestore: () => void;
   onUndo: () => void;
+  onReorderSections?: SectionReorderHandler;
 };
 
 const dragItemClass =
@@ -32,6 +36,7 @@ export const SectionSortPanel = ({
   canUndo,
   onRestore,
   onUndo,
+  onReorderSections,
 }: SectionSortPanelProps) => {
   const { t } = useI18n();
   return (
@@ -84,7 +89,6 @@ export const SectionSortPanel = ({
             return (
               <li
                 key={sectionKey}
-                role="presentation"
                 draggable={false}
                 onPointerDown={(event) => handlePointerDown(event, sectionKey)}
                 className={`${dragItemClass} ${
@@ -116,6 +120,44 @@ export const SectionSortPanel = ({
                   <span className="font-medium text-slate-700 dark:text-slate-200">
                     {getSectionTitle(sectionKey)}
                   </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {(['up', 'down'] as const satisfies readonly MoveDirection[]).map((direction) => {
+                    const index = displayOrder.indexOf(sectionKey);
+                    const isDisabled =
+                      !onReorderSections ||
+                      (direction === 'up' ? index <= 0 : index === displayOrder.length - 1);
+                    const label = t(
+                      direction === 'up' ? 'modules.sort.moveUp' : 'modules.sort.moveDown',
+                      { title: getSectionTitle(sectionKey) },
+                    );
+
+                    return (
+                      <button
+                        key={direction}
+                        type="button"
+                        aria-label={label}
+                        title={label}
+                        disabled={isDisabled}
+                        className="rounded-md px-2 py-1 font-semibold text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isDisabled || !onReorderSections) return;
+                          const nextOrder = [...displayOrder];
+                          const targetIndex = direction === 'up' ? index - 1 : index + 1;
+                          const current = nextOrder[index];
+                          const target = nextOrder[targetIndex];
+                          if (current === undefined || target === undefined) return;
+                          nextOrder[index] = target;
+                          nextOrder[targetIndex] = current;
+                          onReorderSections(nextOrder);
+                        }}
+                      >
+                        <span aria-hidden="true">{direction === 'up' ? '↑' : '↓'}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </li>
             );

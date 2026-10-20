@@ -1,17 +1,20 @@
 import type { ResumeData } from '@entities/resume';
+import { normalizeExternalUrl } from '@shared/lib/urls';
 
+import { escapeMarkdownText } from '../../formatters';
 import type { IncludePredicate, MarkdownContext } from '../types';
 
 export const renderPersonalBlock = (resume: ResumeData, ctx: MarkdownContext): string[] => {
   const { personal } = resume;
   const nameFallback = ctx.translate('exporter.markdown.nameFallback', 'Name');
-  const lines: string[] = [`# ${personal.fullName || nameFallback}`];
+  const lines: string[] = [`# ${escapeMarkdownText(personal.fullName || nameFallback)}`];
   if (personal.title) {
-    lines.push(`**${personal.title}**`);
+    lines.push(`**${escapeMarkdownText(personal.title)}**`);
   }
   lines.push('');
 
   const contact = [personal.email, personal.phone, personal.location]
+    .map((item) => (item ? escapeMarkdownText(item) : item))
     .filter(Boolean)
     .join(ctx.inlineSeparator);
   if (contact) {
@@ -23,7 +26,9 @@ export const renderPersonalBlock = (resume: ResumeData, ctx: MarkdownContext): s
       const label = typeof item?.label === 'string' ? item.label.trim() : '';
       const value = typeof item?.value === 'string' ? item.value.trim() : '';
       if (!label && !value) return '';
-      return label ? `${label}${ctx.colon}${value}` : value;
+      return label
+        ? `${escapeMarkdownText(label)}${ctx.colon}${escapeMarkdownText(value)}`
+        : escapeMarkdownText(value);
     })
     .filter(Boolean);
 
@@ -47,7 +52,7 @@ export const renderSummaryBlock = (
     return [];
   }
   const heading = ctx.translate('exporter.markdown.summaryHeading', 'Summary');
-  return [`## ${heading}`, summary];
+  return [`## ${escapeMarkdownText(heading)}`, escapeMarkdownText(summary)];
 };
 
 export const renderSocialsBlock = (
@@ -60,9 +65,12 @@ export const renderSocialsBlock = (
   }
   const heading = ctx.translate('exporter.markdown.socialsHeading', 'Socials & Links');
   const labelFallback = ctx.translate('exporter.markdown.socialsLabelFallback', 'Platform');
-  const lines = [`## ${heading}`];
+  const lines = [`## ${escapeMarkdownText(heading)}`];
   for (const social of resume.socials) {
-    lines.push(`- ${social.label || labelFallback}${ctx.colon}${social.url || ''}`.trimEnd());
+    const label = escapeMarkdownText(social.label || labelFallback);
+    const safeUrl = normalizeExternalUrl(social.url);
+    const visibleUrl = escapeMarkdownText(safeUrl ?? social.url ?? '');
+    lines.push(`- ${label}${ctx.colon}${visibleUrl}`.trimEnd());
   }
   return lines;
 };

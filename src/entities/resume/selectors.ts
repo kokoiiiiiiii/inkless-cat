@@ -36,7 +36,7 @@ type SanitizeOptions = {
 };
 
 export const sanitizeSections = (
-  sections: readonly ActiveSectionKey[] | null | undefined,
+  sections: readonly unknown[] | null | undefined,
   resume: ResumeData,
   options: SanitizeOptions = {},
 ): ActiveSectionKey[] => {
@@ -45,8 +45,9 @@ export const sanitizeSections = (
   const availableCustomIds = new Set(
     (resume?.customSections || []).map((section: ResumeCustomSection) => section.id),
   );
-  const seen = new Set<ActiveSectionKey>();
+  const seen = new Set<string>();
   const filtered = sections.filter((key): key is ActiveSectionKey => {
+    if (typeof key !== 'string') return false;
     if (seen.has(key)) return false;
     seen.add(key);
     if (sectionOrder.includes(key as StandardSectionKey)) return true;

@@ -14,7 +14,6 @@ type UseEditorTemplatePanelOptions = {
   setCustomTemplates: Dispatch<SetStateAction<ResumeTemplate[]>>;
   resume: ResumeData;
   resetState: (value: ResumeData) => void;
-  hasResumeChanges: boolean;
   setHasResumeChanges: (value: boolean) => void;
   defaultTemplateId: string;
   setLocale: (locale: Locale) => void;
@@ -28,7 +27,6 @@ export const useEditorTemplatePanel = ({
   setCustomTemplates,
   resume,
   resetState,
-  hasResumeChanges,
   setHasResumeChanges,
   defaultTemplateId,
   setLocale,
@@ -50,7 +48,6 @@ export const useEditorTemplatePanel = ({
     setCustomTemplates,
     resume,
     resetState,
-    hasResumeChanges,
     setHasResumeChanges,
     defaultTemplateId,
   });

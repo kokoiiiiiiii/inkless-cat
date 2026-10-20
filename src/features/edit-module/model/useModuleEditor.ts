@@ -20,7 +20,7 @@ export const useModuleEditor = ({
   );
 
   const personalHandlers = usePersonalEditor(resume, updateDraft);
-  const standardHandlers = useStandardSectionEditor(updateDraft);
+  const standardHandlers = useStandardSectionEditor(resume, updateDraft);
   const customHandlers = useCustomSectionsEditor(resume, updateDraft);
 
   return {

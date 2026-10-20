@@ -1,3 +1,5 @@
+import { useI18n } from '@shared/i18n';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { EducationItem, SectionCollectionProps } from './types';
@@ -13,11 +15,12 @@ export const EducationSection = ({
   accentStyle,
   setSectionRef,
 }: EducationSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="教育背景"
+      title={t('preview.sections.education')}
       sectionKey="education"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}
@@ -41,10 +44,10 @@ export const EducationSection = ({
                   className={cn('text-base font-semibold', variant.heading)}
                   style={themeStyles.heading}
                 >
-                  {edu.school || '学校'}
+                  {edu.school || t('preview.placeholders.school')}
                 </h4>
                 <p className={cn('text-sm', variant.metaValue)} style={themeStyles.text}>
-                  {edu.degree || '学历 / 专业'}
+                  {edu.degree || t('preview.placeholders.degree')}
                 </p>
               </div>
               <p className={cn('text-xs', variant.timelineMeta)} style={themeStyles.muted}>

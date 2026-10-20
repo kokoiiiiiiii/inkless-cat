@@ -9,6 +9,8 @@ export type AppErrorCode =
   | 'PRINT_FAILED'
   | 'FILE_READ_FAILED'
   | 'FILE_TOO_LARGE'
+  | 'LIMIT_EXCEEDED'
+  | 'OPERATION_FAILED'
   | 'STORAGE_FAILED';
 
 export type AppError = {

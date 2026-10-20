@@ -1,3 +1,6 @@
+import { useI18n } from '@shared/i18n';
+import { normalizeExternalUrl } from '@shared/lib/urls';
+
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
 import type { ProjectItem, SectionCollectionProps } from './types';
@@ -14,11 +17,12 @@ export const ProjectsSection = ({
   setSectionRef,
   accentBulletStyle,
 }: ProjectsSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="项目经历"
+      title={t('preview.sections.projects')}
       sectionKey="projects"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}
@@ -27,7 +31,7 @@ export const ProjectsSection = ({
     >
       <ul className="space-y-4">
         {projects.map((project) => {
-          const hasLink = Boolean(project.link);
+          const projectUrl = normalizeExternalUrl(project.link);
 
           return (
             <li
@@ -45,7 +49,7 @@ export const ProjectsSection = ({
                     className={cn('text-base font-semibold', variant.heading)}
                     style={themeStyles.heading}
                   >
-                    {project.name || '项目名称'}
+                    {project.name || t('preview.placeholders.project')}
                   </h4>
                   {project.role && (
                     <p className={cn('text-sm', variant.metaValue)} style={themeStyles.text}>
@@ -53,11 +57,11 @@ export const ProjectsSection = ({
                     </p>
                   )}
                 </div>
-                {hasLink && (
+                {projectUrl && (
                   <a
-                    href={project.link}
+                    href={projectUrl}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className={cn(
                       'text-xs font-semibold tracking-wide underline underline-offset-4 break-all text-right sm:text-left',
                       variant.link,
@@ -65,7 +69,7 @@ export const ProjectsSection = ({
                     )}
                     style={themeStyles.link}
                   >
-                    {project.link}
+                    {projectUrl}
                   </a>
                 )}
               </header>

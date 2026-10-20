@@ -4,6 +4,8 @@ import { useCallback } from 'react';
 
 import { useFeedbackActions } from './feedback.store';
 
+let activeUndoFeedbackId: string | null = null;
+
 const ERROR_MESSAGE_KEYS: Record<AppError['code'], string> = {
   INVALID_JSON: 'common.errors.invalidJson',
   INVALID_RESUME: 'common.errors.invalidResume',
@@ -15,12 +17,14 @@ const ERROR_MESSAGE_KEYS: Record<AppError['code'], string> = {
   PRINT_FAILED: 'common.errors.printFailed',
   FILE_READ_FAILED: 'common.errors.fileReadFailed',
   FILE_TOO_LARGE: 'common.errors.fileTooLarge',
+  LIMIT_EXCEEDED: 'common.errors.limitExceeded',
+  OPERATION_FAILED: 'common.errors.operationFailed',
   STORAGE_FAILED: 'common.errors.storageFailed',
 };
 
 export const useAppFeedback = () => {
   const { t } = useI18n();
-  const { pushFeedback } = useFeedbackActions();
+  const { pushFeedback, dismissFeedback } = useFeedbackActions();
 
   const showError = useCallback(
     (error: AppError) => {
@@ -56,9 +60,24 @@ export const useAppFeedback = () => {
     [pushFeedback, t],
   );
 
+  const showUndo = useCallback(
+    (message: string, onUndo: () => void, durationMs = 12_000) => {
+      if (activeUndoFeedbackId) dismissFeedback(activeUndoFeedbackId);
+      activeUndoFeedbackId = pushFeedback({
+        tone: 'info',
+        title: t('common.feedback.undoAvailableTitle'),
+        message,
+        action: { label: t('common.feedback.undo'), onClick: onUndo },
+        durationMs,
+      });
+    },
+    [dismissFeedback, pushFeedback, t],
+  );
+
   return {
     showError,
     showSuccess,
     showInfo,
+    showUndo,
   };
 };

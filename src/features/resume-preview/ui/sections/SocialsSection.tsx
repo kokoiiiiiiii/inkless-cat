@@ -1,4 +1,6 @@
 import type { ResumeData } from '@entities/resume';
+import { useI18n } from '@shared/i18n';
+import { normalizeExternalUrl } from '@shared/lib/urls';
 
 import { cn } from '../../lib/cn';
 import { SectionContainer } from '../components/SectionContainer';
@@ -17,11 +19,12 @@ export const SocialsSection = ({
   accentStyle,
   setSectionRef,
 }: SocialsSectionProps) => {
+  const { t } = useI18n();
   if (!visible) return null;
 
   return (
     <SectionContainer
-      title="社交与链接"
+      title={t('preview.sections.socials')}
       sectionKey="socials"
       registerSectionRef={registerSectionRef}
       accentStyle={accentStyle}
@@ -41,22 +44,26 @@ export const SocialsSection = ({
             style={themeStyles.card}
           >
             <p className={cn('font-semibold', variant.heading)} style={themeStyles.heading}>
-              {social.label || social.url || '链接'}
+              {social.label || social.url || t('preview.sections.socials')}
             </p>
             {social.url && (
               <>
-                <a
-                  href={social.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={cn(
-                    'mt-1 block truncate text-xs underline underline-offset-4 print:hidden',
-                    variant.link,
-                  )}
-                  style={themeStyles.link}
-                >
-                  {social.url}
-                </a>
+                {normalizeExternalUrl(social.url) ? (
+                  <a
+                    href={normalizeExternalUrl(social.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      'mt-1 block truncate text-xs underline underline-offset-4 print:hidden',
+                      variant.link,
+                    )}
+                    style={themeStyles.link}
+                  >
+                    {normalizeExternalUrl(social.url)}
+                  </a>
+                ) : (
+                  <span className="mt-1 block truncate text-xs print:hidden">{social.url}</span>
+                )}
                 <span
                   className={cn('mt-1 hidden break-words text-xs print:block', variant.metaValue)}
                   style={themeStyles.text}
