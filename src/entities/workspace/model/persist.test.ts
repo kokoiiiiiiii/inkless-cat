@@ -1,4 +1,4 @@
-import { createEmptyResume } from '@entities/resume';
+import { createEmptyResume, deriveSectionsFromResume } from '@entities/resume';
 import type { StoreLogger } from '@shared/lib/logger';
 import {
   getPersistedValueSizeBytes,
@@ -10,7 +10,11 @@ import {
 import { createBrowserStorage } from '@shared/lib/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ensureLegacyStorageMigration, resetLegacyStorageMigrationForTests } from './persist';
+import {
+  ensureLegacyStorageMigration,
+  resetLegacyStorageMigrationForTests,
+  sanitizePersistedResumeStoreState,
+} from './persist';
 
 const logger: StoreLogger = {
   scope: 'test',
@@ -31,6 +35,12 @@ describe('workspace persistence safeguards', () => {
     vi.unstubAllGlobals();
     localStorage.clear();
     resetLegacyStorageMigrationForTests();
+  });
+
+  it('derives default modules when legacy persisted state has no module list', () => {
+    const migrated = sanitizePersistedResumeStoreState({ resume: createEmptyResume() });
+
+    expect(migrated.activeSections).toEqual(deriveSectionsFromResume(migrated.resume));
   });
 
   it('keeps legacy data and does not create a default envelope when migration fails', () => {

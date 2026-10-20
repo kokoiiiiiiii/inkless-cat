@@ -201,6 +201,26 @@ test('all modules stay disabled after workspace round trip and refresh', async (
   expect(restoredWorkspace.activeSections).toEqual([]);
 });
 
+test('editing after disabling all modules keeps them disabled across refresh and export', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '展开模块管理' }).click();
+  await page.getByRole('button', { name: '全部关闭' }).click();
+  await expect(page.getByText('暂无启用的模块')).toBeVisible();
+
+  await page.getByRole('textbox', { name: '姓名' }).fill('Fictional E2E Candidate');
+  await expect(page.getByText('暂无启用的模块')).toBeVisible();
+
+  await page.reload();
+  await page.getByRole('button', { name: '展开模块管理' }).click();
+  await expect(page.getByText('暂无启用的模块')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '姓名' })).toHaveValue('Fictional E2E Candidate');
+
+  const workspace = await exportWorkspaceFromUI(page);
+  expect(workspace.activeSections).toEqual([]);
+});
+
 test('switching UI language preserves resume body and updates preview copy', async ({ page }) => {
   await page.goto('/');
   const fullName = page.getByRole('textbox', { name: '姓名' });

@@ -1,4 +1,4 @@
-import { createCustomSection } from '@entities/module';
+import { createCustomSection, getCustomSectionKey } from '@entities/module';
 import {
   createEmptyResume,
   deriveSectionsFromResume,
@@ -70,5 +70,34 @@ describe('useSortableSections', () => {
     act(() => result.current.addCustomSection('One too many'));
 
     expect(useResumeStore.getState().resume.customSections).toHaveLength(MAX_CUSTOM_SECTIONS);
+  });
+
+  it('enables only the custom section explicitly added when all modules are disabled', () => {
+    useResumeStore.setState({ activeSections: [] });
+    const { result } = renderHook(() => useSortableSections(), { wrapper });
+
+    act(() => result.current.addCustomSection('Notes'));
+
+    const state = useResumeStore.getState();
+    const customSection = state.resume.customSections[0];
+    expect(customSection).toBeDefined();
+    expect(state.activeSections).toEqual([getCustomSectionKey(customSection?.id ?? '')]);
+  });
+
+  it('does not enable default modules when the last active custom section is removed', () => {
+    const resume = normalizeResumeSchema(createEmptyResume(), { clone: true });
+    const customSection = createCustomSection('Notes');
+    resume.customSections = [customSection];
+    useResumeStore.setState({
+      resume,
+      activeSections: [getCustomSectionKey(customSection.id)],
+    });
+    const { result } = renderHook(() => useSortableSections(), { wrapper });
+
+    act(() => result.current.removeCustomSection(customSection.id));
+
+    const state = useResumeStore.getState();
+    expect(state.resume.customSections).toEqual([]);
+    expect(state.activeSections).toEqual([]);
   });
 });
