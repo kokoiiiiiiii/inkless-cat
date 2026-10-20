@@ -92,7 +92,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                       })
                     : normalizeResumeSchema(updater, { clone: true });
                 const nextSections = syncSections
-                  ? sanitizeSections(state.activeSections, nextResume, { fallbackToDefaults: true })
+                  ? sanitizeSections(state.activeSections, nextResume)
                   : state.activeSections;
                 return {
                   resume: nextResume,

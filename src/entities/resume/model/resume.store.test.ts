@@ -32,6 +32,43 @@ describe('resume store', () => {
     expect(state.hasResumeChanges).toBe(true);
   });
 
+  it('keeps all sections disabled when the name is edited', () => {
+    useResumeStore.setState({ activeSections: [] });
+
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.fullName = 'Name with no enabled sections';
+    });
+
+    expect(useResumeStore.getState().activeSections).toEqual([]);
+  });
+
+  it('keeps all sections disabled when the personal summary is edited', () => {
+    useResumeStore.setState({ activeSections: [] });
+
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = 'A fictional summary';
+    });
+
+    expect(useResumeStore.getState().activeSections).toEqual([]);
+  });
+
+  it('preserves an explicitly selected section order when resume content changes', () => {
+    const selectedOrder: ActiveSectionKey[] = ['projects', 'experience', 'socials'];
+    useResumeStore.setState({ activeSections: selectedOrder });
+
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = 'Updated without changing module order';
+    });
+
+    expect(useResumeStore.getState().activeSections).toEqual(selectedOrder);
+  });
+
+  it('initializes default modules from the default resume', () => {
+    const initialState = useResumeStore.getInitialState();
+
+    expect(initialState.activeSections).toEqual(deriveSectionsFromResume(initialState.resume));
+  });
+
   it('respects markDirty flag when updating resume', () => {
     const { updateResume } = useResumeStore.getState();
     updateResume(
