@@ -1,9 +1,9 @@
 import { createEmptyResume } from '@entities/resume';
-import { beforeEach, bench } from 'vitest';
+import { test } from 'vitest';
 
 import { useUIStore } from './ui.store';
 
-beforeEach(() => {
+const resetUIStore = () => {
   useUIStore.setState({
     theme: 'light',
     templateId: '',
@@ -13,24 +13,28 @@ beforeEach(() => {
     mobileView: 'editor',
   });
   useUIStore.persist?.clearStorage();
+};
+
+test('ui store theme toggle', async ({ bench }) => {
+  await bench('toggle theme', { beforeEach: resetUIStore }, () => {
+    const { setTheme } = useUIStore.getState();
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }).run();
 });
 
-bench('ui store theme toggle', () => {
-  const { setTheme } = useUIStore.getState();
-  setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-});
-
-bench('ui store custom template writes', () => {
-  const { setCustomTemplates } = useUIStore.getState();
-  setCustomTemplates((prev) => [
-    ...prev,
-    {
-      id: `tpl-${prev.length + 1}`,
-      name: 'Bench Template',
-      description: 'Generated during benchmark',
-      previewStyle: 'modern',
-      accentColor: '#2563eb',
-      sample: createEmptyResume(),
-    },
-  ]);
+test('ui store custom template writes', async ({ bench }) => {
+  await bench('write custom template', { beforeEach: resetUIStore }, () => {
+    const { setCustomTemplates } = useUIStore.getState();
+    setCustomTemplates((prev) => [
+      ...prev,
+      {
+        id: `tpl-${prev.length + 1}`,
+        name: 'Bench Template',
+        description: 'Generated during benchmark',
+        previewStyle: 'modern',
+        accentColor: '#2563eb',
+        sample: createEmptyResume(),
+      },
+    ]);
+  }).run();
 });
