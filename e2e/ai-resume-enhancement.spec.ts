@@ -157,12 +157,10 @@ const configureProvider = async (page: Page) => {
 const openPersonalEnhancement = async (page: Page, label: string) => {
   const isEnglish = label === 'Personal summary';
   const fieldLabel = isEnglish ? 'Summary' : label;
-  const buttonName = isEnglish ? 'AI polish' : 'AI 润色';
+  const actionName = isEnglish ? 'Polish Personal summary with AI' : `为${label}打开 AI 润色`;
   const field = page.getByRole('textbox', { name: fieldLabel }).first();
-  const action = field.locator('xpath=..').getByRole('button', { name: buttonName });
-  await expect(action).toHaveAccessibleName(
-    isEnglish ? 'Polish Personal summary with AI' : `为${label}打开 AI 润色`,
-  );
+  const action = field.locator('xpath=..').getByRole('button', { name: actionName });
+  await expect(action).toHaveAccessibleName(actionName);
   await action.click();
   return page.getByRole('dialog', {
     name: label === 'Personal summary' ? 'AI resume enhancement' : 'AI 简历润色',
