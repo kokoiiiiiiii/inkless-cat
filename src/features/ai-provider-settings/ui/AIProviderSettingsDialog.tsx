@@ -2,24 +2,19 @@ import { useI18n } from '@shared/i18n';
 import { type RefObject, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { useAIProviderSettings } from '../model/useAIProviderSettings';
+import { useAIProviderSettings } from '../model/useAIProviderSettings';
 
 type AIProviderSettingsDialogProps = {
   open: boolean;
   onClose: () => void;
-  settings: ReturnType<typeof useAIProviderSettings>;
   triggerRef: RefObject<HTMLButtonElement | null>;
 };
 
 const secondaryButtonClass =
   'inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 
-const AIProviderSettingsDialog = ({
-  open,
-  onClose,
-  settings,
-  triggerRef,
-}: AIProviderSettingsDialogProps) => {
+const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSettingsDialogProps) => {
+  const settings = useAIProviderSettings();
   const { t, locale } = useI18n();
   const [showApiKey, setShowApiKey] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);

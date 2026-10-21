@@ -1,3 +1,4 @@
+import { AIProviderProvider } from '@features/ai-provider-settings';
 import { I18nProvider } from '@shared/i18n';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createRef, type ReactNode } from 'react';
@@ -5,7 +6,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import ActionButtons from './ActionButtons';
 
-const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider>{children}</I18nProvider>;
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <AIProviderProvider>
+    <I18nProvider>{children}</I18nProvider>
+  </AIProviderProvider>
+);
 
 describe('ActionButtons locale dialog accessibility', () => {
   it('focuses the dialog, traps keyboard focus, closes with Escape, and restores focus', () => {
@@ -111,5 +116,48 @@ describe('AI provider settings dialog accessibility', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it('retains the saved session configuration after the settings dialog closes', () => {
+    render(
+      <ActionButtons
+        onResetSample={vi.fn()}
+        onClear={vi.fn()}
+        onImportClick={vi.fn()}
+        onExport={vi.fn()}
+        onExportWorkspace={vi.fn()}
+        onExportMarkdown={vi.fn()}
+        onPrint={vi.fn()}
+        theme="light"
+        onToggleTheme={vi.fn()}
+        inputRef={createRef<HTMLInputElement>()}
+        onFileChange={vi.fn()}
+        onLocaleChange={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    const trigger = screen.getByRole('button', { name: 'AI 设置' });
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByRole('textbox', { name: 'API Base URL' }), {
+      target: { value: 'https://provider.example/v1' },
+    });
+    fireEvent.change(screen.getByLabelText('API Key'), {
+      target: { value: 'runtime-secret-test-only' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: '模型 ID' }), {
+      target: { value: 'saved-model' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存到当前会话' }));
+    fireEvent.click(screen.getByRole('button', { name: '关闭 AI 设置' }));
+
+    expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
+    fireEvent.click(trigger);
+    expect(screen.getByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
+      'value',
+      'https://provider.example/v1',
+    );
+    expect(screen.getByLabelText('API Key')).toHaveProperty('value', 'runtime-secret-test-only');
+    expect(screen.getByRole('textbox', { name: '模型 ID' })).toHaveProperty('value', 'saved-model');
   });
 });

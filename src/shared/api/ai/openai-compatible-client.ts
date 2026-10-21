@@ -29,6 +29,7 @@ export type ChatCompletionAdapter = {
 const DEFAULT_TIMEOUT_MS = 20_000;
 const SENSITIVE_QUERY_NAMES =
   /^(?:api.?key|key|token|access.?token|authorization|secret|password|credential)$/iu;
+const INVALID_API_KEY_CHARACTERS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
 const isLocalDevelopmentHost = (hostname: string) =>
   hostname === 'localhost' ||
@@ -38,12 +39,13 @@ const isLocalDevelopmentHost = (hostname: string) =>
   hostname.endsWith('.localhost');
 
 const assertConfiguration = (config: ProviderConfig, credentials: RuntimeCredentials) => {
-  const apiKey = credentials.apiKey.trim();
+  const rawApiKey = credentials.apiKey;
+  if (INVALID_API_KEY_CHARACTERS.test(rawApiKey)) {
+    throw new ProviderError('invalid_api_key');
+  }
+  const apiKey = rawApiKey.trim();
   if (!config.baseUrl.trim() || !config.model.trim() || !apiKey) {
     throw new ProviderError('incomplete_config');
-  }
-  if (/[\u0000-\u001F\u007F\u2028\u2029]/u.test(apiKey)) {
-    throw new ProviderError('invalid_api_key');
   }
 
   let baseUrl: URL;

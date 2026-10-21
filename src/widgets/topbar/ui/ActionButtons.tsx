@@ -1,4 +1,4 @@
-import { AIProviderSettingsDialog, useAIProviderSettings } from '@features/ai-provider-settings';
+import { AIProviderSettingsDialog } from '@features/ai-provider-settings';
 import { type Locale, useI18n } from '@shared/i18n';
 import type { ChangeEvent, RefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,7 +40,6 @@ const ActionButtons = ({
   const localeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const aiSettingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const aiProviderSettings = useAIProviderSettings();
   const closeAISettings = useCallback(() => setAISettingsOpen(false), []);
   const nextLocale = locale === 'en' ? 'zh-CN' : 'en';
   const translateWithFallback = (key: string, fallback: string) => {
@@ -165,7 +164,6 @@ const ActionButtons = ({
       <AIProviderSettingsDialog
         open={aiSettingsOpen}
         onClose={closeAISettings}
-        settings={aiProviderSettings}
         triggerRef={aiSettingsTriggerRef}
       />
       {pendingLocale && (

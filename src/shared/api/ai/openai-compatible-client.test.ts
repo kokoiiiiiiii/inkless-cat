@@ -94,8 +94,8 @@ describe('OpenAI-compatible provider client', () => {
   });
 
   it.each([
-    ['leading whitespace', `  ${credentials.apiKey}`],
-    ['trailing whitespace', `${credentials.apiKey} \t`],
+    ['leading ordinary spaces', `  ${credentials.apiKey}`],
+    ['trailing ordinary spaces', `${credentials.apiKey}  `],
   ])('validates and sends the trimmed API key with %s', async (_label, apiKey) => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(200, validPayload));
     const client = createOpenAICompatibleClient({ fetchImpl });
@@ -107,20 +107,44 @@ describe('OpenAI-compatible provider client', () => {
     expect(new Headers(init?.headers).get('Authorization')).toBe(`Bearer ${credentials.apiKey}`);
   });
 
-  it('rejects whitespace-only and line-break API keys before sending a request', async () => {
+  it.each([
+    ['leading newline', `\n${credentials.apiKey}`],
+    ['trailing newline', `${credentials.apiKey}\n`],
+    ['leading carriage return', `\r${credentials.apiKey}`],
+    ['trailing carriage return', `${credentials.apiKey}\r`],
+    ['leading tab', `\t${credentials.apiKey}`],
+    ['trailing tab', `${credentials.apiKey}\t`],
+    [
+      'internal carriage return',
+      `${credentials.apiKey.slice(0, 4)}\r${credentials.apiKey.slice(4)}`,
+    ],
+    ['internal line feed', `${credentials.apiKey.slice(0, 4)}\n${credentials.apiKey.slice(4)}`],
+    ['NUL', `${credentials.apiKey}\u0000`],
+    ['other C0 control', `${credentials.apiKey}\u0001`],
+    ['C1 control', `${credentials.apiKey}\u0085`],
+    ['Unicode line separator', `${credentials.apiKey}\u2028`],
+    ['Unicode paragraph separator', `${credentials.apiKey}\u2029`],
+    ['invisible format character', `${credentials.apiKey}\u200B`],
+  ])('rejects %s before sending or exposing the API key', async (_label, apiKey) => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(200, validPayload));
     const client = createOpenAICompatibleClient({ fetchImpl });
+    const error = await client.complete(config, { apiKey }, []).catch((error_: unknown) => error_);
 
-    expect(() => validateProviderConfiguration(config, { apiKey: ' \t ' })).toThrow(
-      'incomplete_config',
-    );
-    expect(() => validateProviderConfiguration(config, { apiKey: 'test-key\nnever-real' })).toThrow(
-      'invalid_api_key',
-    );
-    await rejectWithCode(
-      client.complete(config, { apiKey: 'test-key\nnever-real' }, []),
-      'invalid_api_key',
-    );
+    expect(() => validateProviderConfiguration(config, { apiKey })).toThrow('invalid_api_key');
+    expect(error).toMatchObject({ code: 'invalid_api_key', message: 'invalid_api_key' });
+    expect(String(error)).not.toContain(apiKey);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('rejects an all-space key as incomplete and does not send a request', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(200, validPayload));
+    const client = createOpenAICompatibleClient({ fetchImpl });
+    const apiKey = '   ';
+
+    expect(() => validateProviderConfiguration(config, { apiKey })).toThrow('incomplete_config');
+    const error = await client.complete(config, { apiKey }, []).catch((error_: unknown) => error_);
+    expect(error).toMatchObject({ code: 'incomplete_config', message: 'incomplete_config' });
+    expect(String(error)).not.toContain(apiKey);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
