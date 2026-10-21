@@ -36,6 +36,7 @@ export const aiProvider = {
     invalid_url: 'The Base URL must be a valid HTTP or HTTPS URL.',
     insecure_url: 'Use HTTPS for remote services. HTTP is allowed only for localhost development.',
     embedded_credential: 'Remove credentials, API keys, or fragments from the Base URL.',
+    invalid_api_key: 'The API Key cannot contain control characters or line breaks.',
     authentication: 'Authentication failed. Check the API Key.',
     permission: 'The key does not have permission to use this endpoint or model.',
     quota_or_rate_limit:

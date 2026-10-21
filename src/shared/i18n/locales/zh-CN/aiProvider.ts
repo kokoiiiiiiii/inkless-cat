@@ -33,6 +33,7 @@ export const aiProvider = {
     invalid_url: 'Base URL 必须是合法的 HTTP 或 HTTPS 地址。',
     insecure_url: '远程服务必须使用 HTTPS；仅本地开发地址允许 HTTP。',
     embedded_credential: '请从 Base URL 中移除凭据、API Key 或 URL 片段。',
+    invalid_api_key: 'API Key 不能包含控制字符或换行。',
     authentication: '认证失败，请检查 API Key。',
     permission: '当前密钥无权访问此端点或模型。',
     quota_or_rate_limit: '服务报告额度不足或请求受限，请检查账户状态或稍后重试。',

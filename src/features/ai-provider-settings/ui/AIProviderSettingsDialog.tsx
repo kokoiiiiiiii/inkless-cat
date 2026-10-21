@@ -1,5 +1,6 @@
 import { useI18n } from '@shared/i18n';
 import { type RefObject, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { useAIProviderSettings } from '../model/useAIProviderSettings';
 
@@ -28,23 +29,36 @@ const AIProviderSettingsDialog = ({
   const baseUrlHelpId = useId();
   const apiKeyHelpId = useId();
   const modelHelpId = useId();
+  const cancelTest = settings.cancelTest;
   const closeDialog = useCallback(() => {
     setShowApiKey(false);
+    cancelTest();
     onClose();
-  }, [onClose]);
+  }, [cancelTest, onClose]);
 
   useEffect(() => {
     if (!open) return;
     const dialog = dialogRef.current;
     if (!dialog) return;
     const trigger = triggerRef.current;
+    const previousBodyOverflow = document.body.style.overflow;
+    let isComposing = false;
     const focusableSelector =
       'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const getFocusableElements = () => [...dialog.querySelectorAll<HTMLElement>(focusableSelector)];
     getFocusableElements()[1]?.focus();
+    document.body.style.overflow = 'hidden';
+
+    const handleCompositionStart = () => {
+      isComposing = true;
+    };
+    const handleCompositionEnd = () => {
+      isComposing = false;
+    };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (event.isComposing || event.keyCode === 229 || isComposing) return;
         event.preventDefault();
         closeDialog();
         return;
@@ -56,6 +70,9 @@ const AIProviderSettingsDialog = ({
       const last = focusableElements.at(-1);
       if (!first || !last) {
         event.preventDefault();
+      } else if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
       } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -65,9 +82,14 @@ const AIProviderSettingsDialog = ({
       }
     };
 
+    document.addEventListener('compositionstart', handleCompositionStart, true);
+    document.addEventListener('compositionend', handleCompositionEnd, true);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
+      document.removeEventListener('compositionstart', handleCompositionStart, true);
+      document.removeEventListener('compositionend', handleCompositionEnd, true);
       document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
       trigger?.focus();
     };
   }, [closeDialog, open, triggerRef]);
@@ -112,8 +134,8 @@ const AIProviderSettingsDialog = ({
     }
   })();
 
-  return (
-    <div className="fixed inset-0 z-[60] flex min-h-dvh items-start justify-center overflow-y-auto bg-slate-950/50 px-3 py-5 dark:bg-black/70 sm:items-center sm:px-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-slate-950/50 px-3 py-5 dark:bg-black/70 sm:px-6">
       <div
         ref={dialogRef}
         className="my-auto max-h-[calc(100dvh-2.5rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-7"
@@ -285,7 +307,8 @@ const AIProviderSettingsDialog = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

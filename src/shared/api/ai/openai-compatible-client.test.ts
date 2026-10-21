@@ -93,6 +93,37 @@ describe('OpenAI-compatible provider client', () => {
     }
   });
 
+  it.each([
+    ['leading whitespace', `  ${credentials.apiKey}`],
+    ['trailing whitespace', `${credentials.apiKey} \t`],
+  ])('validates and sends the trimmed API key with %s', async (_label, apiKey) => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(200, validPayload));
+    const client = createOpenAICompatibleClient({ fetchImpl });
+
+    expect(() => validateProviderConfiguration(config, { apiKey })).not.toThrow();
+    await client.complete(config, { apiKey }, []);
+
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(new Headers(init?.headers).get('Authorization')).toBe(`Bearer ${credentials.apiKey}`);
+  });
+
+  it('rejects whitespace-only and line-break API keys before sending a request', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(200, validPayload));
+    const client = createOpenAICompatibleClient({ fetchImpl });
+
+    expect(() => validateProviderConfiguration(config, { apiKey: ' \t ' })).toThrow(
+      'incomplete_config',
+    );
+    expect(() => validateProviderConfiguration(config, { apiKey: 'test-key\nnever-real' })).toThrow(
+      'invalid_api_key',
+    );
+    await rejectWithCode(
+      client.complete(config, { apiKey: 'test-key\nnever-real' }, []),
+      'invalid_api_key',
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('joins trailing slashes and /v1 without duplicating the endpoint', () => {
     expect(buildChatCompletionsUrl(new URL('https://provider.example/v1/'))).toBe(
       'https://provider.example/v1/chat/completions',
@@ -125,6 +156,7 @@ describe('OpenAI-compatible provider client', () => {
     expect(init?.redirect).toBe('error');
     expect(init?.credentials).toBe('omit');
     expect(init?.referrerPolicy).toBe('no-referrer');
+    expect(init?.mode).not.toBe('no-cors');
     const requestUrl = url instanceof URL ? url.href : url instanceof Request ? url.url : url;
     expect(requestUrl).not.toContain(credentials.apiKey);
   });
@@ -185,6 +217,19 @@ describe('OpenAI-compatible provider client', () => {
       code,
       statusCode: status,
     });
+  });
+
+  it('keeps authentication failures generic and free of key or response details', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(response(401, { error: `contains ${credentials.apiKey}` }));
+    const client = createOpenAICompatibleClient({ fetchImpl });
+    const error = await client.complete(config, credentials, []).catch((error_: unknown) => error_);
+
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).toMatchObject({ code: 'authentication', message: 'authentication' });
+    expect(String(error)).not.toContain(credentials.apiKey);
+    expect(String(error)).not.toContain('contains');
   });
 
   it('maps fetch failures to a generic network or possible CORS error', async () => {

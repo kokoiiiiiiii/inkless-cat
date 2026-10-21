@@ -38,8 +38,12 @@ const isLocalDevelopmentHost = (hostname: string) =>
   hostname.endsWith('.localhost');
 
 const assertConfiguration = (config: ProviderConfig, credentials: RuntimeCredentials) => {
-  if (!config.baseUrl.trim() || !config.model.trim() || !credentials.apiKey.trim()) {
+  const apiKey = credentials.apiKey.trim();
+  if (!config.baseUrl.trim() || !config.model.trim() || !apiKey) {
     throw new ProviderError('incomplete_config');
+  }
+  if (/[\u0000-\u001F\u007F\u2028\u2029]/u.test(apiKey)) {
+    throw new ProviderError('invalid_api_key');
   }
 
   let baseUrl: URL;
@@ -58,7 +62,6 @@ const assertConfiguration = (config: ProviderConfig, credentials: RuntimeCredent
   if (baseUrl.protocol !== 'https:' && !isLocalDevelopmentHost(baseUrl.hostname)) {
     throw new ProviderError('insecure_url');
   }
-  const apiKey = credentials.apiKey.trim();
   const hasCredentialQueryValue = [...baseUrl.searchParams.values()].includes(apiKey);
   const hasCredentialPathSegment = baseUrl.pathname.split('/').some((segment) => {
     try {
@@ -77,7 +80,7 @@ const assertConfiguration = (config: ProviderConfig, credentials: RuntimeCredent
     throw new ProviderError('embedded_credential');
   }
 
-  return baseUrl;
+  return { baseUrl, apiKey };
 };
 
 export const validateProviderConfiguration = (
@@ -134,8 +137,8 @@ export const createOpenAICompatibleClient = (options: OpenAICompatibleClientOpti
     messages: ChatMessage[],
     callOptions: CompleteOptions = {},
   ): Promise<ChatCompletionResult> => {
-    const parsedUrl = assertConfiguration(config, credentials);
-    const url = buildChatCompletionsUrl(parsedUrl);
+    const { baseUrl, apiKey } = assertConfiguration(config, credentials);
+    const url = buildChatCompletionsUrl(baseUrl);
     const request: ChatCompletionRequest = {
       model: config.model,
       messages,
@@ -159,7 +162,7 @@ export const createOpenAICompatibleClient = (options: OpenAICompatibleClientOpti
       const response = await fetchImpl(url, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${credentials.apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(request),

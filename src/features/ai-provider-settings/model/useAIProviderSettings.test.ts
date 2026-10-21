@@ -32,6 +32,8 @@ describe('useAIProviderSettings', () => {
     await act(async () => result.current.testConnection());
 
     expect(completeSpy).toHaveBeenCalledTimes(1);
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
     expect(completeSpy).toHaveBeenCalledWith(
       { baseUrl: 'https://provider.example/v1', model: 'MiXeD-Model' },
       { apiKey: 'runtime-secret-test-only' },

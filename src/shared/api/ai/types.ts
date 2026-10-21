@@ -37,6 +37,7 @@ export type ProviderErrorCode =
   | 'invalid_url'
   | 'insecure_url'
   | 'embedded_credential'
+  | 'invalid_api_key'
   | 'authentication'
   | 'permission'
   | 'quota_or_rate_limit'

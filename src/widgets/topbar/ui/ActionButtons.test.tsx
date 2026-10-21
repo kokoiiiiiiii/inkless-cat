@@ -44,3 +44,72 @@ describe('ActionButtons locale dialog accessibility', () => {
     expect(dialog).not.toBeNull();
   });
 });
+
+describe('AI provider settings dialog accessibility', () => {
+  it('portals the dialog, protects Chinese IME input from Escape, and restores focus', () => {
+    render(
+      <ActionButtons
+        onResetSample={vi.fn()}
+        onClear={vi.fn()}
+        onImportClick={vi.fn()}
+        onExport={vi.fn()}
+        onExportWorkspace={vi.fn()}
+        onExportMarkdown={vi.fn()}
+        onPrint={vi.fn()}
+        theme="light"
+        onToggleTheme={vi.fn()}
+        inputRef={createRef<HTMLInputElement>()}
+        onFileChange={vi.fn()}
+        onLocaleChange={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    const trigger = screen.getByRole('button', { name: 'AI 设置' });
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: 'AI 服务设置' });
+    const baseUrl = screen.getByRole('textbox', { name: 'API Base URL' });
+    const model = screen.getByRole('textbox', { name: '模型 ID' });
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+    expect(document.activeElement).toBe(baseUrl);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    fireEvent.compositionStart(baseUrl);
+    fireEvent.change(baseUrl, { target: { value: 'https://provider.example/v1/模型' } });
+    fireEvent.keyDown(baseUrl, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).not.toBeNull();
+    expect(baseUrl).toHaveProperty('value', 'https://provider.example/v1/模型');
+    expect(document.activeElement).toBe(baseUrl);
+    fireEvent.compositionEnd(baseUrl);
+
+    model.focus();
+    fireEvent.compositionStart(model);
+    fireEvent.change(model, { target: { value: '混合模型' } });
+    fireEvent.keyDown(model, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(model, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).not.toBeNull();
+    expect(model).toHaveProperty('value', '混合模型');
+    expect(document.activeElement).toBe(model);
+    fireEvent.compositionEnd(model);
+
+    fireEvent.keyDown(model, { key: 'Escape', isComposing: true });
+    fireEvent.keyDown(model, { key: 'Escape', keyCode: 229 });
+    expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).not.toBeNull();
+    fireEvent.keyDown(model, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(document.body.style.overflow).toBe('');
+
+    fireEvent.click(trigger);
+    expect(screen.getByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
+      'value',
+      'https://provider.example/v1/模型',
+    );
+    expect(screen.getByRole('textbox', { name: '模型 ID' })).toHaveProperty('value', '混合模型');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+});
