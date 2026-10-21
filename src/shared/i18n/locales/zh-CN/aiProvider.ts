@@ -45,5 +45,9 @@ export const aiProvider = {
     network:
       '浏览器无法读取响应，可能与网络、DNS、TLS 或端点的 CORS 限制有关。请检查服务是否可访问，以及是否允许此网站发起浏览器请求。',
     incompatible_response: '端点响应缺少有效的 Chat Completions 消息。',
+    stream_unsupported: '端点未返回兼容的 SSE 流。请确认服务支持 Chat Completions 流式输出。',
+    stream_interrupted: '响应流在收到结束标记前中断，未保留部分建议。',
+    stream_invalid: '端点返回了无效或不支持的流式数据，未保留部分建议。',
+    stream_too_large: '响应流超过支持的大小限制，未保留部分建议。',
   },
 } as const;

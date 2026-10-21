@@ -51,5 +51,13 @@ export const aiProvider = {
       'The browser could not read a response. Possible causes include network, DNS, TLS, or endpoint CORS restrictions. Check that the service is reachable and allows browser requests from this site.',
     incompatible_response:
       'The endpoint response did not include a valid Chat Completions message.',
+    stream_unsupported:
+      'The endpoint did not return an OpenAI-compatible SSE stream. Check that streaming Chat Completions are supported.',
+    stream_interrupted:
+      'The response stream ended before its completion marker arrived. No partial suggestion was kept.',
+    stream_invalid:
+      'The endpoint returned invalid or unsupported streaming data. No partial suggestion was kept.',
+    stream_too_large:
+      'The response stream exceeded the supported size limit. No partial suggestion was kept.',
   },
 } as const;

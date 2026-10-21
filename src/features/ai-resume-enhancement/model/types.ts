@@ -9,7 +9,13 @@ export type AIEnhancementLocale = 'zh-CN' | 'en';
 
 export type AIEnhancementFieldValue = string | string[];
 
-export type AIEnhancementStatus = 'idle' | 'generating' | 'suggested' | 'error' | 'cancelled';
+export type AIEnhancementStatus =
+  | 'idle'
+  | 'streaming'
+  | 'validating'
+  | 'suggested'
+  | 'error'
+  | 'cancelled';
 
 export type AIEnhancementErrorCode =
   | 'empty_output'
@@ -36,6 +42,7 @@ export type AIEnhancementSession = {
   workspaceGeneration: number;
   mode: AIEnhancementMode;
   status: AIEnhancementStatus;
+  preview: string;
   candidate: string;
   errorCode?: AIEnhancementErrorCode;
   inputCodeUnits?: number;

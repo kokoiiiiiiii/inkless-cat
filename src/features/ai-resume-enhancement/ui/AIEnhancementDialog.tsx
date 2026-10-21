@@ -118,7 +118,7 @@ const AIEnhancementDialog = () => {
     session.target,
     session.original,
   );
-  const isGenerating = session.status === 'generating';
+  const isGenerating = session.status === 'streaming' || session.status === 'validating';
   const errorMessage = (() => {
     if (session.providerErrorCode) {
       return t(`aiProvider.errors.${session.providerErrorCode}`, {
@@ -212,6 +212,27 @@ const AIEnhancementDialog = () => {
               </div>
             </div>
 
+            {isGenerating && (
+              <section aria-labelledby={`${titleId}-preview-heading`}>
+                <h3
+                  id={`${titleId}-preview-heading`}
+                  className="text-sm font-medium text-slate-800 dark:text-slate-100"
+                >
+                  {session.target.kind === 'experience-highlights'
+                    ? t('aiEnhancement.structuredPreview')
+                    : t('aiEnhancement.livePreview')}
+                </h3>
+                {session.target.kind === 'experience-highlights' && (
+                  <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    {t('aiEnhancement.structuredPreviewHint')}
+                  </p>
+                )}
+                <div className="mt-2 max-h-56 min-h-24 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-brand-200 bg-brand-50/70 px-3 py-2.5 text-sm leading-6 text-slate-800 dark:border-brand-900 dark:bg-slate-950 dark:text-slate-100">
+                  {session.preview || t('aiEnhancement.waitingForContent')}
+                </div>
+              </section>
+            )}
+
             {session.status === 'suggested' && (
               <div>
                 <label
@@ -243,12 +264,15 @@ const AIEnhancementDialog = () => {
             </p>
 
             {isGenerating && (
-              <p
-                className="text-sm text-slate-700 dark:text-slate-200"
-                role="status"
-                aria-live="polite"
-              >
-                {t('aiEnhancement.generating')}
+              <p className="text-sm text-slate-700 dark:text-slate-200" role="status">
+                {session.status === 'validating'
+                  ? t('aiEnhancement.validating')
+                  : t('aiEnhancement.generating')}
+              </p>
+            )}
+            {session.status === 'suggested' && (
+              <p className="text-sm text-slate-700 dark:text-slate-200" role="status">
+                {t('aiEnhancement.suggestionReady')}
               </p>
             )}
             {session.status === 'cancelled' && (

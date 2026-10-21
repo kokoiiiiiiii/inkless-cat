@@ -9,6 +9,7 @@ import {
   ProviderError,
   type ProviderErrorCode,
   type RuntimeCredentials,
+  type StreamCompleteOptions,
   validateProviderConfiguration,
 } from '@shared/api/ai';
 import {
@@ -35,6 +36,10 @@ export type AIProviderClient = {
   isConfigured: boolean;
   connectionStatus: ProviderConnectionStatus;
   complete: (messages: ChatMessage[], options?: CompleteOptions) => Promise<ChatCompletionResult>;
+  streamComplete: (
+    messages: ChatMessage[],
+    options: StreamCompleteOptions,
+  ) => Promise<ChatCompletionResult>;
 };
 
 export type AIProviderSettings = {
@@ -281,8 +286,11 @@ export const AIProviderProvider = ({
     setTestState({ status: 'idle' });
   }, [cancelBusinessRequests, resetTestRequest]);
 
-  const complete = useCallback(
-    async (messages: ChatMessage[], options: CompleteOptions = {}) => {
+  const runBusinessRequest = useCallback(
+    async <T,>(
+      options: Pick<CompleteOptions, 'signal' | 'timeoutMs'>,
+      run: (saved: SavedProvider, signal: AbortSignal, isCurrent: () => boolean) => Promise<T>,
+    ): Promise<T> => {
       const saved = savedProviderRef.current;
       if (!saved) throw new ProviderError('incomplete_config');
       validateProviderConfiguration(saved.config, saved.credentials);
@@ -301,15 +309,12 @@ export const AIProviderProvider = ({
         if (!isMounted.current || controller.signal.aborted) {
           throw new ProviderError('cancelled');
         }
-        const result = await client.complete(saved.config, saved.credentials, messages, {
-          ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-          signal: controller.signal,
-        });
-        if (
-          !isMounted.current ||
-          controller.signal.aborted ||
-          providerGeneration.current !== currentGeneration
-        ) {
+        const isCurrent = () =>
+          isMounted.current &&
+          !controller.signal.aborted &&
+          providerGeneration.current === currentGeneration;
+        const result = await run(saved, controller.signal, isCurrent);
+        if (!isCurrent()) {
           throw new ProviderError('cancelled');
         }
         return result;
@@ -328,7 +333,36 @@ export const AIProviderProvider = ({
         activeBusinessRequests.current.delete(controller);
       }
     },
-    [client],
+    [],
+  );
+
+  const complete = useCallback(
+    (messages: ChatMessage[], options: CompleteOptions = {}) =>
+      runBusinessRequest(options, (saved, signal) =>
+        client.complete(saved.config, saved.credentials, messages, {
+          ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+          signal,
+        }),
+      ),
+    [client, runBusinessRequest],
+  );
+
+  const streamComplete = useCallback(
+    (messages: ChatMessage[], options: StreamCompleteOptions) =>
+      runBusinessRequest(options, (saved, signal, isCurrent) =>
+        client.streamComplete(saved.config, saved.credentials, messages, {
+          ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+          ...(options.idleTimeoutMs === undefined ? {} : { idleTimeoutMs: options.idleTimeoutMs }),
+          ...(options.maxOutputCodeUnits === undefined
+            ? {}
+            : { maxOutputCodeUnits: options.maxOutputCodeUnits }),
+          signal,
+          onDelta: (delta) => {
+            if (isCurrent()) options.onDelta(delta);
+          },
+        }),
+      ),
+    [client, runBusinessRequest],
   );
 
   const clientConnectionStatus = useMemo(
@@ -341,8 +375,9 @@ export const AIProviderProvider = ({
       isConfigured: savedConfiguration !== null,
       connectionStatus: clientConnectionStatus,
       complete,
+      streamComplete,
     }),
-    [clientConnectionStatus, complete, savedConfiguration],
+    [clientConnectionStatus, complete, savedConfiguration, streamComplete],
   );
   const settingsContextValue = useMemo<AIProviderSettings>(
     () => ({

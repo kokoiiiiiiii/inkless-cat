@@ -18,6 +18,10 @@ export type ChatCompletionRequest = {
   stream: false;
 };
 
+export type ChatCompletionStreamRequest = Omit<ChatCompletionRequest, 'stream'> & {
+  stream: true;
+};
+
 export type ChatCompletionResult = {
   content: string;
 };
@@ -47,7 +51,11 @@ export type ProviderErrorCode =
   | 'timeout'
   | 'cancelled'
   | 'network'
-  | 'incompatible_response';
+  | 'incompatible_response'
+  | 'stream_unsupported'
+  | 'stream_interrupted'
+  | 'stream_invalid'
+  | 'stream_too_large';
 
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;

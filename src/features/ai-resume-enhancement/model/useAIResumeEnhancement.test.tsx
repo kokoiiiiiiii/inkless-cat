@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   CompleteOptions,
   ProviderConfig,
+  StreamCompleteOptions,
 } from '@shared/api/ai';
 import { ProviderError } from '@shared/api/ai';
 import { I18nProvider } from '@shared/i18n';
@@ -55,6 +56,11 @@ const createProvider = (
   isConfigured,
   connectionStatus: isConfigured ? 'ready' : 'not_configured',
   complete,
+  streamComplete: (messages: ChatMessage[], options: StreamCompleteOptions) =>
+    complete(messages, { signal: options.signal, timeoutMs: options.timeoutMs }).then((result) => {
+      if (!options.signal?.aborted) options.onDelta(result.content);
+      return result;
+    }),
 });
 
 const openSummary = (controller: ReturnType<typeof useAIResumeEnhancement>) => {
@@ -70,7 +76,10 @@ describe('useAIResumeEnhancement', () => {
     useFeedbackStore.getState().clearFeedback();
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it('requires a configured provider and does not write a suggestion before confirmation', async () => {
     const complete = vi.fn<AIEnhancementProviderClient['complete']>();
@@ -119,6 +128,224 @@ describe('useAIResumeEnhancement', () => {
     expect(useResumeStore.getState().resume.personal.email).toBe('private@example.com');
     expect(useResumeStore.getState().hasResumeChanges).toBe(true);
     expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toContain('Builds backend APIs');
+  });
+
+  it('shows a temporary incremental preview and only makes a complete validated suggestion adoptable', async () => {
+    vi.useFakeTimers();
+    let onDelta: ((delta: string) => void) | undefined;
+    let resolveStream: ((result: ChatCompletionResult) => void) | undefined;
+    const streamComplete = vi.fn(
+      (_messages: ChatMessage[], options: StreamCompleteOptions) =>
+        new Promise<ChatCompletionResult>((resolve) => {
+          onDelta = options.onDelta;
+          resolveStream = resolve;
+        }),
+    );
+    const provider = { ...createProvider(vi.fn()), streamComplete };
+    const { result } = renderHook(() => useAIResumeEnhancement(provider), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+    let generation: Promise<void> | undefined;
+    act(() => {
+      generation = result.current.generate('en');
+    });
+
+    act(() => onDelta?.('A streamed '));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(41);
+    });
+    expect(result.current.session?.status).toBe('streaming');
+    expect(result.current.session?.preview).toBe('A streamed ');
+    expect(result.current.session?.candidate).toBe('');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY) ?? '').not.toContain('A streamed');
+    act(() => result.current.apply());
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+
+    act(() => onDelta?.('suggestion'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(41);
+    });
+    expect(result.current.session?.preview).toBe('A streamed suggestion');
+    await act(async () => {
+      resolveStream?.({ content: 'A streamed suggestion' });
+      await generation;
+    });
+
+    expect(result.current.session?.status).toBe('suggested');
+    expect(result.current.session?.preview).toBe('');
+    expect(result.current.session?.candidate).toBe('A streamed suggestion');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    act(() => result.current.apply());
+    expect(useResumeStore.getState().resume.personal.summary).toBe('A streamed suggestion');
+  });
+
+  it('discards a partial stream after cancellation and ignores a late delta', async () => {
+    vi.useFakeTimers();
+    let onDelta: ((delta: string) => void) | undefined;
+    let rejectStream: ((error: unknown) => void) | undefined;
+    const streamComplete = vi.fn(
+      (_messages: ChatMessage[], options: StreamCompleteOptions) =>
+        new Promise<ChatCompletionResult>((_resolve, reject) => {
+          onDelta = options.onDelta;
+          rejectStream = reject;
+          options.signal?.addEventListener('abort', () => reject(new ProviderError('cancelled')));
+        }),
+    );
+    const provider = { ...createProvider(vi.fn()), streamComplete };
+    const { result } = renderHook(() => useAIResumeEnhancement(provider), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+    let generation: Promise<void> | undefined;
+    act(() => {
+      generation = result.current.generate('en');
+    });
+    act(() => onDelta?.('partial suggestion'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(41);
+    });
+    expect(result.current.session?.preview).toBe('partial suggestion');
+
+    await act(async () => {
+      result.current.cancelGeneration();
+      await generation;
+    });
+    act(() => onDelta?.(' late text'));
+    rejectStream?.(new ProviderError('cancelled'));
+    expect(result.current.session?.status).toBe('cancelled');
+    expect(result.current.session?.preview).toBe('');
+    expect(result.current.session?.candidate).toBe('');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY) ?? '').not.toContain(
+      'partial suggestion',
+    );
+    expect(useFeedbackStore.getState().items).toHaveLength(0);
+  });
+
+  it('does not keep partial output when a stream is interrupted or times out', async () => {
+    const failureCode = vi.fn().mockRejectedValue(new ProviderError('stream_interrupted'));
+    const interruptedProvider = {
+      ...createProvider(vi.fn()),
+      streamComplete: vi.fn((_messages: ChatMessage[], options: StreamCompleteOptions) => {
+        options.onDelta('partial');
+        return failureCode();
+      }),
+    };
+    const { result, rerender } = renderHook(
+      ({ currentProvider }: { currentProvider: AIEnhancementProviderClient }) =>
+        useAIResumeEnhancement(currentProvider),
+      { initialProps: { currentProvider: interruptedProvider }, wrapper: testProviders },
+    );
+    openSummary(result.current);
+    await act(async () => result.current.generate('en'));
+    expect(result.current.session?.status).toBe('error');
+    expect(result.current.session?.preview).toBe('');
+    expect(result.current.session?.candidate).toBe('');
+    expect(result.current.session?.providerErrorCode).toBe('stream_interrupted');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY) ?? '').not.toContain('partial');
+
+    rerender({
+      currentProvider: {
+        ...interruptedProvider,
+        streamComplete: vi.fn().mockRejectedValue(new ProviderError('timeout')),
+      },
+    });
+    await act(async () => result.current.generate('en'));
+    expect(result.current.session?.providerErrorCode).toBe('timeout');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+  });
+
+  it('ignores an older request delta and final result after a new session starts', async () => {
+    const pending: Array<{
+      onDelta: (delta: string) => void;
+      resolve: (result: ChatCompletionResult) => void;
+    }> = [];
+    const streamComplete = vi.fn(
+      (_messages: ChatMessage[], options: StreamCompleteOptions) =>
+        new Promise<ChatCompletionResult>((resolve) => {
+          pending.push({ onDelta: options.onDelta, resolve });
+        }),
+    );
+    const provider = { ...createProvider(vi.fn()), streamComplete };
+    const { result } = renderHook(() => useAIResumeEnhancement(provider), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+    let oldGeneration: Promise<void> | undefined;
+    act(() => {
+      oldGeneration = result.current.generate('en');
+    });
+    act(() => pending[0]?.onDelta('Old '));
+
+    act(() => {
+      result.current.open(
+        { kind: 'project-summary', itemId: 'project-a' },
+        document.createElement('button'),
+      );
+    });
+    let newGeneration: Promise<void> | undefined;
+    act(() => {
+      newGeneration = result.current.generate('en');
+    });
+    act(() => pending[1]?.onDelta('Current suggestion'));
+    await act(async () => {
+      pending[1]?.resolve({ content: 'Current suggestion' });
+      await newGeneration;
+    });
+    act(() => pending[0]?.onDelta('late old delta'));
+    await act(async () => {
+      pending[0]?.resolve({ content: 'Old suggestion' });
+      await oldGeneration;
+    });
+
+    expect(result.current.session?.status).toBe('suggested');
+    expect(result.current.session?.candidate).toBe('Current suggestion');
+    expect(result.current.session?.preview).toBe('');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    expect(useResumeStore.getState().resume.projects[0]?.summary).toBe('Builds a scheduling tool');
+  });
+
+  it('rejects empty text and invalid completed Highlights JSON without changing the resume', async () => {
+    const emptyProvider = {
+      ...createProvider(vi.fn()),
+      streamComplete: vi.fn().mockResolvedValue({ content: '' }),
+    };
+    const { result, rerender } = renderHook(
+      ({ currentProvider }: { currentProvider: AIEnhancementProviderClient }) =>
+        useAIResumeEnhancement(currentProvider),
+      { initialProps: { currentProvider: emptyProvider }, wrapper: testProviders },
+    );
+    openSummary(result.current);
+    await act(async () => result.current.generate('en'));
+    expect(result.current.session?.errorCode).toBe('empty_output');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+
+    const invalidHighlightsProvider = {
+      ...createProvider(vi.fn()),
+      streamComplete: vi.fn((_messages: ChatMessage[], options: StreamCompleteOptions) => {
+        const content = '{"items":["partial"';
+        options.onDelta(content);
+        return Promise.resolve({ content });
+      }),
+    };
+    rerender({ currentProvider: invalidHighlightsProvider });
+    act(() =>
+      result.current.open(
+        { kind: 'experience-highlights', itemId: 'experience-a' },
+        document.createElement('button'),
+      ),
+    );
+    await act(async () => result.current.generate('en'));
+    expect(result.current.session?.errorCode).toBe('invalid_highlights');
+    expect(result.current.session?.preview).toBe('');
+    expect(result.current.session?.candidate).toBe('');
+    expect(useResumeStore.getState().resume.experience[0]?.highlights).toEqual([
+      'Builds APIs',
+      'Uses Redis',
+    ]);
   });
 
   it('does not overwrite an original field edited while the request is pending', async () => {

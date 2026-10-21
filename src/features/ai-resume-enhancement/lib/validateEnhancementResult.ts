@@ -19,6 +19,14 @@ export type EnhancementValidationResult =
 const forbiddenControlCharacters = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u;
 const hasCodeFence = (value: string) => value.includes('```');
 
+export const getEnhancementOutputCodeUnitLimit = (
+  target: AIEnhancementTarget,
+  source: AIEnhancementFieldValue,
+) =>
+  target.kind === 'experience-highlights' && Array.isArray(source)
+    ? MAX_RESUME_TEXT_LENGTH * Math.max(1, source.length) + source.length * 16 + 4096
+    : MAX_RESUME_TEXT_LENGTH;
+
 const validateText = (
   value: string,
   allowLineBreaks: boolean,
@@ -45,8 +53,7 @@ export const validateEnhancementResult = (
   }
 
   if (!Array.isArray(source)) return { ok: false, error: 'invalid_highlights' };
-  const maximumResponseLength =
-    MAX_RESUME_TEXT_LENGTH * Math.max(1, source.length) + source.length * 16 + 4096;
+  const maximumResponseLength = getEnhancementOutputCodeUnitLimit(target, source);
   if (response.length > maximumResponseLength) {
     return { ok: false, error: 'response_too_long' };
   }

@@ -47,6 +47,13 @@ export const aiEnhancement = {
   privacyNotice:
     'The selected content is sent to the third-party AI service you configured. It may include personal information and may incur API costs. AI can be inaccurate; review the suggestion before applying it.',
   generating: 'Generating suggestion…',
+  validating: 'Checking the completed suggestion…',
+  suggestionReady: 'Suggestion is ready to review. Your resume has not changed.',
+  livePreview: 'Live preview (not applied)',
+  structuredPreview: 'Generating structured suggestions (preview only)',
+  structuredPreviewHint:
+    'This is incomplete JSON progress. It cannot be edited or applied until generation and validation finish.',
+  waitingForContent: 'Waiting for the first response…',
   cancelled: 'Request cancelled. Your resume has not changed.',
   generate: 'Polish with AI',
   regenerate: 'Regenerate',

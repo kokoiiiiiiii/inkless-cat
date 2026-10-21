@@ -44,6 +44,12 @@ export const aiEnhancement = {
   privacyNotice:
     '所选内容会发送到你配置的第三方 AI 服务，内容可能包含个人信息，并可能产生 API 费用。AI 可能生成不准确的信息，请核对后再采用。',
   generating: '正在生成建议…',
+  validating: '正在校验完整建议…',
+  suggestionReady: '建议已生成，请检查内容。简历尚未更改。',
+  livePreview: '实时预览（尚未采用）',
+  structuredPreview: '正在生成结构化建议（仅供预览）',
+  structuredPreviewHint: '以下是尚未完整的 JSON 生成进度。生成和校验完成前无法编辑或采用。',
+  waitingForContent: '等待首段响应…',
   cancelled: '请求已取消，简历内容未更改。',
   generate: 'AI 润色',
   regenerate: '重新生成',

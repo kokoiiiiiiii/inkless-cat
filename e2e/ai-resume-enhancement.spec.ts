@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { createServer, type Server, type ServerResponse } from 'node:http';
 
 import { expect, type Page, test } from '@playwright/test';
 
@@ -8,7 +9,7 @@ const apiKey = 'test_only_resume_enhancement_key';
 type RequestBody = {
   model: string;
   messages: Array<{ role: string; content: string }>;
-  stream: false;
+  stream: true;
 };
 
 type PromptPayload = {
@@ -18,26 +19,127 @@ type PromptPayload = {
   content: { text?: string; items?: string[] };
 };
 
+const activeServers = new Set<Server>();
+
+const readRequestBody = (request: import('node:http').IncomingMessage) =>
+  new Promise<string>((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    request.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+    request.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    request.on('error', reject);
+  });
+
+const setCorsHeaders = (response: ServerResponse, origin: string | undefined) => {
+  response.setHeader('Access-Control-Allow-Origin', origin ?? '*');
+  response.setHeader('Access-Control-Allow-Headers', 'authorization,content-type');
+  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.setHeader('Cache-Control', 'no-cache, no-transform');
+  response.setHeader('X-Accel-Buffering', 'no');
+};
+
+const startSSE = (response: ServerResponse) => {
+  response.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    Connection: 'keep-alive',
+  });
+  response.flushHeaders();
+};
+
+const writeDelta = (response: ServerResponse, content: string) => {
+  if (!response.destroyed) {
+    response.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+  }
+};
+
+const writeSSEContent = async (response: ServerResponse, content: string) => {
+  startSSE(response);
+  const characters = [...content];
+  for (let index = 0; index < characters.length; index += 12) {
+    if (response.destroyed) return;
+    writeDelta(response, characters.slice(index, index + 12).join(''));
+    await new Promise((resolve) => setTimeout(resolve, 2));
+  }
+  if (!response.destroyed) {
+    response.write('data: [DONE]\n\n');
+    response.end();
+  }
+};
+
+const sseBody = (content: string) => {
+  const characters = [...content];
+  let body = '';
+  for (let index = 0; index < characters.length; index += 12) {
+    body += `data: ${JSON.stringify({ choices: [{ delta: { content: characters.slice(index, index + 12).join('') } }] })}\n\n`;
+  }
+  return `${body}data: [DONE]\n\n`;
+};
+
+const startSSEMock = async (
+  page: Page,
+  handleRequest: (body: RequestBody, response: ServerResponse) => void | Promise<void>,
+) => {
+  const requests: RequestBody[] = [];
+  const server = createServer(async (request, response) => {
+    setCorsHeaders(response, request.headers.origin);
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+    if (request.method !== 'POST') {
+      response.writeHead(405);
+      response.end();
+      return;
+    }
+    try {
+      const body = JSON.parse(await readRequestBody(request)) as RequestBody;
+      await handleRequest(body, response);
+    } catch {
+      if (!response.destroyed) response.destroy();
+    }
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  activeServers.add(server);
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Mock SSE server did not start.');
+  const target = `http://127.0.0.1:${address.port}/v1/chat/completions`;
+  await page.route(endpoint, async (route) => {
+    if (route.request().method() === 'POST') {
+      requests.push(route.request().postDataJSON() as RequestBody);
+    }
+    await route.continue({ url: target });
+  });
+  return { requests, server };
+};
+
 const installResponseRoute = async (
   page: Page,
   createContent: (payload: PromptPayload) => string,
 ) => {
-  const requests: RequestBody[] = [];
-  await page.route(endpoint, async (route) => {
-    const body = route.request().postDataJSON() as RequestBody;
-    requests.push(body);
+  const { requests } = await startSSEMock(page, async (body, response) => {
     const userMessage = body.messages.find((message) => message.role === 'user');
     const payload = JSON.parse(userMessage?.content ?? '{}') as PromptPayload;
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        choices: [{ message: { content: createContent(payload) } }],
-      }),
-    });
+    await writeSSEContent(response, createContent(payload));
   });
   return requests;
 };
+
+test.afterEach(async () => {
+  const servers = [...activeServers];
+  activeServers.clear();
+  await Promise.all(
+    servers.map(
+      (server) =>
+        new Promise<void>((resolve) => {
+          server.close(() => resolve());
+          server.closeAllConnections();
+        }),
+    ),
+  );
+});
 
 const configureProvider = async (page: Page) => {
   await page.getByRole('button', { name: 'AI 设置' }).click();
@@ -139,7 +241,7 @@ test('summary supports professional and concise modes, comparison, cancel, apply
   await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue('Concise suggestion.');
   const request = requests[1];
   expect(request?.model).toBe('resume-mock-model');
-  expect(request?.stream).toBe(false);
+  expect(request?.stream).toBe(true);
   expect(request?.messages.map((message) => message.role)).toEqual(['system', 'user']);
   const prompt = JSON.parse(request?.messages[1]?.content ?? '{}') as PromptPayload;
   expect(prompt).toMatchObject({
@@ -210,6 +312,91 @@ test('experience highlights preserve item count and project summary is scoped to
   await expect(projectSummary).toHaveValue('Project summary suggestion.');
 });
 
+test('summary preview grows before [DONE] and becomes adoptable only after completion', async ({
+  page,
+}) => {
+  let firstDeltaArrived: (() => void) | undefined;
+  let releaseCompletion: (() => void) | undefined;
+  const firstDelta = new Promise<void>((resolve) => {
+    firstDeltaArrived = resolve;
+  });
+  const completionGate = new Promise<void>((resolve) => {
+    releaseCompletion = resolve;
+  });
+  const { requests } = await startSSEMock(page, async (_body, response) => {
+    startSSE(response);
+    writeDelta(response, 'Live ');
+    firstDeltaArrived?.();
+    await completionGate;
+    writeDelta(response, 'suggestion.');
+    response.write('data: [DONE]\n\n');
+    response.end();
+  });
+  await page.goto('/');
+  await configureProvider(page);
+  const summary = page.getByRole('textbox', { name: '个人简介' });
+  const original = await summary.inputValue();
+  const dialog = await openPersonalEnhancement(page, '个人简介');
+  await generateInDialog(dialog, 'AI 润色');
+  await firstDelta;
+
+  await expect(dialog.getByText('Live ', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '采用建议' })).toHaveCount(0);
+  await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveCount(0);
+  await expect(summary).toHaveValue(original);
+  expect(requests[0]?.stream).toBe(true);
+  releaseCompletion?.();
+
+  await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue('Live suggestion.');
+  await expect(dialog.getByRole('button', { name: '采用建议' })).toBeEnabled();
+  await expect(summary).toHaveValue(original);
+  await dialog.getByRole('button', { name: '采用建议' }).click();
+  await expect(summary).toHaveValue('Live suggestion.');
+});
+
+test('Highlights shows incomplete JSON as read-only progress and parses only after [DONE]', async ({
+  page,
+}) => {
+  let firstDeltaArrived: (() => void) | undefined;
+  let releaseCompletion: (() => void) | undefined;
+  const firstDelta = new Promise<void>((resolve) => {
+    firstDeltaArrived = resolve;
+  });
+  const completionGate = new Promise<void>((resolve) => {
+    releaseCompletion = resolve;
+  });
+  await startSSEMock(page, async (_body, response) => {
+    startSSE(response);
+    writeDelta(response, '{"items":["Polished');
+    firstDeltaArrived?.();
+    await completionGate;
+    writeDelta(response, ' API delivery", "Polished Redis work"]}');
+    response.write('data: [DONE]\n\n');
+    response.end();
+  });
+  await page.goto('/');
+  await configureProvider(page);
+  const highlights = page.getByRole('textbox', { name: 'highlights' }).first();
+  const original = await highlights.inputValue();
+  const opener = highlights.locator('xpath=..').getByRole('button', { name: 'AI 润色' });
+  await opener.click();
+  const dialog = page.getByRole('dialog', { name: 'AI 简历润色' });
+  await generateInDialog(dialog, 'AI 润色');
+  await firstDelta;
+
+  await expect(dialog.getByText('正在生成结构化建议（仅供预览）')).toBeVisible();
+  await expect(dialog.getByText('{"items":["Polished', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '采用建议' })).toHaveCount(0);
+  await expect(highlights).toHaveValue(original);
+  releaseCompletion?.();
+
+  await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue(
+    'Polished API delivery\nPolished Redis work',
+  );
+  await dialog.getByRole('button', { name: '采用建议' }).click();
+  await expect(highlights).toHaveValue('Polished API delivery\nPolished Redis work');
+});
+
 test('a changed source or deleted target blocks a pending response', async ({ page }) => {
   let release: (() => void) | undefined;
   let requestNumber = 0;
@@ -221,8 +408,8 @@ test('a changed source or deleted target blocks a pending response', async ({ pa
     try {
       await route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ choices: [{ message: { content: 'Stale suggestion.' } }] }),
+        contentType: 'text/event-stream',
+        body: sseBody('Stale suggestion.'),
       });
     } catch {
       // The UI may already have cancelled this mocked request.
@@ -268,30 +455,27 @@ test('a changed source or deleted target blocks a pending response', async ({ pa
 test('cancel stops an active request and an older delayed response cannot replace a newer one', async ({
   page,
 }) => {
-  let count = 0;
-  let finishFirst: (() => void) | undefined;
-  await page.route(endpoint, async (route) => {
-    count += 1;
-    if (count === 1) {
-      await new Promise<void>((resolve) => {
-        finishFirst = resolve;
-      });
-      try {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ choices: [{ message: { content: 'Old suggestion.' } }] }),
-        });
-      } catch {
-        // This first request is expected to have been cancelled.
+  let firstRequestStarted: (() => void) | undefined;
+  let releaseFirst: (() => void) | undefined;
+  const firstStarted = new Promise<void>((resolve) => {
+    firstRequestStarted = resolve;
+  });
+  const firstGate = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const { requests } = await startSSEMock(page, async (_body, response) => {
+    if (requests.length === 1) {
+      startSSE(response);
+      writeDelta(response, 'Old partial');
+      firstRequestStarted?.();
+      await firstGate;
+      if (!response.destroyed) {
+        response.write('data: [DONE]\n\n');
+        response.end();
       }
       return;
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ choices: [{ message: { content: 'Newest suggestion.' } }] }),
-    });
+    await writeSSEContent(response, 'Newest suggestion.');
   });
   await page.goto('/');
   await configureProvider(page);
@@ -300,14 +484,78 @@ test('cancel stops an active request and an older delayed response cannot replac
   const dialog = page.getByRole('dialog', { name: 'AI 简历润色' });
 
   await generateInDialog(dialog, 'AI 润色');
-  await expect.poll(() => count).toBe(1);
+  await firstStarted;
+  await expect(dialog.getByText('Old partial', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '采用建议' })).toHaveCount(0);
   await dialog.getByRole('button', { name: '取消生成' }).click();
   await expect(dialog.getByText('请求已取消，简历内容未更改。', { exact: true })).toBeVisible();
   await generateInDialog(dialog, '重新生成');
   await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue('Newest suggestion.');
-  finishFirst?.();
+  releaseFirst?.();
   await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue('Newest suggestion.');
   expect(await summary.inputValue()).not.toBe('Newest suggestion.');
+});
+
+test('invalid SSE and an interrupted stream discard partial suggestions', async ({ page }) => {
+  const { requests } = await startSSEMock(page, async (_body, response) => {
+    startSSE(response);
+    if (requests.length === 1) {
+      response.write('data: {not-json}\n\n');
+      response.end();
+      return;
+    }
+    writeDelta(response, 'Incomplete partial text');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    response.destroy();
+  });
+  await page.goto('/');
+  await configureProvider(page);
+  const summary = page.getByRole('textbox', { name: '个人简介' });
+  const original = await summary.inputValue();
+  const dialog = await openPersonalEnhancement(page, '个人简介');
+
+  await generateInDialog(dialog, 'AI 润色');
+  await expect(dialog.getByRole('alert')).toContainText('无效或不支持的流式数据');
+  await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: '采用建议' })).toHaveCount(0);
+  await expect(summary).toHaveValue(original);
+
+  await generateInDialog(dialog, '重新生成');
+  await expect(dialog.getByRole('alert')).toContainText('收到结束标记前中断');
+  await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveCount(0);
+  await expect(summary).toHaveValue(original);
+  expect(requests).toHaveLength(2);
+});
+
+test('English UI distinguishes an unsupported SSE response from authentication failure', async ({
+  page,
+}) => {
+  await page.route(endpoint, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'private response detail' }),
+    });
+  });
+  await page.goto('/');
+  await configureProvider(page);
+  await page.getByRole('button', { name: 'English' }).click();
+  await page
+    .getByRole('dialog', { name: '切换语言' })
+    .getByRole('button', { name: '仅切换语言' })
+    .click();
+
+  const summary = page.getByRole('textbox', { name: 'Summary' });
+  const original = await summary.inputValue();
+  const dialog = await openPersonalEnhancement(page, 'Personal summary');
+  await generateInDialog(dialog, 'Polish with AI');
+  await expect(dialog.getByRole('alert')).toContainText(
+    'The endpoint did not return an OpenAI-compatible SSE stream.',
+  );
+  await expect(dialog.getByRole('alert')).not.toContainText('Authentication failed');
+  await expect(dialog.getByRole('alert')).not.toContainText('private response detail');
+  await expect(dialog.getByLabel('AI suggestion (editable)')).toHaveCount(0);
+  await expect(summary).toHaveValue(original);
 });
 
 test('provider HTTP errors and browser network failures are safe and localized', async ({
@@ -346,17 +594,13 @@ test('provider HTTP errors and browser network failures are safe and localized',
 });
 
 test('provider timeout is reported without a retry or a writeback', async ({ page }) => {
-  test.setTimeout(30_000);
-  await page.route(endpoint, async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 22_000));
-    try {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ choices: [{ message: { content: 'Late response.' } }] }),
-      });
-    } catch {
-      // The provider timeout cancels this route before it responds.
+  test.setTimeout(45_000);
+  const { requests } = await startSSEMock(page, async (_body, response) => {
+    startSSE(response);
+    await new Promise((resolve) => setTimeout(resolve, 35_000));
+    if (!response.destroyed) {
+      response.write('data: [DONE]\n\n');
+      response.end();
     }
   });
   await page.goto('/');
@@ -366,8 +610,9 @@ test('provider timeout is reported without a retry or a writeback', async ({ pag
   await summary.locator('xpath=..').getByRole('button', { name: 'AI 润色' }).click();
   const dialog = page.getByRole('dialog', { name: 'AI 简历润色' });
   await generateInDialog(dialog, 'AI 润色');
-  await expect(dialog.getByRole('alert')).toContainText('请求超时', { timeout: 25_000 });
+  await expect(dialog.getByRole('alert')).toContainText('请求超时', { timeout: 35_000 });
   await expect(summary).toHaveValue(original);
+  expect(requests).toHaveLength(1);
 });
 
 test('workspace export contains accepted fields only, while the dialog adapts to English, dark theme, and mobile', async ({
