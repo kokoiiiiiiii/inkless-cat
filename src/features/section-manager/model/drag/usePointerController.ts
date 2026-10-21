@@ -5,17 +5,16 @@ type PointerHandlers = {
   onMove?: (event: PointerEvent) => void;
   onUp?: (event: PointerEvent) => void;
   onCancel?: (event: PointerEvent) => void;
+  onLostCapture?: (event: PointerEvent) => void;
 };
 
 export const usePointerController = () => {
-  const pointerCaptureRef = useRef<{ element: HTMLElement | null; prevTouchAction: string }>({
-    element: null,
-    prevTouchAction: '',
-  });
+  const pointerCaptureRef = useRef<HTMLElement | null>(null);
   const pointerListenersRef = useRef<PointerHandlers>({
     onMove: undefined,
     onUp: undefined,
     onCancel: undefined,
+    onLostCapture: undefined,
   });
   const activePointerRef = useRef<{ id: number | null; type: string | null }>({
     id: null,
@@ -26,7 +25,7 @@ export const usePointerController = () => {
     if (typeof globalThis === 'undefined') {
       return;
     }
-    const { onMove, onUp, onCancel } = pointerListenersRef.current;
+    const { onMove, onUp, onCancel, onLostCapture } = pointerListenersRef.current;
     if (onMove) {
       globalThis.removeEventListener('pointermove', onMove);
     }
@@ -36,41 +35,51 @@ export const usePointerController = () => {
     if (onCancel) {
       globalThis.removeEventListener('pointercancel', onCancel);
     }
-    pointerListenersRef.current = { onMove: undefined, onUp: undefined, onCancel: undefined };
+    if (onLostCapture) {
+      globalThis.removeEventListener('lostpointercapture', onLostCapture);
+    }
+    pointerListenersRef.current = {
+      onMove: undefined,
+      onUp: undefined,
+      onCancel: undefined,
+      onLostCapture: undefined,
+    };
   }, []);
 
   const releasePointer = useCallback(() => {
     detachListeners();
-    const capture = pointerCaptureRef.current;
+    const captureElement = pointerCaptureRef.current;
     const pointerId = activePointerRef.current.id;
-    if (capture.element && pointerId !== null) {
+    pointerCaptureRef.current = null;
+    activePointerRef.current = { id: null, type: null };
+    if (captureElement && pointerId !== null) {
       try {
-        capture.element.releasePointerCapture(pointerId);
+        captureElement.releasePointerCapture(pointerId);
       } catch {
         // ignore release failure
       }
-      capture.element.style.touchAction = capture.prevTouchAction;
     }
-    pointerCaptureRef.current = { element: null, prevTouchAction: '' };
-    activePointerRef.current = { id: null, type: null };
   }, [detachListeners]);
 
   const capturePointer = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, handlers: PointerHandlers) => {
+    (
+      event: ReactPointerEvent<HTMLElement>,
+      handlers: PointerHandlers,
+      captureTarget?: HTMLElement,
+    ) => {
       if (typeof globalThis === 'undefined') {
         return false;
       }
-      const target = event.currentTarget;
+      if (activePointerRef.current.id !== null) {
+        return false;
+      }
+      const target = captureTarget ?? event.currentTarget;
       if (!target || typeof target.setPointerCapture !== 'function') {
         return false;
       }
       try {
         target.setPointerCapture(event.pointerId);
-        pointerCaptureRef.current = {
-          element: target,
-          prevTouchAction: target.style.touchAction,
-        };
-        target.style.touchAction = 'none';
+        pointerCaptureRef.current = target;
       } catch {
         return false;
       }
@@ -84,6 +93,9 @@ export const usePointerController = () => {
       }
       if (handlers.onCancel) {
         globalThis.addEventListener('pointercancel', handlers.onCancel, { passive: false });
+      }
+      if (handlers.onLostCapture) {
+        globalThis.addEventListener('lostpointercapture', handlers.onLostCapture);
       }
       return true;
     },

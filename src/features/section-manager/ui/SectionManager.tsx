@@ -11,7 +11,6 @@ import { useSectionOrderHistory } from '../model/useSectionOrderHistory';
 import { CustomSectionPanel } from './components/CustomSectionPanel';
 import { SectionSortPanel } from './components/SectionSortPanel';
 import { SectionTogglePanel } from './components/SectionTogglePanel';
-import { useUndoHotkey } from './hooks/useUndoHotkey';
 
 type SectionManagerProps = {
   activeSections?: string[];
@@ -38,6 +37,12 @@ export const SectionManager = memo(
     const { t } = useI18n();
     const open = typeof isOpen === 'boolean' ? isOpen : true;
 
+    const { canRestore, canUndo, handleReorder, handleRestore, handleUndo } =
+      useSectionOrderHistory({
+        activeSections,
+        onReorderSections,
+      });
+
     const {
       resolvedActiveSections,
       customList,
@@ -45,6 +50,7 @@ export const SectionManager = memo(
       standardAnyEnabled,
       displayOrder,
       dragState,
+      dragCompletion,
       dragListRef,
       getSectionTitle,
       handleToggleAllStandard,
@@ -53,15 +59,8 @@ export const SectionManager = memo(
       activeSections,
       customSections,
       onToggleSection,
-      onReorderSections,
+      onReorderSections: onReorderSections ? handleReorder : undefined,
     });
-
-    const { canRestore, canUndo, handleRestore, handleUndo } = useSectionOrderHistory({
-      activeSections,
-      onReorderSections,
-    });
-
-    useUndoHotkey(open, handleUndo);
 
     return (
       <section className="space-y-3">
@@ -89,12 +88,13 @@ export const SectionManager = memo(
               resolvedActiveSections={resolvedActiveSections}
               displayOrder={displayOrder}
               dragState={dragState}
+              dragCompletion={dragCompletion}
               dragListRef={dragListRef}
               getSectionTitle={getSectionTitle}
               handlePointerDown={handlePointerDown}
               canRestore={canRestore}
               canUndo={canUndo}
-              onReorderSections={onReorderSections}
+              onReorderSections={onReorderSections ? handleReorder : undefined}
               onRestore={handleRestore}
               onUndo={handleUndo}
             />

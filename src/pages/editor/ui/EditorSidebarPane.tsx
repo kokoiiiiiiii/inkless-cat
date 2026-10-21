@@ -86,7 +86,7 @@ export const EditorSidebarPane = ({
     </div>
     <div
       ref={scrollRef}
-      className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2"
+      className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-2 lg:overscroll-contain"
     >
       {templatePanelOpen && (
         <div className="mb-4">

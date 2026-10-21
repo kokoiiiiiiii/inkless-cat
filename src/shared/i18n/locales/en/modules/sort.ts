@@ -1,12 +1,15 @@
 export const sort = {
   title: 'Module Sorting',
-  hint: 'Drag to reorder',
+  hint: 'Drag the handle or use the move buttons to reorder',
   restore: 'Reset',
   restoreTitle: 'Restore the original order',
   undo: 'Undo',
   undoTitle: 'Undo last sort (Ctrl/⌘+Z)',
   moveUp: 'Move {title} up',
   moveDown: 'Move {title} down',
+  movedToPosition: 'Moved {title} to position {position} of {total}.',
+  restored: 'Restored the original module order.',
+  undone: 'Undid the last module reorder.',
   empty: 'No active modules yet. Enable the modules you need below.',
   aria: 'Drag to adjust the position of {title}',
 } as const;

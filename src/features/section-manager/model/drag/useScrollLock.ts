@@ -18,16 +18,13 @@ export const useScrollLock = () => {
     if (restoreRef.current) return;
     const { body } = document;
     const html = document.documentElement;
-    const prevBodyTouchAction = body.style.touchAction;
     const prevBodyUserSelect = body.style.userSelect;
     const prevBodyOverflow = body.style.overflow;
     const prevHtmlOverscroll = html.style.overscrollBehavior;
-    body.style.touchAction = 'none';
     body.style.userSelect = 'none';
     body.style.overflow = 'hidden';
     html.style.overscrollBehavior = 'none';
     restoreRef.current = () => {
-      body.style.touchAction = prevBodyTouchAction;
       body.style.userSelect = prevBodyUserSelect;
       body.style.overflow = prevBodyOverflow;
       html.style.overscrollBehavior = prevHtmlOverscroll;

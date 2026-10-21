@@ -12,6 +12,43 @@ type UseDragOrderSyncParams = {
   onReorderSections?: SectionReorderHandler;
 };
 
+const orderForDragState = (baseOrder: string[], dragState: DragState) => {
+  const { active, over, position } = dragState;
+  if (!active) return baseOrder;
+
+  const order = [...baseOrder];
+  const fromIndex = order.indexOf(active);
+  if (fromIndex === -1) return order;
+
+  const [activeSection] = order.splice(fromIndex, 1);
+  if (!activeSection) return order;
+
+  if (!over) {
+    const insertIndex =
+      position === 'before'
+        ? 0
+        : position === 'after'
+          ? order.length
+          : Math.min(fromIndex, order.length);
+    order.splice(insertIndex, 0, activeSection);
+    return order;
+  }
+
+  if (over === active) {
+    order.splice(Math.min(fromIndex, order.length), 0, activeSection);
+    return order;
+  }
+
+  const targetIndex = order.indexOf(over);
+  if (targetIndex === -1) {
+    order.splice(Math.min(fromIndex, order.length), 0, activeSection);
+    return order;
+  }
+
+  order.splice(targetIndex + (position === 'after' ? 1 : 0), 0, activeSection);
+  return order;
+};
+
 export const useDragOrderSync = ({
   resolvedActiveSections,
   dragState,
@@ -29,47 +66,7 @@ export const useDragOrderSync = ({
   }, [dragState.active, optimisticOrder, resolvedActiveSections]);
 
   const displayOrder = useMemo(() => {
-    const { active, over, position } = dragState;
-    if (!active) {
-      return baseOrder;
-    }
-
-    const order = Array.isArray(baseOrder) ? [...baseOrder] : [];
-    const fromIndex = order.indexOf(active);
-    if (fromIndex === -1) {
-      return order;
-    }
-
-    const [activeSection] = order.splice(fromIndex, 1);
-    if (!activeSection) {
-      return order;
-    }
-
-    if (!over) {
-      const insertIndex =
-        position === 'before'
-          ? 0
-          : position === 'after'
-            ? order.length
-            : Math.min(fromIndex, order.length);
-      order.splice(insertIndex, 0, activeSection);
-      return order;
-    }
-
-    if (over === active) {
-      order.splice(Math.min(fromIndex, order.length), 0, activeSection);
-      return order;
-    }
-
-    const targetIndex = order.indexOf(over);
-    if (targetIndex === -1) {
-      order.splice(Math.min(fromIndex, order.length), 0, activeSection);
-      return order;
-    }
-
-    const insertIndex = targetIndex + (position === 'after' ? 1 : 0);
-    order.splice(insertIndex, 0, activeSection);
-    return order;
+    return orderForDragState(baseOrder, dragState);
   }, [dragState, baseOrder]);
 
   const displayOrderRef = useRef<string[]>(displayOrder);
@@ -97,15 +94,13 @@ export const useDragOrderSync = ({
   );
 
   const finalizeOrder = useCallback(() => {
-    const { active } = dragStateRef.current;
-    if (!active) {
-      return false;
-    }
-    const latestOrder = displayOrderRef.current;
+    if (!dragStateRef.current.active) return null;
+    const latestOrder = orderForDragState(resolvedActiveSections, dragStateRef.current);
+    displayOrderRef.current = latestOrder;
     setOptimisticOrder([...latestOrder]);
     onReorderSections?.([...latestOrder]);
-    return true;
-  }, [dragStateRef, onReorderSections]);
+    return [...latestOrder];
+  }, [dragStateRef, onReorderSections, resolvedActiveSections]);
 
   useEffect(() => {
     if (!Array.isArray(optimisticOrder)) return;
