@@ -2,7 +2,6 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 
 import { expect, type Page, test } from '@playwright/test';
 
-const endpoint = 'https://provider.example/v1/chat/completions';
 const apiKey = 'test_only_interview_key_never_persist';
 const activeServers = new Set<Server>();
 
@@ -61,7 +60,6 @@ const writeSSEContent = async (response: ServerResponse, content: string) => {
 };
 
 const startSSEMock = async (
-  page: Page,
   handleRequest: (
     body: RequestBody,
     response: ServerResponse,
@@ -97,17 +95,14 @@ const startSSEMock = async (
   const address = server.address();
   if (!address || typeof address === 'string')
     throw new Error('Interview mock server did not start.');
-  const target = `http://127.0.0.1:${address.port}/v1/chat/completions`;
-  await page.route(endpoint, async (route) => {
-    await route.continue({ url: target });
-  });
-  return { requests, server };
+  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  return { requests, server, baseUrl };
 };
 
-const configureProvider = async (page: Page) => {
+const configureProvider = async (page: Page, baseUrl: string) => {
   await page.getByRole('button', { name: 'AI 设置' }).click();
   const dialog = page.getByRole('dialog', { name: 'AI 服务设置' });
-  await dialog.getByLabel('API Base URL').fill('https://provider.example/v1');
+  await dialog.getByLabel('API Base URL').fill(baseUrl);
   await dialog.getByRole('textbox', { name: 'API Key' }).fill(apiKey);
   await dialog.getByLabel('模型 ID').fill('interview-mock-model');
   await dialog.getByRole('button', { name: '保存到当前会话' }).click();
@@ -144,7 +139,7 @@ test('opens from the editor, supports guide questions without AI, and never chan
   page,
 }) => {
   let requests = 0;
-  await page.route(endpoint, async (route) => {
+  await page.route('**/chat/completions', async (route) => {
     requests += 1;
     await route.abort();
   });
@@ -155,14 +150,14 @@ test('opens from the editor, supports guide questions without AI, and never chan
   await expect(dialog.getByText('尚未配置 AI 服务。你仍可按基础问题完成访谈。')).toBeVisible();
   await expect(dialog.getByRole('button', { name: '使用 AI 动态追问' })).toBeDisabled();
   await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
-  await expect(dialog.getByText(/你希望应聘什么岗位/u)).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: /你希望应聘什么岗位/u })).toBeVisible();
   const answerBox = dialog.getByRole('textbox', { name: '你的回答' });
   await answerBox.fill('Backend engineer');
   await answerBox.dispatchEvent('compositionstart');
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
   await answerBox.press('Enter');
-  await expect(dialog.getByText(/你希望应聘什么岗位/u)).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: /你希望应聘什么岗位/u })).toBeVisible();
   await answerBox.dispatchEvent('compositionend');
   await answerBox.press('Shift+Enter');
   await answerBox.type('with API experience');
@@ -179,7 +174,7 @@ test('opens from the editor, supports guide questions without AI, and never chan
 });
 
 test('uses mocked SSE for contextual follow-ups, editing, and skip controls', async ({ page }) => {
-  const { requests } = await startSSEMock(page, async (body, response, requestIndex) => {
+  const { requests, baseUrl } = await startSSEMock(async (body, response, requestIndex) => {
     const userMessage = body.messages.find((message) => message.role === 'user');
     const context = JSON.parse(userMessage?.content ?? '{}') as {
       recentAnswers: Array<{ answer: string }>;
@@ -194,7 +189,7 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  await configureProvider(page);
+  await configureProvider(page, baseUrl);
   const persistedStorage = await page.evaluate(() => JSON.stringify(localStorage));
   expect(persistedStorage).not.toContain(apiKey);
   const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
@@ -202,10 +197,10 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   await dialog.getByRole('button', { name: '使用 AI 动态追问' }).click();
   await answer(dialog, 'Backend engineer');
   await expect(dialog.getByText(/浏览器直接发送|go directly from this browser/u)).toBeVisible();
-  await expect(dialog.getByText(/may process them under its own policies/u)).toBeVisible();
-  await expect(dialog.getByText(/does not receive them through a server or proxy/u)).toBeVisible();
-  await expect(dialog.getByText(/API key stays only in this page session/u)).toBeVisible();
-  await expect(dialog.getByText(/No example resume is included/u)).toBeVisible();
+  await expect(dialog.getByText(/该服务可能按自身政策处理这些内容/u)).toBeVisible();
+  await expect(dialog.getByText(/不会通过自建后端或代理接收、转发数据/u)).toBeVisible();
+  await expect(dialog.getByText(/API Key 仅保存在当前页面会话内存中/u)).toBeVisible();
+  await expect(dialog.getByText(/不会发送示例简历/u)).toBeVisible();
   expect(requests).toHaveLength(0);
   await dialog.getByRole('button', { name: '发送这条回答并使用 AI' }).click();
   await expect(dialog.getByText('你在工作中具体负责哪些部分？')).toBeVisible();
@@ -234,7 +229,7 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   await dialog.getByRole('button', { name: '跳过本阶段' }).click();
   await expect(dialog.getByText('基本信息', { exact: true }).first()).toBeVisible();
   await dialog.getByRole('button', { name: '取消访谈' }).click();
-  await dialog.getByRole('button', { name: '丢弃回答' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
   await expect(dialog.getByText('访谈回答已从当前标签页内存中清除')).toBeVisible();
 
   await dialog.getByRole('button', { name: '关闭' }).click();
@@ -248,7 +243,7 @@ test('cancels an in-flight SSE question and keeps the user answer available', as
   const streamStarted = new Promise<void>((resolve) => {
     streamStartedResolve = resolve;
   });
-  await startSSEMock(page, async (_body, response, requestIndex) => {
+  const { baseUrl } = await startSSEMock(async (_body, response, requestIndex) => {
     if (requestIndex !== 0) {
       await writeSSEContent(response, 'What did you personally deliver?');
       return;
@@ -262,7 +257,7 @@ test('cancels an in-flight SSE question and keeps the user answer available', as
     endSSE(response);
   });
   await page.goto('/');
-  await configureProvider(page);
+  await configureProvider(page, baseUrl);
   const dialog = await openInterview(page);
   await dialog.getByRole('button', { name: '使用 AI 动态追问' }).click();
   await answer(dialog, 'Backend engineer');
@@ -274,12 +269,12 @@ test('cancels an in-flight SSE question and keeps the user answer available', as
   expect(await dialog.getByText('Backend engineer').count()).toBeGreaterThan(0);
   releaseStream?.();
   await dialog.getByRole('button', { name: '取消访谈' }).click();
-  await dialog.getByRole('button', { name: '丢弃回答' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
   await expect(dialog.getByText('访谈已取消')).toBeVisible();
 });
 
 test('shows a request failure and waits for a user-initiated retry', async ({ page }) => {
-  const { requests } = await startSSEMock(page, async (_body, response, requestIndex) => {
+  const { requests, baseUrl } = await startSSEMock(async (_body, response, requestIndex) => {
     if (requestIndex === 0) {
       response.writeHead(503, { 'Content-Type': 'application/json' });
       response.end('{"error":"mock unavailable"}');
@@ -288,7 +283,7 @@ test('shows a request failure and waits for a user-initiated retry', async ({ pa
     await writeSSEContent(response, 'Which project result can you describe?');
   });
   await page.goto('/');
-  await configureProvider(page);
+  await configureProvider(page, baseUrl);
   const dialog = await openInterview(page);
   await dialog.getByRole('button', { name: '使用 AI 动态追问' }).click();
   await answer(dialog, 'Backend engineer');
@@ -299,7 +294,7 @@ test('shows a request failure and waits for a user-initiated retry', async ({ pa
   await expect(dialog.getByText('Which project result can you describe?')).toBeVisible();
   expect(requests).toHaveLength(2);
   await dialog.getByRole('button', { name: '取消访谈' }).click();
-  await dialog.getByRole('button', { name: '丢弃回答' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
 });
 
 test('supports English and Chinese layouts at desktop, tablet, and mobile sizes', async ({
@@ -335,7 +330,7 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
     await dialog.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBe(true);
   await dialog.getByRole('button', { name: '取消访谈' }).click();
-  await dialog.getByRole('button', { name: '丢弃回答' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
   await dialog.getByRole('button', { name: '重新开始访谈' }).click();
   await expect(dialog.getByRole('heading', { name: /你希望应聘/u })).toBeVisible();
   await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
