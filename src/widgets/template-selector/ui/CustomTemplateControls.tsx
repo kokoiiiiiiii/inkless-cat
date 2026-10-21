@@ -1,7 +1,7 @@
 import type { ResumeTemplate, TemplateTheme } from '@entities/template';
 import { useI18n } from '@shared/i18n';
 import { MAX_TEMPLATE_NAME_LENGTH } from '@shared/lib/limits';
-import { type ChangeEvent, type KeyboardEvent, useEffect, useId, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { DEFAULT_CUSTOM_THEME, styleOptions } from './constants';
 import { TEMPLATE_THEME_FIELDS } from './themeFields';
@@ -138,6 +138,7 @@ export const CustomTemplateControls = ({
   const nameErrorId = `${nameInputId}-error`;
   const [nameDraft, setNameDraft] = useState(template.name);
   const [nameError, setNameError] = useState('');
+  const isNameComposing = useRef(false);
 
   useEffect(() => {
     setNameDraft(template.name);
@@ -174,6 +175,14 @@ export const CustomTemplateControls = ({
   };
 
   const handleNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (
+      isNameComposing.current ||
+      event.nativeEvent.isComposing ||
+      event.nativeEvent.keyCode === 229
+    ) {
+      return;
+    }
+
     if (event.key === 'Enter') {
       event.preventDefault();
       event.currentTarget.blur();
@@ -221,6 +230,12 @@ export const CustomTemplateControls = ({
               aria-describedby={nameError ? nameErrorId : undefined}
               onChange={handleNameChange}
               onBlur={handleNameBlur}
+              onCompositionStart={() => {
+                isNameComposing.current = true;
+              }}
+              onCompositionEnd={() => {
+                isNameComposing.current = false;
+              }}
               onKeyDown={handleNameKeyDown}
             />
           </label>

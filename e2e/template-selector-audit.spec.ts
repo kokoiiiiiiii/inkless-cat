@@ -53,6 +53,14 @@ const readPersistedUIStore = async (page: import('@playwright/test').Page) =>
     return JSON.parse(raw) as PersistedUIStore;
   });
 
+const readPersistedTemplateName = async (
+  page: import('@playwright/test').Page,
+  templateId: string,
+) => {
+  const store = await readPersistedUIStore(page);
+  return store.state.customTemplates.find((template) => template.id === templateId)?.name;
+};
+
 const captureEvidence = async (
   page: import('@playwright/test').Page,
   filename: string,
@@ -251,6 +259,66 @@ test('custom-name drafts validate before persistence and keep the radio named', 
   await page.reload();
   await openTemplatePanel(page);
   await expect(page.getByRole('radio', { name: 'Updated Persistent Template' })).toBeVisible();
+});
+
+test('IME composition Enter and Escape keep the custom-name draft until normal Enter commits', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await prepareSyntheticResume(page);
+  await openTemplatePanel(page);
+
+  const templateId = await createCustomTemplate(page, 'IME Template');
+  const card = page.locator(`article[data-template-id="${templateId}"]`);
+  const nameInput = card.getByRole('textbox', { name: '模板名称' });
+  const radio = card.locator('input[type="radio"]');
+  const savedName = await readPersistedTemplateName(page, templateId);
+
+  await nameInput.focus();
+  await nameInput.fill('中文候选');
+  await nameInput.dispatchEvent('compositionstart', { data: '中文候选' });
+  await nameInput.dispatchEvent('keydown', {
+    key: 'Enter',
+    code: 'Enter',
+    keyCode: 13,
+    which: 13,
+    isComposing: true,
+    bubbles: true,
+  });
+  await expect(nameInput).toBeFocused();
+  await expect(nameInput).toHaveValue('中文候选');
+  await expect(radio).toHaveAccessibleName(savedName!);
+  expect(await readPersistedTemplateName(page, templateId)).toBe(savedName);
+
+  await nameInput.dispatchEvent('keydown', {
+    key: 'Escape',
+    code: 'Escape',
+    keyCode: 27,
+    which: 27,
+    isComposing: true,
+    bubbles: true,
+  });
+  await expect(nameInput).toBeFocused();
+  await expect(nameInput).toHaveValue('中文候选');
+  await expect(radio).toHaveAccessibleName(savedName!);
+
+  await nameInput.fill('中文名称');
+  await nameInput.dispatchEvent('compositionend', { data: '中文名称' });
+  await nameInput.dispatchEvent('keydown', {
+    key: 'Enter',
+    code: 'Enter',
+    keyCode: 229,
+    which: 229,
+    isComposing: false,
+    bubbles: true,
+  });
+  await expect(nameInput).toBeFocused();
+  expect(await readPersistedTemplateName(page, templateId)).toBe(savedName);
+
+  await nameInput.press('Enter');
+  await expect(nameInput).not.toBeFocused();
+  await expect(radio).toHaveAccessibleName('中文名称');
+  expect(await readPersistedTemplateName(page, templateId)).toBe('中文名称');
 });
 
 test('legacy blank names recover with an accessible fallback and preserve original data', async ({

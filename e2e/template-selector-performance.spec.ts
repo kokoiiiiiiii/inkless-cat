@@ -3,11 +3,46 @@ import path from 'node:path';
 
 import { createEmptyResume } from '@entities/resume';
 import type { WorkspaceData } from '@entities/workspace';
-import { type Browser, expect, type Page, test } from '@playwright/test';
+import {
+  type Browser,
+  type BrowserContextOptions,
+  expect,
+  type Page,
+  test,
+  type TestInfo,
+} from '@playwright/test';
 
 import { exportWorkspaceFromUI, uploadJsonThroughUI } from './workspace';
 
 const EVIDENCE_DIR = process.env.TEMPLATE_SELECTOR_EVIDENCE_DIR;
+const contextOptionKeys: (keyof BrowserContextOptions)[] = [
+  'acceptDownloads',
+  'baseURL',
+  'bypassCSP',
+  'clientCertificates',
+  'colorScheme',
+  'contrast',
+  'deviceScaleFactor',
+  'extraHTTPHeaders',
+  'forcedColors',
+  'geolocation',
+  'hasTouch',
+  'httpCredentials',
+  'ignoreHTTPSErrors',
+  'isMobile',
+  'javaScriptEnabled',
+  'locale',
+  'offline',
+  'permissions',
+  'proxy',
+  'reducedMotion',
+  'screen',
+  'serviceWorkers',
+  'storageState',
+  'timezoneId',
+  'userAgent',
+  'viewport',
+];
 const palette = [
   '#e0f2fe',
   '#fef3c7',
@@ -164,8 +199,7 @@ const prepareTwentyTemplates = async (page: Page) => {
   while (await dismissButton.count()) await dismissButton.first().click();
 };
 
-const attachDiagnostics = (page: Page, run: PerformanceRun) => {
-  const baseOrigin = 'http://127.0.0.1:4173';
+const attachDiagnostics = (page: Page, run: PerformanceRun, baseOrigin: string) => {
   page.on('pageerror', (error) => run.pageErrors.push(error.message));
   page.on('console', (message) => {
     if (message.type() === 'error') run.consoleErrors.push(message.text());
@@ -178,14 +212,21 @@ const attachDiagnostics = (page: Page, run: PerformanceRun) => {
 
 const measureViewport = async (
   browser: Browser,
+  projectUse: TestInfo['project']['use'],
   viewport: { width: number; height: number },
   screenshotName?: string,
   includeInteractions = false,
 ): Promise<PerformanceRun> => {
-  const context = await browser.newContext({
-    viewport,
-    baseURL: 'http://127.0.0.1:4173',
-  });
+  const configuredUse = projectUse as Partial<BrowserContextOptions>;
+  const contextOptions = Object.fromEntries(
+    contextOptionKeys.flatMap((key) =>
+      configuredUse[key] === undefined ? [] : [[key, configuredUse[key]]],
+    ),
+  ) as BrowserContextOptions;
+  const baseURL = contextOptions.baseURL;
+  if (!baseURL) throw new Error('Playwright project configuration must provide a baseURL.');
+  const baseOrigin = new URL(baseURL).origin;
+  const context = await browser.newContext({ ...contextOptions, baseURL, viewport });
   const page = await context.newPage();
   const run: PerformanceRun = {
     viewport,
@@ -199,10 +240,11 @@ const measureViewport = async (
     consoleErrors: [],
     pageErrors: [],
   };
-  attachDiagnostics(page, run);
+  attachDiagnostics(page, run, baseOrigin);
 
   try {
     await prepareTwentyTemplates(page);
+    expect(new URL(page.url()).origin).toBe(baseOrigin);
     const opening = await openPanel(page);
     run.panelOpenMs = opening.totalMs;
     run.panelOpenStages = opening.stages;
@@ -295,7 +337,7 @@ const measureViewport = async (
 
 test('measures twenty custom thumbnails in isolated desktop, tablet, and mobile contexts', async ({
   browser,
-}) => {
+}, testInfo) => {
   if (EVIDENCE_DIR) await mkdir(EVIDENCE_DIR, { recursive: true });
   const desktopRuns: PerformanceRun[] = [];
   const tabletRuns: PerformanceRun[] = [];
@@ -304,6 +346,7 @@ test('measures twenty custom thumbnails in isolated desktop, tablet, and mobile 
     desktopRuns.push(
       await measureViewport(
         browser,
+        testInfo.project.use,
         { width: 1440, height: 900 },
         index === 0 ? 'desktop-20-templates.png' : undefined,
         index === 0,
@@ -312,6 +355,7 @@ test('measures twenty custom thumbnails in isolated desktop, tablet, and mobile 
     tabletRuns.push(
       await measureViewport(
         browser,
+        testInfo.project.use,
         { width: 768, height: 1024 },
         index === 0 ? 'tablet-20-templates.png' : undefined,
       ),
@@ -319,6 +363,7 @@ test('measures twenty custom thumbnails in isolated desktop, tablet, and mobile 
     mobileRuns.push(
       await measureViewport(
         browser,
+        testInfo.project.use,
         { width: 390, height: 844 },
         index === 0 ? 'mobile-20-templates.png' : undefined,
       ),
@@ -332,6 +377,7 @@ test('measures twenty custom thumbnails in isolated desktop, tablet, and mobile 
       platform: process.platform,
       node: process.version,
       browser: browser.version(),
+      baseURL: testInfo.project.use.baseURL,
       measurement:
         'Panel-open time is measured from click until visible panel plus two animation frames.',
       data: '4 built-in templates, 20 custom templates, and a fixed synthetic resume in isolated contexts.',

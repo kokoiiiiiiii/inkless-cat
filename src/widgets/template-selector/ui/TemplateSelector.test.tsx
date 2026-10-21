@@ -4,8 +4,24 @@ import { templates } from '@entities/template';
 import { I18nProvider } from '@shared/i18n';
 import { LOCALE_KEY } from '@shared/i18n/config';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { Profiler, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const resumePreviewRender = vi.hoisted(() => vi.fn());
+
+vi.mock('@features/resume-preview', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@features/resume-preview')>();
+  const { createElement } = await import('react');
+
+  return {
+    ...actual,
+    // Count calls from the real thumbnail and continue rendering the real preview component.
+    ResumePreview: (props: Parameters<typeof actual.ResumePreview>[0]) => {
+      resumePreviewRender(props);
+      return createElement(actual.ResumePreview, props);
+    },
+  };
+});
 
 import TemplateSelector from './TemplateSelector';
 import { areTemplateThumbnailPropsEqual, TemplateThumbnail } from './TemplateThumbnail';
@@ -62,17 +78,12 @@ const StatefulSelector = ({
   );
 };
 
-const ProfiledThumbnail = ({
-  onRender,
-}: {
-  onRender: (
-    id: string,
-    phase: 'mount' | 'update' | 'nested-update',
-    actualDuration: number,
-  ) => void;
-}) => {
+const otherThumbnailTheme = { heading: '#b91c1c', background: '#fef2f2' };
+
+const ThumbnailRenderHarness = () => {
   const [resumeName, setResumeName] = useState('Initial resume');
   const [theme, setTheme] = useState({ heading: '#312e81' });
+  const [accentColor, setAccentColor] = useState('#6d28d9');
 
   return (
     <>
@@ -84,9 +95,19 @@ const ProfiledThumbnail = ({
       <button type="button" onClick={() => setTheme({ heading: '#7c3aed' })}>
         Change template theme
       </button>
-      <Profiler id="template-thumbnail" onRender={onRender}>
-        <TemplateThumbnail previewStyle="custom" accentColor="#6d28d9" theme={theme} />
-      </Profiler>
+      <button type="button" onClick={() => setAccentColor('#dc2626')}>
+        Change template accent
+      </button>
+      <div data-testid="target-thumbnail">
+        <TemplateThumbnail previewStyle="custom" accentColor={accentColor} theme={theme} />
+      </div>
+      <div data-testid="other-thumbnail">
+        <TemplateThumbnail
+          previewStyle="custom"
+          accentColor="#059669"
+          theme={otherThumbnailTheme}
+        />
+      </div>
     </>
   );
 };
@@ -120,7 +141,10 @@ const MultiTemplateSelector = ({
   );
 };
 
-afterEach(() => localStorage.removeItem(LOCALE_KEY));
+afterEach(() => {
+  localStorage.removeItem(LOCALE_KEY);
+  resumePreviewRender.mockClear();
+});
 
 describe('TemplateSelector', () => {
   it('uses one native radio group across system and custom templates', () => {
@@ -296,6 +320,66 @@ describe('TemplateSelector', () => {
     });
   });
 
+  it('leaves IME key events to the input method and commits the completed Chinese name', () => {
+    const onUpdateTemplate = vi.fn();
+    const { container } = render(
+      <TemplateSelector
+        builtInTemplates={templates}
+        customTemplates={[customTemplate]}
+        activeId={customTemplate.id}
+        onStyleChange={vi.fn()}
+        onLoadSample={vi.fn()}
+        onUpdateTemplate={onUpdateTemplate}
+      />,
+      { wrapper },
+    );
+    const customCard = container.querySelector(
+      `article[data-template-id="${customTemplate.id}"]`,
+    ) as HTMLElement;
+    const nameInput = within(customCard).getByRole('textbox', { name: '模板名称' });
+    const radio = within(customCard).getByRole('radio', { name: 'Portfolio Layout' });
+
+    nameInput.focus();
+    fireEvent.keyDown(nameInput, { key: 'Enter', isComposing: true });
+    expect(document.activeElement).toBe(nameInput);
+    expect(onUpdateTemplate).not.toHaveBeenCalled();
+
+    fireEvent.change(nameInput, { target: { value: '中文候选' } });
+    fireEvent.compositionStart(nameInput, { data: '中文候选' });
+    fireEvent.keyDown(nameInput, { key: 'Enter', isComposing: false });
+    expect(document.activeElement).toBe(nameInput);
+    expect((nameInput as HTMLInputElement).value).toBe('中文候选');
+    expect(onUpdateTemplate).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(nameInput, { key: 'Escape', isComposing: false });
+    expect(document.activeElement).toBe(nameInput);
+    expect((nameInput as HTMLInputElement).value).toBe('中文候选');
+    expect(onUpdateTemplate).not.toHaveBeenCalled();
+    expect(radio.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Portfolio Layout' })).toBe(radio);
+
+    fireEvent.change(nameInput, { target: { value: '中文名称' } });
+    fireEvent.compositionEnd(nameInput, { data: '中文名称' });
+
+    fireEvent.keyDown(nameInput, { key: 'Escape', isComposing: false });
+    expect(document.activeElement).toBe(nameInput);
+    expect((nameInput as HTMLInputElement).value).toBe('Portfolio Layout');
+    expect(onUpdateTemplate).not.toHaveBeenCalled();
+
+    fireEvent.change(nameInput, { target: { value: '中文名称' } });
+    fireEvent.compositionStart(nameInput, { data: '中文名称' });
+    fireEvent.compositionEnd(nameInput, { data: '中文名称' });
+    fireEvent.keyDown(nameInput, { key: 'Enter', keyCode: 229, isComposing: false });
+    expect(document.activeElement).toBe(nameInput);
+    expect(onUpdateTemplate).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(nameInput, { key: 'Enter', isComposing: false });
+    expect(document.activeElement).not.toBe(nameInput);
+    expect(onUpdateTemplate).toHaveBeenCalledTimes(1);
+    expect(onUpdateTemplate).toHaveBeenCalledWith(customTemplate.id, { name: '中文名称' });
+    expect(screen.getByRole('radio', { name: 'Portfolio Layout' })).toBe(radio);
+  });
+
   it('uses an English fallback accessible name for a blank custom template', () => {
     localStorage.setItem(LOCALE_KEY, 'en');
     render(
@@ -313,25 +397,34 @@ describe('TemplateSelector', () => {
     expect(screen.getByRole('radio', { name: 'Unnamed template' })).toBeTruthy();
   });
 
-  it('measures real thumbnail renders: skips parent resume updates and responds to theme changes', () => {
-    const profileDurations: number[] = [];
-    const onRender = (
-      _id: string,
-      _phase: 'mount' | 'update' | 'nested-update',
-      actualDuration: number,
-    ) => profileDurations.push(actualDuration);
-    render(<ProfiledThumbnail onRender={onRender} />, { wrapper });
+  it('skips unrelated parent updates and rerenders only thumbnails with changed theme or accent', () => {
+    resumePreviewRender.mockClear();
+    const { container } = render(<ThumbnailRenderHarness />, { wrapper });
+    const targetPreview = screen.getByTestId('target-thumbnail').querySelector('.resume-preview');
+    const otherPreview = screen.getByTestId('other-thumbnail').querySelector('.resume-preview');
+    expect(resumePreviewRender).toHaveBeenCalledTimes(2);
+    expect(
+      container.querySelectorAll('[data-testid="template-thumbnail"] .resume-preview'),
+    ).toHaveLength(2);
+    expect(targetPreview?.querySelector<HTMLElement>('h1')?.style.color).toBe('rgb(49, 46, 129)');
+    expect(otherPreview?.querySelector<HTMLElement>('h1')?.style.color).toBe('rgb(185, 28, 28)');
 
-    expect(profileDurations).toHaveLength(1);
     fireEvent.change(screen.getByRole('textbox', { name: 'Resume name' }), {
       target: { value: 'Edited synthetic resume' },
     });
-    expect(profileDurations).toHaveLength(2);
-    expect(profileDurations[1]).toBeLessThan(0.05);
+    expect(resumePreviewRender).toHaveBeenCalledTimes(2);
 
     fireEvent.click(screen.getByRole('button', { name: 'Change template theme' }));
-    expect(profileDurations).toHaveLength(3);
-    expect(profileDurations[2]).toBeGreaterThan(0.05);
+    expect(resumePreviewRender).toHaveBeenCalledTimes(3);
+    expect(targetPreview?.querySelector<HTMLElement>('h1')?.style.color).toBe('rgb(124, 58, 237)');
+    expect(otherPreview?.querySelector<HTMLElement>('h1')?.style.color).toBe('rgb(185, 28, 28)');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change template accent' }));
+    expect(resumePreviewRender).toHaveBeenCalledTimes(4);
+    const targetAccent = targetPreview?.querySelector<HTMLElement>('span[style*="background"]');
+    const otherAccent = otherPreview?.querySelector<HTMLElement>('span[style*="background"]');
+    expect(targetAccent && getComputedStyle(targetAccent).backgroundColor).toBe('rgb(220, 38, 38)');
+    expect(otherAccent && getComputedStyle(otherAccent).backgroundColor).toBe('rgb(5, 150, 105)');
   });
 
   it('moves focus to the selected fallback after deleting the selected custom template', async () => {
