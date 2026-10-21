@@ -28,7 +28,10 @@ export const TemplateCardHeader = ({
     return value === key ? undefined : value;
   };
 
-  const resolvedName = isCustom ? template.name : (getSystemCopy('name') ?? template.name);
+  const customName = template.name.trim();
+  const resolvedName = isCustom
+    ? customName || t('template.inputs.unnamedName')
+    : (getSystemCopy('name') ?? template.name);
   const resolvedDescription = isCustom
     ? template.description
     : (getSystemCopy('description') ?? template.description);

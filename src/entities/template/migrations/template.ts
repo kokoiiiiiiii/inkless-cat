@@ -1,3 +1,4 @@
+import { resolveInitialLocale } from '@shared/i18n/config';
 import { type AppError, createAppError } from '@shared/lib/errors';
 import { err, isErr, ok, type Result } from '@shared/lib/result';
 
@@ -6,8 +7,18 @@ import { normalizeTemplateTheme } from '../lib/normalizers';
 import { resumeTemplateInputSchema, resumeTemplateSchema } from '../schema/template';
 import type { ResumeTemplate, ResumeTemplateInput } from '../types';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
 export const migrateTemplate = (input: unknown): Result<ResumeTemplate, AppError> => {
-  const parsed = resumeTemplateInputSchema.safeParse(input);
+  const hasBlankName = isRecord(input) && typeof input.name === 'string' && !input.name.trim();
+  const migrationInput = hasBlankName
+    ? {
+        ...input,
+        name: resolveInitialLocale() === 'en' ? 'Unnamed template' : '未命名模板',
+      }
+    : input;
+  const parsed = resumeTemplateInputSchema.safeParse(migrationInput);
   if (!parsed.success) {
     return err(
       createAppError('INVALID_WORKSPACE', 'Template payload validation failed.', {

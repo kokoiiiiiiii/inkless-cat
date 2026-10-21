@@ -32,6 +32,7 @@ const TemplateSelector = ({
       if (!onDeleteTemplate) return;
       const templates = [...builtInTemplates, ...customTemplates];
       const previousIndex = templates.findIndex((template) => template.id === templateId);
+      const wasActive = activeId === templateId;
       onDeleteTemplate(templateId);
 
       globalThis.setTimeout(() => {
@@ -43,9 +44,30 @@ const TemplateSelector = ({
         if (deletedCardRemains) return;
 
         const radios = [...fieldset.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+        if (wasActive) {
+          const selectedRadio = radios.find((radio) => radio.checked);
+          const nearestRadio = radios[Math.min(previousIndex, radios.length - 1)];
+          (selectedRadio ?? nearestRadio)?.focus({ preventScroll: true });
+          return;
+        }
+
+        const customIndex = customTemplates.findIndex((template) => template.id === templateId);
+        const remainingCustomTemplates = customTemplates.filter(
+          (template) => template.id !== templateId,
+        );
+        const neighborIndex = Math.min(customIndex, remainingCustomTemplates.length - 1);
+        const neighborId = remainingCustomTemplates[neighborIndex]?.id;
+        const neighborCard = neighborId
+          ? [...fieldset.querySelectorAll<HTMLElement>('[data-template-id]')].find(
+              (card) => card.dataset.templateId === neighborId,
+            )
+          : undefined;
+        const deleteButton = neighborCard?.querySelector<HTMLButtonElement>(
+          'button[data-template-delete]',
+        );
+        const createNameInput = fieldset.querySelector<HTMLInputElement>('form input[type="text"]');
         const selectedRadio = radios.find((radio) => radio.checked);
-        const nearestRadio = radios[Math.min(previousIndex, radios.length - 1)];
-        (activeId === templateId ? selectedRadio : nearestRadio)?.focus();
+        (deleteButton ?? createNameInput ?? selectedRadio)?.focus({ preventScroll: true });
       }, 0);
     },
     [activeId, builtInTemplates, customTemplates, onDeleteTemplate],

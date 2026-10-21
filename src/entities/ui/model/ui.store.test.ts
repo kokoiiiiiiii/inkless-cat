@@ -91,4 +91,60 @@ describe('ui store', () => {
     useUIStore.getState().setTheme('light');
     expect(localStorage.getItem(`${UI_STORE_PERSIST_KEY}/recovery`)).toBe(raw);
   });
+
+  it('restores blank-named templates with a fallback and preserves the original recovery copy', async () => {
+    const sample = createEmptyResume();
+    sample.personal.fullName = 'Synthetic saved sample';
+    const blankNamedTemplate: ResumeTemplate = {
+      ...mockTemplate,
+      id: 'custom-legacy-blank-name',
+      name: '   ',
+      accentColor: '#6d28d9',
+      previewStyle: 'custom',
+      theme: { accent: '#6d28d9', background: '#fffaf0', heading: '#312e81' },
+      sample,
+    };
+    const unaffectedTemplate: ResumeTemplate = {
+      ...mockTemplate,
+      id: 'custom-unaffected',
+      name: 'Unaffected Template',
+    };
+    const raw = JSON.stringify({
+      state: {
+        theme: 'light',
+        templateId: blankNamedTemplate.id,
+        customTemplates: [blankNamedTemplate, unaffectedTemplate],
+      },
+      version: 1,
+    });
+    localStorage.setItem(UI_STORE_PERSIST_KEY, raw);
+
+    await useUIStore.persist?.rehydrate();
+
+    const recoveredTemplates = useUIStore.getState().customTemplates;
+    expect(recoveredTemplates.map(({ id }) => id)).toEqual([
+      blankNamedTemplate.id,
+      unaffectedTemplate.id,
+    ]);
+    expect(recoveredTemplates[0]).toMatchObject({
+      name: '未命名模板',
+      id: blankNamedTemplate.id,
+      sample: { personal: { fullName: 'Synthetic saved sample' } },
+      previewStyle: 'custom',
+      accentColor: '#6d28d9',
+      theme: { background: '#fffaf0', heading: '#312e81' },
+    });
+    expect(localStorage.getItem(UI_STORE_PERSIST_KEY)).toBe(raw);
+
+    useUIStore.getState().setTheme('dark');
+
+    expect(localStorage.getItem(`${UI_STORE_PERSIST_KEY}/recovery`)).toBe(raw);
+    const persisted = JSON.parse(localStorage.getItem(UI_STORE_PERSIST_KEY) ?? 'null') as {
+      state?: { customTemplates?: Array<{ id: string; name: string }> };
+    };
+    expect(persisted.state?.customTemplates).toEqual([
+      expect.objectContaining({ id: blankNamedTemplate.id, name: '未命名模板' }),
+      expect.objectContaining({ id: unaffectedTemplate.id, name: 'Unaffected Template' }),
+    ]);
+  });
 });

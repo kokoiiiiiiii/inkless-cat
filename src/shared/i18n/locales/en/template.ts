@@ -20,7 +20,13 @@ export const template = {
   },
   inputs: {
     namePlaceholder: 'Custom Template',
+    unnamedName: 'Unnamed template',
     descriptionPlaceholder: 'What this template is for',
+  },
+  validation: {
+    nameRequired: 'A template name is required. The previous valid name has been restored.',
+    nameTooLong:
+      'Template names can contain up to {limit} characters. The previous valid name has been restored.',
   },
   creation: {
     nameLabel: 'Template Name',

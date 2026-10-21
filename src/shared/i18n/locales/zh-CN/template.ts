@@ -18,7 +18,12 @@ export const template = {
   },
   inputs: {
     namePlaceholder: '自定义模板',
+    unnamedName: '未命名模板',
     descriptionPlaceholder: '模板用途说明',
+  },
+  validation: {
+    nameRequired: '模板名称不能为空；已恢复上一个有效名称。',
+    nameTooLong: '模板名称不能超过 {limit} 个字符；已恢复上一个有效名称。',
   },
   creation: {
     nameLabel: '模板名称',

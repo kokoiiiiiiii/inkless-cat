@@ -149,6 +149,13 @@ const normalizeCustomTemplates = (
   for (const template of value) {
     const result = migrateTemplate(template);
     if (result.ok) {
+      if (isRecord(template) && typeof template.name === 'string' && !template.name.trim()) {
+        onInvalidTemplate?.(
+          corruptDataError(
+            'A stored custom template had a blank name and was restored with a fallback.',
+          ),
+        );
+      }
       normalized.push(result.value);
     } else {
       onInvalidTemplate?.(corruptDataError('One stored custom template could not be restored.'));
