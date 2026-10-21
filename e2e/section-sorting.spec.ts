@@ -338,14 +338,23 @@ test('mobile layout keeps page scrolling available outside the drag handle', asy
     expect(titleBox.y).toBeGreaterThanOrEqual(0);
     expect(titleBox.y).toBeLessThan(844);
 
-    await touch.send('Input.synthesizeScrollGesture', {
+    const scrollStart = {
+      id: 1,
       x: titleBox.x + titleBox.width / 2,
       y: titleBox.y + titleBox.height / 2,
-      xDistance: 0,
-      yDistance: -240,
-      speed: 600,
-      gestureSourceType: 'touch',
+    };
+    await touch.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [scrollStart],
     });
+    for (const distance of [40, 80, 120, 180, 240]) {
+      await mobilePage.waitForTimeout(40);
+      await touch.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ ...scrollStart, y: scrollStart.y - distance }],
+      });
+    }
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect
       .poll(async () => {
         return mobilePage.evaluate(() => document.scrollingElement?.scrollTop ?? 0);
