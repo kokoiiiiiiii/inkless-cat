@@ -13,6 +13,7 @@ const resetResumeStoreState = () => {
     resume: baseResume,
     activeSections: deriveSectionsFromResume(baseResume),
     hasResumeChanges: false,
+    workspaceGeneration: 0,
   });
   useResumeStore.persist?.clearStorage();
 };
@@ -79,6 +80,23 @@ describe('resume store', () => {
     );
     const state = useResumeStore.getState();
     expect(state.hasResumeChanges).toBe(false);
+  });
+
+  it('tracks workspace replacement in memory without adding the marker to persisted resume data', () => {
+    const initialGeneration = useResumeStore.getState().workspaceGeneration;
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = 'A regular edit';
+    });
+    expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration);
+
+    useResumeStore.getState().replaceState(createEmptyResume());
+    expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration + 1);
+    const stored = localStorage.getItem(RESUME_STORE_PERSIST_KEY);
+    expect(stored).not.toBeNull();
+    expect(stored).not.toContain('workspaceGeneration');
+
+    useResumeStore.getState().resetState(createEmptyResume());
+    expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration + 2);
   });
 
   it('sanitizes active sections when updating', () => {

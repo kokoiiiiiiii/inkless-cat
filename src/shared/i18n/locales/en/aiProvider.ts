@@ -15,7 +15,7 @@ export const aiProvider = {
   trustNote:
     'Your browser sends this key and the short test prompt directly to the endpoint you enter. Inkless Cat does not receive or store the key. Use only an endpoint you trust.',
   probeCost: 'A connection test sends one short request and may use a small amount of API quota.',
-  futureNote: 'AI editing tools will be added in a later phase.',
+  futureNote: 'Use AI enhancement for your summary, experience highlights, and project summaries.',
   save: 'Save for this session',
   saved: 'Saved for this session',
   test: 'Test connection',
