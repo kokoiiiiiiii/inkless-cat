@@ -58,6 +58,7 @@ export const aiEnhancement = {
   undoUnavailable: 'The workspace changed, so this AI change cannot be undone.',
   undoConflict:
     'This field changed after the AI edit. Undo was skipped to protect the newer content.',
+  inputBudget: 'Input size: {current} / {limit} UTF-16 code units.',
   errors: {
     empty_output: 'The AI returned an empty result. Generate a new suggestion.',
     response_too_long:
@@ -76,6 +77,8 @@ export const aiEnhancement = {
     workspace_changed: 'The resume workspace changed. Open the enhancement panel again.',
     provider_changed: 'The AI service configuration changed. Check it and generate again.',
     empty_source: 'There is no text to enhance. Add source content first.',
+    input_too_long:
+      'The selected content exceeds the AI enhancement input limit. Shorten it and try again.',
     provider_error:
       'The AI request failed. Check the configuration, network, or service and try again.',
   },

@@ -85,6 +85,34 @@ test('unconfigured provider is explained and cannot send a request', async ({ pa
   );
 });
 
+test('over-budget source shows an accessible size message, sends no request, and can be retried after shortening', async ({
+  page,
+}) => {
+  const requests = await installResponseRoute(page, () => 'Short suggestion.');
+  await page.goto('/');
+  await configureProvider(page);
+
+  const summary = page.getByRole('textbox', { name: '个人简介' });
+  await summary.fill('x'.repeat(12_001));
+  let dialog = await openPersonalEnhancement(page, '个人简介');
+  await generateInDialog(dialog, 'AI 润色');
+  await expect(dialog.getByRole('alert')).toHaveText(
+    '当前内容过长，超出单次 AI 润色的输入限制，请精简后重试。',
+  );
+  await expect(dialog.getByRole('status').filter({ hasText: '12001 / 12000' })).toContainText(
+    '输入规模：12001 / 12000 个 UTF-16 字符单元。',
+  );
+  expect(requests).toHaveLength(0);
+  await expect(summary).toHaveValue('x'.repeat(12_001));
+
+  await dialog.getByRole('button', { name: '保留原文' }).click();
+  await summary.fill('Shortened source');
+  dialog = await openPersonalEnhancement(page, '个人简介');
+  await generateInDialog(dialog, 'AI 润色');
+  await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue('Short suggestion.');
+  expect(requests).toHaveLength(1);
+});
+
 test('summary supports professional and concise modes, comparison, cancel, apply, undo, and minimal request data', async ({
   page,
 }) => {

@@ -13,6 +13,10 @@ import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 
 
 import { buildEnhancementPrompt } from '../lib/buildEnhancementPrompt';
 import {
+  AI_ENHANCEMENT_INPUT_BUDGET_UTF16_CODE_UNITS,
+  measureEnhancementInputCodeUnits,
+} from '../lib/inputBudget';
+import {
   areEnhancementValuesEqual,
   displayEnhancementValue,
   readEnhancementTarget,
@@ -50,10 +54,13 @@ type ActiveRequest = {
 };
 
 type UndoSnapshot = {
+  id: number;
   target: AIEnhancementTarget;
   before: AIEnhancementFieldValue;
   applied: AIEnhancementFieldValue;
   workspaceGeneration: number;
+  valid: boolean;
+  invalidReason?: 'field' | 'target' | 'workspace';
 };
 
 export type AIResumeEnhancementController = {
@@ -93,6 +100,7 @@ export const useAIResumeEnhancement = (
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const sessionSequence = useRef(0);
   const requestSequence = useRef(0);
+  const undoSequence = useRef(0);
 
   const updateSession = useCallback(
     (
@@ -168,6 +176,7 @@ export const useAIResumeEnhancement = (
               candidate: '',
               errorCode: undefined,
               providerErrorCode: undefined,
+              inputCodeUnits: undefined,
             }
           : current,
       );
@@ -209,6 +218,27 @@ export const useAIResumeEnhancement = (
       }
 
       const source = copyValue(resolved.value);
+      const inputCodeUnits = measureEnhancementInputCodeUnits(source);
+      if (inputCodeUnits > AI_ENHANCEMENT_INPUT_BUDGET_UTF16_CODE_UNITS) {
+        updateSession((current) =>
+          current?.id === currentSession.id
+            ? {
+                ...current,
+                original: source,
+                originalText: displayEnhancementValue(source),
+                workspaceGeneration: latest.workspaceGeneration,
+                status: 'error',
+                candidate: '',
+                errorCode: 'input_too_long',
+                providerErrorCode: undefined,
+                providerStatusCode: undefined,
+                inputCodeUnits,
+              }
+            : current,
+        );
+        return;
+      }
+
       const requestId = ++requestSequence.current;
       const controller = new AbortController();
       const activeRequest: ActiveRequest = {
@@ -232,6 +262,7 @@ export const useAIResumeEnhancement = (
               candidate: '',
               errorCode: undefined,
               providerErrorCode: undefined,
+              inputCodeUnits: undefined,
             }
           : current,
       );
@@ -356,36 +387,45 @@ export const useAIResumeEnhancement = (
     );
   }, [abortActiveRequest, updateSession]);
 
-  const undo = useCallback(() => {
-    const snapshot = undoSnapshotRef.current;
-    if (!snapshot) return;
-    const state = useResumeStore.getState();
-    if (state.workspaceGeneration !== snapshot.workspaceGeneration) {
+  const undo = useCallback(
+    (snapshotId: number) => {
+      const snapshot = undoSnapshotRef.current;
+      if (!snapshot || snapshot.id !== snapshotId) return;
       undoSnapshotRef.current = null;
-      showInfo(t('aiEnhancement.undoUnavailable'));
-      return;
-    }
-    const current = readEnhancementTarget(state.resume, snapshot.target);
-    if (current.status !== 'found' || !areEnhancementValuesEqual(current.value, snapshot.applied)) {
-      undoSnapshotRef.current = null;
-      showInfo(t('aiEnhancement.undoConflict'));
-      return;
-    }
 
-    let restored = false;
-    state.updateResume((draft) => {
-      const draftTarget = readEnhancementTarget(draft, snapshot.target);
+      const state = useResumeStore.getState();
       if (
-        state.workspaceGeneration === snapshot.workspaceGeneration &&
-        draftTarget.status === 'found' &&
-        areEnhancementValuesEqual(draftTarget.value, snapshot.applied)
+        state.workspaceGeneration !== snapshot.workspaceGeneration ||
+        snapshot.invalidReason === 'workspace'
       ) {
-        restored = writeEnhancementTarget(draft, snapshot.target, snapshot.before);
+        showInfo(t('aiEnhancement.undoUnavailable'));
+        return;
       }
-    });
-    undoSnapshotRef.current = null;
-    showInfo(restored ? t('aiEnhancement.undoComplete') : t('aiEnhancement.undoConflict'));
-  }, [showInfo, t]);
+      const current = readEnhancementTarget(state.resume, snapshot.target);
+      if (
+        !snapshot.valid ||
+        current.status !== 'found' ||
+        !areEnhancementValuesEqual(current.value, snapshot.applied)
+      ) {
+        showInfo(t('aiEnhancement.undoConflict'));
+        return;
+      }
+
+      let restored = false;
+      state.updateResume((draft) => {
+        const draftTarget = readEnhancementTarget(draft, snapshot.target);
+        if (
+          state.workspaceGeneration === snapshot.workspaceGeneration &&
+          draftTarget.status === 'found' &&
+          areEnhancementValuesEqual(draftTarget.value, snapshot.applied)
+        ) {
+          restored = writeEnhancementTarget(draft, snapshot.target, snapshot.before);
+        }
+      });
+      showInfo(restored ? t('aiEnhancement.undoComplete') : t('aiEnhancement.undoConflict'));
+    },
+    [showInfo, t],
+  );
 
   const apply = useCallback(() => {
     const currentSession = sessionRef.current;
@@ -455,29 +495,49 @@ export const useAIResumeEnhancement = (
       return;
     }
 
-    undoSnapshotRef.current = {
+    const undoSnapshot: UndoSnapshot = {
+      id: ++undoSequence.current,
       target: currentSession.target,
       before: copyValue(currentSession.original),
       applied: copyValue(validation.value),
       workspaceGeneration: currentSession.workspaceGeneration,
+      valid: true,
     };
+    undoSnapshotRef.current = undoSnapshot;
     close();
-    showUndo(t('aiEnhancement.applied'), undo, 12_000);
+    showUndo(t('aiEnhancement.applied'), () => undo(undoSnapshot.id), 12_000);
   }, [close, showUndo, t, undo, updateSession]);
 
   useEffect(() => {
     const unsubscribe = useResumeStore.subscribe((state) => {
       const active = activeRequestRef.current;
-      if (!active) return;
-      if (state.workspaceGeneration !== active.workspaceGeneration) {
-        failActiveRequest('workspace_changed');
+      if (active) {
+        if (state.workspaceGeneration === active.workspaceGeneration) {
+          const current = readEnhancementTarget(state.resume, active.target);
+          const sourceChanged =
+            current.status !== 'found' || !areEnhancementValuesEqual(current.value, active.source);
+          if (sourceChanged) {
+            failActiveRequest(current.status === 'found' ? 'source_changed' : 'target_missing');
+          }
+        } else {
+          failActiveRequest('workspace_changed');
+        }
+      }
+
+      const snapshot = undoSnapshotRef.current;
+      if (!snapshot || !snapshot.valid) return;
+      if (state.workspaceGeneration !== snapshot.workspaceGeneration) {
+        snapshot.valid = false;
+        snapshot.invalidReason = 'workspace';
         return;
       }
-      const current = readEnhancementTarget(state.resume, active.target);
+      const current = readEnhancementTarget(state.resume, snapshot.target);
       if (current.status !== 'found') {
-        failActiveRequest('target_missing');
-      } else if (!areEnhancementValuesEqual(current.value, active.source)) {
-        failActiveRequest('source_changed');
+        snapshot.valid = false;
+        snapshot.invalidReason = 'target';
+      } else if (!areEnhancementValuesEqual(current.value, snapshot.applied)) {
+        snapshot.valid = false;
+        snapshot.invalidReason = 'field';
       }
     });
     return unsubscribe;
@@ -501,6 +561,7 @@ export const useAIResumeEnhancement = (
     () => () => {
       abortActiveRequest();
       sessionRef.current = null;
+      undoSnapshotRef.current = null;
     },
     [abortActiveRequest],
   );

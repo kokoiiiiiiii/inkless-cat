@@ -54,6 +54,7 @@ export const aiEnhancement = {
   undoComplete: '已撤销本次 AI 修改。',
   undoUnavailable: '工作区已更换，本次 AI 修改无法撤销。',
   undoConflict: '字段在应用后又有修改，未执行撤销以保护新内容。',
+  inputBudget: '输入规模：{current} / {limit} 个 UTF-16 字符单元。',
   errors: {
     empty_output: 'AI 返回内容为空，请重新生成。',
     response_too_long: '建议超过当前字段的长度限制，请重新生成或手动精简。',
@@ -68,6 +69,7 @@ export const aiEnhancement = {
     workspace_changed: '简历工作区已切换，请重新打开润色面板。',
     provider_changed: 'AI 服务配置已变化，请检查配置后重新生成。',
     empty_source: '当前字段没有可润色的内容，请先填写原文。',
+    input_too_long: '当前内容过长，超出单次 AI 润色的输入限制，请精简后重试。',
     provider_error: 'AI 服务请求失败，请检查配置、网络或服务状态后重试。',
   },
 } as const;

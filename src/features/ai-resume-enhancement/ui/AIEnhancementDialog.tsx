@@ -2,6 +2,7 @@ import { useI18n } from '@shared/i18n';
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
+import { AI_ENHANCEMENT_INPUT_BUDGET_UTF16_CODE_UNITS } from '../lib/inputBudget';
 import { validateEditedCandidate } from '../lib/validateEnhancementResult';
 import { useAIResumeEnhancementContext } from '../model/AIResumeEnhancementContext';
 import type { AIEnhancementErrorCode, AIEnhancementMode } from '../model/types';
@@ -260,9 +261,23 @@ const AIEnhancementDialog = () => {
               </p>
             )}
             {session.status === 'error' && errorMessage && (
-              <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">
-                {errorMessage}
-              </p>
+              <div className="space-y-1 break-words">
+                <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">
+                  {errorMessage}
+                </p>
+                {session.errorCode === 'input_too_long' && (
+                  <p
+                    className="text-xs text-slate-600 dark:text-slate-300"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {t('aiEnhancement.inputBudget', {
+                      current: session.inputCodeUnits ?? 0,
+                      limit: AI_ENHANCEMENT_INPUT_BUDGET_UTF16_CODE_UNITS,
+                    })}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

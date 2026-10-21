@@ -25,6 +25,7 @@ export type AIEnhancementErrorCode =
   | 'workspace_changed'
   | 'provider_changed'
   | 'empty_source'
+  | 'input_too_long'
   | 'provider_error';
 
 export type AIEnhancementSession = {
@@ -37,6 +38,7 @@ export type AIEnhancementSession = {
   status: AIEnhancementStatus;
   candidate: string;
   errorCode?: AIEnhancementErrorCode;
+  inputCodeUnits?: number;
   providerErrorCode?: string;
   providerStatusCode?: number;
 };
