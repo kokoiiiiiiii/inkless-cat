@@ -1,6 +1,7 @@
+import { AIProviderSettingsDialog, useAIProviderSettings } from '@features/ai-provider-settings';
 import { type Locale, useI18n } from '@shared/i18n';
 import type { ChangeEvent, RefObject } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { baseButtonClass, primaryButtonClass } from './constants';
 
@@ -35,8 +36,12 @@ const ActionButtons = ({
 }: ActionButtonsProps) => {
   const { t, locale } = useI18n();
   const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
+  const [aiSettingsOpen, setAISettingsOpen] = useState(false);
   const localeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const aiSettingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const aiProviderSettings = useAIProviderSettings();
+  const closeAISettings = useCallback(() => setAISettingsOpen(false), []);
   const nextLocale = locale === 'en' ? 'zh-CN' : 'en';
   const translateWithFallback = (key: string, fallback: string) => {
     const translated = t(key);
@@ -130,6 +135,14 @@ const ActionButtons = ({
         <button type="button" className={primaryButtonClass} onClick={onPrint}>
           {t('topbar.print')}
         </button>
+        <button
+          ref={aiSettingsTriggerRef}
+          type="button"
+          className={baseButtonClass}
+          onClick={() => setAISettingsOpen(true)}
+        >
+          {t('aiProvider.open')}
+        </button>
         <button type="button" className={baseButtonClass} onClick={onToggleTheme}>
           {theme === 'light' ? t('topbar.themeDark') : t('topbar.themeLight')}
         </button>
@@ -149,6 +162,12 @@ const ActionButtons = ({
           onChange={onFileChange}
         />
       </div>
+      <AIProviderSettingsDialog
+        open={aiSettingsOpen}
+        onClose={closeAISettings}
+        settings={aiProviderSettings}
+        triggerRef={aiSettingsTriggerRef}
+      />
       {pendingLocale && (
         <div
           ref={dialogRef}
