@@ -235,7 +235,7 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
   await expect(dialog.getByText('访谈回答已从当前标签页内存中清除')).toBeVisible();
 
-  await dialog.getByRole('button', { name: '关闭' }).click();
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
   const after = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
   expect(after).toBe(before);
 });
@@ -358,6 +358,6 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
   }
   await expect(dialog.getByRole('heading', { name: '访谈摘要' }).last()).toBeVisible();
   await dialog.getByRole('button', { name: '结束访谈' }).click();
-  await expect(dialog.getByText('访谈已完成')).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: '访谈已完成' })).toBeVisible();
   await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
 });
