@@ -159,12 +159,13 @@ test('opens from the editor, supports guide questions without AI, and never chan
   await answerBox.press('Enter');
   await expect(dialog.getByRole('heading', { name: /你希望应聘什么岗位/u })).toBeVisible();
   await answerBox.dispatchEvent('compositionend');
+  await answerBox.fill('Backend engineer');
   await answerBox.press('Shift+Enter');
   await answerBox.type('with API experience');
   await expect(answerBox).toHaveValue('Backend engineer\nwith API experience');
   await answerBox.fill('Backend engineer');
   await answerBox.press('Enter');
-  await expect(dialog.getByText(/你希望下一份工作用到/u)).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: /你希望下一份工作用到/u })).toBeVisible();
   await expect(dialog.getByRole('complementary').getByText('Backend engineer')).toBeVisible();
   expect(requests).toBe(0);
 
@@ -203,7 +204,7 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   await expect(dialog.getByText(/不会发送示例简历/u)).toBeVisible();
   expect(requests).toHaveLength(0);
   await dialog.getByRole('button', { name: '发送这条回答并使用 AI' }).click();
-  await expect(dialog.getByText('你在工作中具体负责哪些部分？')).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: '你在工作中具体负责哪些部分？' })).toBeVisible();
   expect(requests).toHaveLength(1);
   const payload = JSON.parse(
     requests[0]?.messages.find(({ role }) => role === 'user')?.content ?? '{}',
@@ -214,7 +215,9 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   expect(JSON.stringify(payload)).not.toContain(apiKey);
 
   await answer(dialog, '我独立实现了工业物联网后端，MES 是参与团队开发。');
-  await expect(dialog.getByText('MES 团队协作中，你个人负责了哪部分？')).toBeVisible();
+  await expect(
+    dialog.getByRole('heading', { name: 'MES 团队协作中，你个人负责了哪部分？' }),
+  ).toBeVisible();
   const summary = dialog.getByRole('complementary');
   await summary.getByRole('button', { name: '修改回答' }).first().click();
   const answerBox = dialog.getByRole('textbox', { name: '你的回答' });
@@ -291,7 +294,9 @@ test('shows a request failure and waits for a user-initiated retry', async ({ pa
   await expect(dialog.getByRole('alert')).toContainText('AI 请求失败');
   expect(requests).toHaveLength(1);
   await dialog.getByRole('button', { name: '重试生成 AI 问题' }).click();
-  await expect(dialog.getByText('Which project result can you describe?')).toBeVisible();
+  await expect(
+    dialog.getByRole('heading', { name: 'Which project result can you describe?' }),
+  ).toBeVisible();
   expect(requests).toHaveLength(2);
   await dialog.getByRole('button', { name: '取消访谈' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
@@ -338,7 +343,7 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: '夜间模式' }).click();
   dialog = await openInterview(page);
-  await expect(dialog.getByRole('button', { name: '访谈' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '访谈', exact: true })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: /你希望应聘/u })).toBeVisible();
   expect(
     await dialog.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -347,7 +352,7 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
   expect(dialogBox?.width).toBeLessThanOrEqual(390);
   await dialog.getByRole('button', { name: '摘要' }).click();
   await expect(dialog.getByRole('heading', { name: '访谈摘要' })).toBeVisible();
-  await dialog.getByRole('button', { name: '访谈' }).click();
+  await dialog.getByRole('button', { name: '访谈', exact: true }).click();
   for (let index = 0; index < 6; index += 1) {
     await dialog.getByRole('button', { name: '跳过本阶段' }).click();
   }
