@@ -155,11 +155,13 @@ const configureProvider = async (page: Page) => {
 };
 
 const openPersonalEnhancement = async (page: Page, label: string) => {
-  const buttonName = label === 'Personal summary' ? 'AI polish' : 'AI 润色';
-  const field = page.getByRole('textbox', { name: label });
+  const isEnglish = label === 'Personal summary';
+  const fieldLabel = isEnglish ? 'Summary' : label;
+  const buttonName = isEnglish ? 'AI polish' : 'AI 润色';
+  const field = page.getByRole('textbox', { name: fieldLabel }).first();
   const action = field.locator('xpath=..').getByRole('button', { name: buttonName });
   await expect(action).toHaveAccessibleName(
-    label === 'Personal summary' ? `Polish ${label} with AI` : `为${label}打开 AI 润色`,
+    isEnglish ? 'Polish Personal summary with AI' : `为${label}打开 AI 润色`,
   );
   await action.click();
   return page.getByRole('dialog', {
@@ -373,7 +375,7 @@ test('Highlights shows incomplete JSON as read-only progress and parses only aft
     writeDelta(response, '{"items":["Polished');
     firstDeltaArrived?.();
     await completionGate;
-    writeDelta(response, ' API delivery", "Polished Redis work"]}');
+    writeDelta(response, ' API delivery", "Polished Redis work", "Polished UI work"]}');
     response.write('data: [DONE]\n\n');
     response.end();
   });
@@ -394,10 +396,12 @@ test('Highlights shows incomplete JSON as read-only progress and parses only aft
   releaseCompletion?.();
 
   await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveValue(
-    'Polished API delivery\nPolished Redis work',
+    'Polished API delivery\nPolished Redis work\nPolished UI work',
   );
   await dialog.getByRole('button', { name: '采用建议' }).click();
-  await expect(highlights).toHaveValue('Polished API delivery\nPolished Redis work');
+  await expect(highlights).toHaveValue(
+    'Polished API delivery\nPolished Redis work\nPolished UI work',
+  );
 });
 
 test('a changed source or deleted target blocks a pending response', async ({ page }) => {
