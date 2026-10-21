@@ -32,6 +32,8 @@ type ResumeStoreState = {
   resume: ResumeData;
   activeSections: ActiveSectionKey[];
   hasResumeChanges: boolean;
+  /** In-memory marker for workspace replacement; intentionally excluded from persistence. */
+  workspaceGeneration: number;
 };
 
 type ActiveSectionsInput = ActiveSectionKey[] | ((prev: ActiveSectionKey[]) => ActiveSectionKey[]);
@@ -71,6 +73,7 @@ const createInitialState = (): ResumeStoreState => {
       fallbackToDefaults: true,
     }),
     hasResumeChanges: false,
+    workspaceGeneration: 0,
   };
 };
 
@@ -126,7 +129,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
         replaceState: (nextResume, nextSections) =>
           withStoreErrorBoundary(logger, 'replaceState', () =>
             set(
-              () => {
+              (state) => {
                 const normalized = createNormalizedResume(nextResume);
                 return {
                   resume: normalized,
@@ -134,6 +137,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                     fallbackToDefaults: nextSections === undefined || nextSections.length > 0,
                   }),
                   hasResumeChanges: false,
+                  workspaceGeneration: state.workspaceGeneration + 1,
                 };
               },
               false,
@@ -143,12 +147,13 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
         resetState: (nextResume) =>
           withStoreErrorBoundary(logger, 'resetState', () =>
             set(
-              () => {
+              (state) => {
                 const normalized = createNormalizedResume(nextResume);
                 return {
                   resume: normalized,
                   activeSections: deriveSectionsFromResume(normalized),
                   hasResumeChanges: false,
+                  workspaceGeneration: state.workspaceGeneration + 1,
                 };
               },
               false,

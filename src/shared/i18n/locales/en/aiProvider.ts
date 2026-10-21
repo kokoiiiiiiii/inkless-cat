@@ -15,7 +15,7 @@ export const aiProvider = {
   trustNote:
     'Your browser sends this key and the short test prompt directly to the endpoint you enter. Inkless Cat does not receive or store the key. Use only an endpoint you trust.',
   probeCost: 'A connection test sends one short request and may use a small amount of API quota.',
-  futureNote: 'AI editing tools will be added in a later phase.',
+  futureNote: 'Use AI enhancement for your summary, experience highlights, and project summaries.',
   save: 'Save for this session',
   saved: 'Saved for this session',
   test: 'Test connection',
@@ -51,5 +51,19 @@ export const aiProvider = {
       'The browser could not read a response. Possible causes include network, DNS, TLS, or endpoint CORS restrictions. Check that the service is reachable and allows browser requests from this site.',
     incompatible_response:
       'The endpoint response did not include a valid Chat Completions message.',
+    stream_unsupported:
+      'The endpoint did not return an OpenAI-compatible SSE stream. Check that streaming Chat Completions are supported.',
+    stream_interrupted:
+      'The response stream ended before its completion marker arrived. No partial suggestion was kept.',
+    stream_invalid:
+      'The endpoint returned invalid or unsupported streaming data. No partial suggestion was kept.',
+    stream_truncated:
+      'The model reached its output limit, so the result may be incomplete. Shorten the source or adjust it and try again.',
+    stream_filtered:
+      'The model service stopped generation because of its content safety policy. This result was not kept.',
+    stream_not_text:
+      'The model did not complete text generation normally. Check model compatibility and try again.',
+    stream_too_large:
+      'The response stream exceeded the supported size limit. No partial suggestion was kept.',
   },
 } as const;

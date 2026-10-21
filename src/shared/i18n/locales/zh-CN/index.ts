@@ -1,3 +1,4 @@
+import { aiEnhancement } from './aiEnhancement';
 import { aiProvider } from './aiProvider';
 import { common } from './common';
 import { editor } from './editor';
@@ -9,6 +10,7 @@ import { topbar } from './topbar';
 
 const zhCN = {
   aiProvider,
+  aiEnhancement,
   common,
   topbar,
   editor,

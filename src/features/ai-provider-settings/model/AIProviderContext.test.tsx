@@ -1,7 +1,10 @@
 import { createDefaultWorkspace } from '@entities/workspace';
 import { workspaceToJson } from '@features/export-resume';
-import type { ChatCompletionAdapter } from '@shared/api/ai';
-import { ProviderError } from '@shared/api/ai';
+import {
+  type ChatCompletionAdapter,
+  ProviderError,
+  type StreamCompleteOptions,
+} from '@shared/api/ai';
 import { I18nProvider, useI18n } from '@shared/i18n';
 import {
   act,
@@ -113,6 +116,31 @@ const PassiveFeatureCall = () => {
   );
 };
 
+const StreamFeatureConsumer = () => {
+  const provider = useAIProviderClient();
+  const [result, setResult] = useState('');
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() =>
+          void provider
+            .streamComplete([{ role: 'user', content: 'Stream a summary.' }], {
+              onDelta: (delta) => setResult((current) => current + delta),
+            })
+            .then((value) => setResult(value.content))
+            .catch((error: unknown) =>
+              setResult(error instanceof ProviderError ? error.code : 'unexpected_error'),
+            )
+        }
+      >
+        Use streaming provider
+      </button>
+      <output data-testid="stream-feature-result">{result}</output>
+    </section>
+  );
+};
+
 const fillAndSave = () => {
   fireEvent.change(screen.getByRole('textbox', { name: 'Base URL' }), {
     target: { value: SAVED_BASE_URL },
@@ -128,7 +156,13 @@ const fillAndSave = () => {
 
 const makeAdapter = (
   complete: ChatCompletionAdapter['complete'] = vi.fn().mockResolvedValue({ content: 'Done' }),
-): ChatCompletionAdapter => ({ complete });
+  streamComplete: ChatCompletionAdapter['streamComplete'] = vi
+    .fn()
+    .mockImplementation((_config, _credentials, _messages, options: StreamCompleteOptions) => {
+      options.onDelta('Done');
+      return Promise.resolve({ content: 'Done' });
+    }),
+): ChatCompletionAdapter => ({ complete, streamComplete });
 
 afterEach(() => {
   cleanup();
@@ -215,6 +249,96 @@ describe('AI provider session context', () => {
       model: 'draft-model',
     });
     expect(complete.mock.calls[1]?.[1]).toEqual({ apiKey: 'unsaved-draft-key' });
+  });
+
+  it('streams through the saved private credentials and suppresses deltas after Provider invalidation', async () => {
+    let signal: AbortSignal | undefined;
+    let deliverDelta: ((delta: string) => void) | undefined;
+    const streamComplete = vi.fn(
+      (_config, _credentials, _messages, options: StreamCompleteOptions) =>
+        new Promise<{ content: string }>(() => {
+          signal = options.signal;
+          deliverDelta = options.onDelta;
+        }),
+    );
+    render(
+      <AIProviderProvider client={makeAdapter(undefined, streamComplete)}>
+        <SettingsConsumer />
+        <StreamFeatureConsumer />
+      </AIProviderProvider>,
+    );
+    fillAndSave();
+    fireEvent.click(screen.getByRole('button', { name: 'Use streaming provider' }));
+
+    await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(1));
+    expect(streamComplete).toHaveBeenCalledWith(
+      { baseUrl: SAVED_BASE_URL, model: SAVED_MODEL },
+      { apiKey: API_KEY },
+      [{ role: 'user', content: 'Stream a summary.' }],
+      expect.objectContaining({ signal: expect.any(AbortSignal), onDelta: expect.any(Function) }),
+    );
+    expect(screen.getByTestId('stream-feature-result').textContent).toBe('');
+
+    act(() => deliverDelta?.('Visible'));
+    expect(screen.getByTestId('stream-feature-result').textContent).toBe('Visible');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear settings' }));
+    expect(signal?.aborted).toBe(true);
+    act(() => deliverDelta?.(' late'));
+    expect(screen.getByTestId('stream-feature-result').textContent).toBe('Visible');
+  });
+
+  it('aborts an active stream when a new Provider configuration is saved', async () => {
+    let signal: AbortSignal | undefined;
+    let deliverDelta: ((delta: string) => void) | undefined;
+    const streamComplete = vi.fn(
+      (_config, _credentials, _messages, options: StreamCompleteOptions) =>
+        new Promise<{ content: string }>(() => {
+          signal = options.signal;
+          deliverDelta = options.onDelta;
+        }),
+    );
+    render(
+      <AIProviderProvider client={makeAdapter(undefined, streamComplete)}>
+        <SettingsConsumer />
+        <StreamFeatureConsumer />
+      </AIProviderProvider>,
+    );
+    fillAndSave();
+    fireEvent.click(screen.getByRole('button', { name: 'Use streaming provider' }));
+    await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model' }), {
+      target: { value: 'replacement-model' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    expect(signal?.aborted).toBe(true);
+    act(() => deliverDelta?.('late result'));
+    expect(screen.getByTestId('stream-feature-result').textContent).toBe('');
+  });
+
+  it('aborts an active stream when the Provider unmounts and ignores late deltas', async () => {
+    let signal: AbortSignal | undefined;
+    let deliverDelta: ((delta: string) => void) | undefined;
+    const streamComplete = vi.fn(
+      (_config, _credentials, _messages, options: StreamCompleteOptions) =>
+        new Promise<{ content: string }>(() => {
+          signal = options.signal;
+          deliverDelta = options.onDelta;
+        }),
+    );
+    const view = render(
+      <AIProviderProvider client={makeAdapter(undefined, streamComplete)}>
+        <SettingsConsumer />
+        <StreamFeatureConsumer />
+      </AIProviderProvider>,
+    );
+    fillAndSave();
+    fireEvent.click(screen.getByRole('button', { name: 'Use streaming provider' }));
+    await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(1));
+
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    act(() => deliverDelta?.('late result'));
   });
 
   it('invalidates an old connection result after edits and uses the newly saved configuration', async () => {

@@ -1,8 +1,9 @@
 import type { ResumeData, ResumePersonal, ResumePersonalExtra } from '@entities/resume';
+import { AIEnhancementAction } from '@features/ai-resume-enhancement';
 import { type PersonalSettings } from '@features/edit-module';
 import type { SectionFocusHandler } from '@features/modules-panel';
 import { useI18n } from '@shared/i18n';
-import { memo } from 'react';
+import { memo, useId } from 'react';
 
 import {
   cardClass,
@@ -43,6 +44,7 @@ const PersonalSection = memo(
     onSettingChange,
   }: PersonalSectionProps) => {
     const { t } = useI18n();
+    const summaryId = useId();
     const extras = Array.isArray(personal.extras) ? personal.extras : [];
     const showPhoto = settings.showPhoto !== false;
     const photoSize = Math.max(80, Math.min(settings.photoSize ?? 120, 260));
@@ -115,16 +117,22 @@ const PersonalSection = memo(
                   onFocus={() => notifyFocus('personal', 'personal')}
                 />
               </label>
-              <label className={labelClass}>
-                <span className={labelTextClass}>{t('modules.personal.fields.summary.label')}</span>
+              <div className={labelClass}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label htmlFor={summaryId} className={labelTextClass}>
+                    {t('modules.personal.fields.summary.label')}
+                  </label>
+                  <AIEnhancementAction target={{ kind: 'personal-summary' }} />
+                </div>
                 <textarea
+                  id={summaryId}
                   className={textareaClass}
                   value={personal.summary}
                   placeholder={t('modules.personal.fields.summary.placeholder')}
                   onChange={(event) => onChange('summary', event.target.value)}
                   onFocus={() => notifyFocus('summary', 'summary')}
                 />
-              </label>
+              </div>
             </div>
             <div className="flex flex-col gap-4 lg:w-[260px] lg:flex-shrink-0">
               {showPhoto && (

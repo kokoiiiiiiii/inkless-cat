@@ -13,7 +13,7 @@ export const aiProvider = {
   trustNote:
     '浏览器会将此密钥和简短测试内容直接发送到你填写的服务端点。Inkless Cat 不会接收或保存密钥。请只使用你信任的服务端点。',
   probeCost: '连接测试会发送一次简短请求，可能消耗少量 API 额度。',
-  futureNote: 'AI 简历编辑能力将在后续阶段提供。',
+  futureNote: '可在个人简介、工作经历和项目描述中使用 AI 简历润色。',
   save: '保存到当前会话',
   saved: '已保存到当前会话',
   test: '测试连接',
@@ -45,5 +45,12 @@ export const aiProvider = {
     network:
       '浏览器无法读取响应，可能与网络、DNS、TLS 或端点的 CORS 限制有关。请检查服务是否可访问，以及是否允许此网站发起浏览器请求。',
     incompatible_response: '端点响应缺少有效的 Chat Completions 消息。',
+    stream_unsupported: '端点未返回兼容的 SSE 流。请确认服务支持 Chat Completions 流式输出。',
+    stream_interrupted: '响应流在收到结束标记前中断，未保留部分建议。',
+    stream_invalid: '端点返回了无效或不支持的流式数据，未保留部分建议。',
+    stream_truncated: '模型输出达到长度限制，生成内容可能不完整。请精简原文或调整内容后重试。',
+    stream_filtered: '模型服务因内容安全策略中止生成，未采用本次结果。',
+    stream_not_text: '模型没有正常完成文本生成，请检查模型兼容性后重试。',
+    stream_too_large: '响应流超过支持的大小限制，未保留部分建议。',
   },
 } as const;

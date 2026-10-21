@@ -1,4 +1,5 @@
 import { sectionDefinitions, type StandardSectionKey } from '@entities/module';
+import { AIEnhancementAction } from '@features/ai-resume-enhancement';
 import type { ResumeSectionItem } from '@features/edit-module';
 import type { SectionFocusHandler } from '@features/modules-panel';
 import { useI18n } from '@shared/i18n';
@@ -54,12 +55,23 @@ type FieldHelperFactoryProps = {
   placeholder: (field: string, fallback: string) => string;
 };
 
-const FieldLabel = ({ label, children }: { label: string; children: ReactNode }) => (
-  <label className={labelClass}>
-    <span className={labelTextClass}>{label}</span>
-    {children}
-  </label>
-);
+type FieldLabelProps = { label: string; children: ReactNode; action?: ReactNode };
+
+const FieldLabel = ({ label, children, action }: FieldLabelProps) =>
+  action ? (
+    <div className={labelClass}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className={labelTextClass}>{label}</span>
+        {action}
+      </div>
+      {children}
+    </div>
+  ) : (
+    <label className={labelClass}>
+      <span className={labelTextClass}>{label}</span>
+      {children}
+    </label>
+  );
 
 const createFieldHelpers = ({
   sectionKey,
@@ -89,10 +101,21 @@ const createFieldHelpers = ({
     </FieldLabel>
   );
 
+  const getEnhancementAction: FieldHelpers['action'] = (field) => {
+    if (sectionKey === 'experience' && field === 'highlights') {
+      return <AIEnhancementAction target={{ kind: 'experience-highlights', itemId }} />;
+    }
+    if (sectionKey === 'projects' && field === 'summary') {
+      return <AIEnhancementAction target={{ kind: 'project-summary', itemId }} />;
+    }
+    return null;
+  };
+
   const textarea: FieldHelpers['textarea'] = (field, options = {}) => (
-    <FieldLabel label={resolveLabel(field)}>
+    <FieldLabel label={resolveLabel(field)} action={options.action}>
       <textarea
         className={textareaClass}
+        aria-label={options.action ? resolveLabel(field) : undefined}
         rows={options.rows ?? 3}
         value={toStringValue(item[field])}
         placeholder={options.placeholder ?? ''}
@@ -103,9 +126,10 @@ const createFieldHelpers = ({
   );
 
   const list: FieldHelpers['list'] = (field, options = {}) => (
-    <FieldLabel label={resolveLabel(field)}>
+    <FieldLabel label={resolveLabel(field)} action={options.action}>
       <textarea
         className={textareaClass}
+        aria-label={options.action ? resolveLabel(field) : undefined}
         rows={options.rows ?? 4}
         value={
           Array.isArray(item[field]) ? (item[field] as string[]).filter(Boolean).join('\n') : ''
@@ -122,6 +146,7 @@ const createFieldHelpers = ({
     textarea,
     list,
     placeholder,
+    action: getEnhancementAction,
     itemId,
   };
 };

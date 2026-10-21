@@ -8,12 +8,14 @@ export type FieldOptions = {
 
 export type TextareaOptions = FieldOptions & {
   rows?: number;
+  action?: ReactNode;
 };
 
 export type FieldHelpers = {
   input: (field: string, options?: FieldOptions) => ReactNode;
   textarea: (field: string, options?: TextareaOptions) => ReactNode;
   list: (field: string, options?: TextareaOptions) => ReactNode;
+  action: (field: string) => ReactNode;
   placeholder: (field: string, fallback: string) => string;
   itemId: string;
 };
@@ -27,7 +29,7 @@ const rendererMap: Partial<Record<StandardSectionKey, SectionRenderer>> = {
       {input('url', { placeholder: placeholder('url', 'https://example.com') })}
     </>
   ),
-  experience: ({ input, list, placeholder }) => (
+  experience: ({ input, list, placeholder, action }) => (
     <>
       {input('company', { placeholder: placeholder('company', '公司或团队名称') })}
       {input('role', { placeholder: placeholder('role', '职位 / 角色') })}
@@ -39,6 +41,7 @@ const rendererMap: Partial<Record<StandardSectionKey, SectionRenderer>> = {
       {list('highlights', {
         rows: 4,
         placeholder: placeholder('highlights', '每行一个成果或职责'),
+        action: action('highlights'),
       })}
     </>
   ),
@@ -57,7 +60,7 @@ const rendererMap: Partial<Record<StandardSectionKey, SectionRenderer>> = {
       })}
     </>
   ),
-  projects: ({ input, textarea, placeholder, itemId }) => (
+  projects: ({ input, textarea, placeholder, itemId, action }) => (
     <>
       {input('name', { placeholder: placeholder('name', '项目名称') })}
       {input('role', { placeholder: placeholder('role', '角色 / 负责范围') })}
@@ -65,6 +68,7 @@ const rendererMap: Partial<Record<StandardSectionKey, SectionRenderer>> = {
         rows: 3,
         placeholder: placeholder('summary', '简要说明项目背景、亮点与成果'),
         focusId: itemId,
+        action: action('summary'),
       })}
       {input('link', { placeholder: placeholder('link', 'https://项目链接（可选）') })}
     </>
