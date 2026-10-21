@@ -55,6 +55,9 @@ export type ProviderErrorCode =
   | 'stream_unsupported'
   | 'stream_interrupted'
   | 'stream_invalid'
+  | 'stream_truncated'
+  | 'stream_filtered'
+  | 'stream_not_text'
   | 'stream_too_large';
 
 export class ProviderError extends Error {

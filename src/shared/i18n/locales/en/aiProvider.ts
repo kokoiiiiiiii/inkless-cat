@@ -57,6 +57,12 @@ export const aiProvider = {
       'The response stream ended before its completion marker arrived. No partial suggestion was kept.',
     stream_invalid:
       'The endpoint returned invalid or unsupported streaming data. No partial suggestion was kept.',
+    stream_truncated:
+      'The model reached its output limit, so the result may be incomplete. Shorten the source or adjust it and try again.',
+    stream_filtered:
+      'The model service stopped generation because of its content safety policy. This result was not kept.',
+    stream_not_text:
+      'The model did not complete text generation normally. Check model compatibility and try again.',
     stream_too_large:
       'The response stream exceeded the supported size limit. No partial suggestion was kept.',
   },

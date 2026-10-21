@@ -6,7 +6,7 @@ import type {
   ProviderConfig,
   StreamCompleteOptions,
 } from '@shared/api/ai';
-import { ProviderError } from '@shared/api/ai';
+import { createOpenAICompatibleClient, ProviderError } from '@shared/api/ai';
 import { I18nProvider } from '@shared/i18n';
 import { RESUME_STORE_PERSIST_KEY } from '@shared/lib/storage';
 import { FeedbackProvider, useFeedbackStore } from '@shared/ui/feedback';
@@ -223,6 +223,102 @@ describe('useAIResumeEnhancement', () => {
     );
     expect(useFeedbackStore.getState().items).toHaveLength(0);
   });
+
+  it.each([
+    ['length', 'stream_truncated'],
+    ['content_filter', 'stream_filtered'],
+  ])(
+    'clears a real SSE parser %s failure before it can be adopted, persisted, or undone',
+    async (finishReason, errorCode) => {
+      const encoder = new TextEncoder();
+      let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+      const firstEvent = `data: ${JSON.stringify({ choices: [{ delta: { content: 'Partial streamed preview' } }] })}\n\n`;
+      const firstResponseBody = new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller;
+          controller.enqueue(encoder.encode(firstEvent));
+        },
+      });
+      const retryBody =
+        `data: ${JSON.stringify({ choices: [{ delta: { content: 'Explicit retry result.' } }] })}\n\n` +
+        'data: [DONE]\n\n';
+      const apiKey = 'integration-test-secret-key';
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          new Response(firstResponseBody, {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(retryBody, {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          }),
+        );
+      const client = createOpenAICompatibleClient({ fetchImpl });
+      const provider: AIEnhancementProviderClient = {
+        configuration: testConfiguration,
+        isConfigured: true,
+        connectionStatus: 'ready',
+        complete: (messages, options) =>
+          client.complete(testConfiguration, { apiKey }, messages, options),
+        streamComplete: (messages, options) =>
+          client.streamComplete(testConfiguration, { apiKey }, messages, options),
+      };
+      const { result } = renderHook(() => useAIResumeEnhancement(provider), {
+        wrapper: testProviders,
+      });
+      openSummary(result.current);
+      const persistedBefore = localStorage.getItem(RESUME_STORE_PERSIST_KEY);
+      let generation: Promise<void> | undefined;
+      act(() => {
+        generation = result.current.generate('en');
+      });
+
+      await act(async () => new Promise((resolve) => globalThis.setTimeout(resolve, 60)));
+      expect(result.current.session?.status).toBe('streaming');
+      expect(result.current.session?.preview).toBe('Partial streamed preview');
+      expect(result.current.session?.candidate).toBe('');
+      expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+
+      const terminalEvents =
+        `data: ${JSON.stringify({
+          choices: [{ delta: {}, finish_reason: finishReason }],
+        })}\n\n` + 'data: [DONE]\n\n';
+      await act(async () => {
+        streamController?.enqueue(encoder.encode(terminalEvents));
+        streamController?.close();
+        await generation;
+      });
+
+      expect(result.current.session?.status).toBe('error');
+      expect(result.current.session?.errorCode).toBe('provider_error');
+      expect(result.current.session?.providerErrorCode).toBe(errorCode);
+      expect(result.current.session?.preview).toBe('');
+      expect(result.current.session?.candidate).toBe('');
+      expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+      expect(useResumeStore.getState().hasResumeChanges).toBe(false);
+      expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toBe(persistedBefore);
+      expect(useFeedbackStore.getState().items).toHaveLength(0);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      const requestBody = fetchImpl.mock.calls[0]?.[1]?.body;
+      if (typeof requestBody !== 'string') throw new Error('Expected a JSON request body.');
+      expect(JSON.parse(requestBody)).toMatchObject({ stream: true });
+
+      act(() => result.current.apply());
+      expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+      expect(useFeedbackStore.getState().items).toHaveLength(0);
+
+      await act(async () => result.current.generate('en'));
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(result.current.session?.status).toBe('suggested');
+      expect(result.current.session?.candidate).toBe('Explicit retry result.');
+      expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+      expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toBe(persistedBefore);
+    },
+  );
 
   it('does not keep partial output when a stream is interrupted or times out', async () => {
     const failureCode = vi.fn().mockRejectedValue(new ProviderError('stream_interrupted'));

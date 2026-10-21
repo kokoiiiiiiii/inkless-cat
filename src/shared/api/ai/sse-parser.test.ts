@@ -6,6 +6,10 @@ import { ProviderError } from './types';
 const encoder = new TextEncoder();
 const event = (delta: Record<string, unknown>) =>
   `data: ${JSON.stringify({ choices: [{ delta }] })}\n\n`;
+const choiceEvent = (choice: Record<string, unknown>) =>
+  `data: ${JSON.stringify({ choices: [choice] })}\n\n`;
+const finishEvent = (finishReason: unknown, delta: Record<string, unknown> = {}) =>
+  choiceEvent({ delta, finish_reason: finishReason });
 const done = 'data: [DONE]\n\n';
 const streamOf = (chunks: Uint8Array[]) =>
   new ReadableStream<Uint8Array>({
@@ -119,6 +123,117 @@ describe('Chat Completions SSE parser', () => {
       `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ function: { arguments: 'danger' } }] } }] })}\n\n` +
       done;
     await expect(parse([encoder.encode(body)])).resolves.toMatchObject({ content: '' });
+  });
+
+  it.each([
+    [
+      'null',
+      finishEvent(null, { content: 'Null is an unfinished chunk.' }),
+      'Null is an unfinished chunk.',
+    ],
+    ['stop', finishEvent('stop', { content: 'Complete text.' }), 'Complete text.'],
+    ['omitted', event({ content: 'Compatible text.' }), 'Compatible text.'],
+  ])('accepts %s finish_reason behavior with a valid [DONE]', async (_label, chunk, content) => {
+    await expect(parse([encoder.encode(`${chunk}${done}`)])).resolves.toMatchObject({ content });
+  });
+
+  it('accepts stop in a separate empty-delta completion chunk', async () => {
+    const body = `${event({ content: 'Complete text.' })}${finishEvent('stop')}${done}`;
+    await expect(parse([encoder.encode(body)])).resolves.toMatchObject({
+      content: 'Complete text.',
+    });
+  });
+
+  it('accepts stop alongside the final text delta', async () => {
+    const body = `${event({ content: 'Almost ' })}${finishEvent('stop', {
+      content: 'complete.',
+    })}${done}`;
+    await expect(parse([encoder.encode(body)])).resolves.toMatchObject({
+      content: 'Almost complete.',
+    });
+  });
+
+  it('rejects length even when the abnormal completion is followed by [DONE]', async () => {
+    await expectCode(
+      parse([encoder.encode(`${event({ content: 'partial' })}${finishEvent('length')}${done}`)]),
+      'stream_truncated',
+    );
+  });
+
+  it('rejects length with the final text delta before delivering that delta', async () => {
+    const onDelta = vi.fn<(delta: string) => void>();
+    const promise = parse(
+      [encoder.encode(`${finishEvent('length', { content: 'truncated final text' })}${done}`)],
+      onDelta,
+    );
+    await expectCode(promise, 'stream_truncated');
+    expect(onDelta).not.toHaveBeenCalled();
+  });
+
+  it('rejects content_filter after partial text instead of returning it', async () => {
+    const onDelta = vi.fn<(delta: string) => void>();
+    const promise = parse(
+      [encoder.encode(`${event({ content: 'partial ' })}${finishEvent('content_filter')}${done}`)],
+      onDelta,
+    );
+    await expectCode(promise, 'stream_filtered');
+    expect(onDelta.mock.calls.flat().join('')).toBe('partial ');
+  });
+
+  it.each([
+    ['tool_calls', 'stream_not_text'],
+    ['function_call', 'stream_not_text'],
+    ['provider_specific_reason', 'stream_not_text'],
+  ])('rejects unsupported finish_reason %s', async (finishReason, code) => {
+    await expectCode(parse([encoder.encode(`${finishEvent(finishReason)}${done}`)]), code);
+  });
+
+  it.each([5, false, {}, []])('rejects non-string, non-null finish_reason %j', async (value) => {
+    await expectCode(parse([encoder.encode(`${finishEvent(value)}${done}`)]), 'stream_invalid');
+  });
+
+  it('rejects length after multiple deltas without resolving their accumulated text', async () => {
+    const onDelta = vi.fn<(delta: string) => void>();
+    const promise = parse(
+      [
+        encoder.encode(
+          `${event({ content: 'first ' })}${event({ content: 'second ' })}${finishEvent('length')}${done}`,
+        ),
+      ],
+      onDelta,
+    );
+    await expectCode(promise, 'stream_truncated');
+    expect(onDelta.mock.calls.flat().join('')).toBe('first second ');
+  });
+
+  it('rejects a non-normal reason even if [DONE] is present in the same network chunk', async () => {
+    const body = `${event({ content: 'partial' })}${finishEvent('content_filter')}${done}`;
+    await expectCode(parse([encoder.encode(body)]), 'stream_filtered');
+  });
+
+  it('does not treat stop as successful without the required [DONE] transport marker', async () => {
+    await expectCode(
+      parse([encoder.encode(`${event({ content: 'finished' })}${finishEvent('stop')}`)]),
+      'stream_interrupted',
+    );
+  });
+
+  it('ignores keep-alive and unrelated control chunks before a normal stop', async () => {
+    const body =
+      `: keep-alive\n\n${choiceEvent({ delta: { role: 'assistant' }, finish_reason: null })}` +
+      `${choiceEvent({ delta: { content: null } })}` +
+      `data: ${JSON.stringify({ choices: [], usage: { completion_tokens: 2 } })}\n\n` +
+      `${finishEvent('stop', { content: 'valid' })}${done}`;
+    await expect(parse([encoder.encode(body)])).resolves.toMatchObject({ content: 'valid' });
+  });
+
+  it('does not include resume text in errors for abnormal completion reasons', async () => {
+    const privateText = 'private resume content from the model';
+    const error = await parse([
+      encoder.encode(`${event({ content: privateText })}${finishEvent('length')}${done}`),
+    ]).catch((error_: unknown) => error_);
+    expect(error).toMatchObject({ code: 'stream_truncated', message: 'stream_truncated' });
+    expect(String(error)).not.toContain(privateText);
   });
 
   it('requires the [DONE] marker even after delivering visible deltas', async () => {

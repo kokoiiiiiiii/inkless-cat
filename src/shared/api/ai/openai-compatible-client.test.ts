@@ -237,6 +237,45 @@ describe('OpenAI-compatible provider client', () => {
     expect(onDelta.mock.calls.flat().join('')).toBe('Streaming result');
   });
 
+  it('accepts a normal stop finish_reason in a separate completion chunk', async () => {
+    const content = 'Complete streamed result.';
+    const body =
+      `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}\n\n` +
+      'data: [DONE]\n\n';
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(streamResponse(body));
+    const client = createOpenAICompatibleClient({ fetchImpl });
+
+    await expect(
+      client.streamComplete(config, credentials, [], { onDelta: vi.fn() }),
+    ).resolves.toEqual({ content });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['length', 'stream_truncated'],
+    ['content_filter', 'stream_filtered'],
+  ])('rejects %s without retrying or falling back to non-streaming', async (finishReason, code) => {
+    const privateText = 'private model response text';
+    const body =
+      `data: ${JSON.stringify({ choices: [{ delta: { content: privateText } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: finishReason }] })}\n\n` +
+      'data: [DONE]\n\n';
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(streamResponse(body));
+    const client = createOpenAICompatibleClient({ fetchImpl });
+    const error = await client
+      .streamComplete(config, credentials, [], { onDelta: vi.fn() })
+      .catch((error_: unknown) => error_);
+
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).toMatchObject({ code, message: code });
+    expect(String(error)).not.toContain(privateText);
+    expect(String(error)).not.toContain(credentials.apiKey);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(init?.body).toContain('"stream":true');
+  });
+
   it.each([401, 403, 404, 429, 500])(
     'maps streaming HTTP %s before reading its body',
     async (status) => {

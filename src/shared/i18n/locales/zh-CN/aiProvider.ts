@@ -48,6 +48,9 @@ export const aiProvider = {
     stream_unsupported: '端点未返回兼容的 SSE 流。请确认服务支持 Chat Completions 流式输出。',
     stream_interrupted: '响应流在收到结束标记前中断，未保留部分建议。',
     stream_invalid: '端点返回了无效或不支持的流式数据，未保留部分建议。',
+    stream_truncated: '模型输出达到长度限制，生成内容可能不完整。请精简原文或调整内容后重试。',
+    stream_filtered: '模型服务因内容安全策略中止生成，未采用本次结果。',
+    stream_not_text: '模型没有正常完成文本生成，请检查模型兼容性后重试。',
     stream_too_large: '响应流超过支持的大小限制，未保留部分建议。',
   },
 } as const;

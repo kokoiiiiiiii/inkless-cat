@@ -53,6 +53,16 @@ const writeDelta = (response: ServerResponse, content: string) => {
   }
 };
 
+const writeFinishReason = (response: ServerResponse, finishReason: string) => {
+  if (!response.destroyed) {
+    response.write(
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: finishReason }] })}\n\n`,
+    );
+    response.write('data: [DONE]\n\n');
+    response.end();
+  }
+};
+
 const writeSSEContent = async (response: ServerResponse, content: string) => {
   startSSE(response);
   const characters = [...content];
@@ -356,6 +366,63 @@ test('summary preview grows before [DONE] and becomes adoptable only after compl
   await dialog.getByRole('button', { name: '采用建议' }).click();
   await expect(summary).toHaveValue('Live suggestion.');
 });
+
+for (const { finishReason, errorMessage } of [
+  {
+    finishReason: 'length',
+    errorMessage: '模型输出达到长度限制，生成内容可能不完整。',
+  },
+  {
+    finishReason: 'content_filter',
+    errorMessage: '模型服务因内容安全策略中止生成，未采用本次结果。',
+  },
+]) {
+  test(`${finishReason} keeps a streamed preview out of the resume and offers a retry`, async ({
+    page,
+  }) => {
+    let firstDeltaArrived: (() => void) | undefined;
+    let releaseCompletion: (() => void) | undefined;
+    const firstDelta = new Promise<void>((resolve) => {
+      firstDeltaArrived = resolve;
+    });
+    const completionGate = new Promise<void>((resolve) => {
+      releaseCompletion = resolve;
+    });
+    const { requests } = await startSSEMock(page, async (_body, response) => {
+      startSSE(response);
+      writeDelta(response, 'Temporary partial result');
+      firstDeltaArrived?.();
+      await completionGate;
+      writeFinishReason(response, finishReason);
+    });
+
+    await page.goto('/');
+    await configureProvider(page);
+    const summary = page.getByRole('textbox', { name: '个人简介' });
+    const original = await summary.inputValue();
+    const dialog = await openPersonalEnhancement(page, '个人简介');
+    await generateInDialog(dialog, 'AI 润色');
+    await firstDelta;
+
+    await expect(dialog.getByText('Temporary partial result', { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: '采用建议' })).toHaveCount(0);
+    await expect(summary).toHaveValue(original);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.stream).toBe(true);
+
+    releaseCompletion?.();
+    await expect(dialog.getByRole('alert')).toContainText(errorMessage);
+    await expect(dialog.getByLabel('AI 建议（可手动修改）')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: '采用建议' })).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: '重新生成' })).toBeEnabled();
+    await expect(summary).toHaveValue(original);
+    expect(requests).toHaveLength(1);
+
+    await page.reload();
+    await expect(page.getByRole('textbox', { name: '个人简介' })).toHaveValue(original);
+  });
+}
 
 test('Highlights shows incomplete JSON as read-only progress and parses only after [DONE]', async ({
   page,

@@ -93,6 +93,28 @@ const validateAndReadTextDelta = (value: unknown): string | null => {
     throw new ProviderError('stream_invalid');
   }
 
+  if (typeof choice.finish_reason === 'string') {
+    switch (choice.finish_reason) {
+      case 'stop': {
+        break;
+      }
+      case 'length': {
+        throw new ProviderError('stream_truncated');
+      }
+      case 'content_filter': {
+        throw new ProviderError('stream_filtered');
+      }
+      case 'tool_calls':
+      case 'function_call': {
+        throw new ProviderError('stream_not_text');
+      }
+      default: {
+        if (choice.finish_reason.length === 0) throw new ProviderError('stream_invalid');
+        throw new ProviderError('stream_not_text');
+      }
+    }
+  }
+
   return typeof delta.content === 'string' ? delta.content : null;
 };
 
