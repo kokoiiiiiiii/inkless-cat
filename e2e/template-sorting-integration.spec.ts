@@ -106,9 +106,23 @@ test('section order and template changes preserve fictional resume data together
   const customCard = page
     .locator('article[data-template-id^="custom-"]')
     .filter({ has: customRadio });
+  const customTemplateId = await customCard.getAttribute('data-template-id');
+  expect(customTemplateId).toBeTruthy();
+  const stableCustomCard = page.locator(`[data-template-id="${customTemplateId}"]`);
   await customCard.getByRole('combobox', { name: '风格' }).selectOption('custom');
   await customCard.getByLabel('背景', { exact: true }).fill('#fffaf0');
   await expect(mainPreview(page)).toHaveCSS('background-color', 'rgb(255, 250, 240)');
+
+  const customNameInput = stableCustomCard.getByRole('textbox', { name: '模板名称' });
+  await customNameInput.fill('Fictional Portfolio Updated');
+  await customNameInput.press('Enter');
+  await expect(customNameInput).not.toBeFocused();
+  const renamedCustomRadio = page.getByRole('radio', {
+    name: 'Fictional Portfolio Updated',
+    exact: true,
+  });
+  await expect(renamedCustomRadio).toBeChecked();
+  await expect.poll(() => getSectionOrder(page)).toEqual(sortedOrder);
 
   const afterCustomStyle = await exportWorkspaceFromUI(page);
   expect(afterCustomStyle.resume).toEqual(beforeStyle.resume);
@@ -120,7 +134,9 @@ test('section order and template changes preserve fictional resume data together
   await page.reload();
   await openSectionSorting(page);
   await openTemplatePanel(page);
-  await expect(page.getByRole('radio', { name: 'Fictional Portfolio', exact: true })).toBeChecked();
+  await expect(
+    page.getByRole('radio', { name: 'Fictional Portfolio Updated', exact: true }),
+  ).toBeChecked();
   await expect.poll(() => getSectionOrder(page)).toEqual(sortedOrder);
   const afterReload = await exportWorkspaceFromUI(page);
   expect(afterReload.resume).toEqual(beforeStyle.resume);
