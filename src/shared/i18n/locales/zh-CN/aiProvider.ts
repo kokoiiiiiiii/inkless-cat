@@ -13,7 +13,7 @@ export const aiProvider = {
   trustNote:
     '浏览器会将此密钥和简短测试内容直接发送到你填写的服务端点。Inkless Cat 不会接收或保存密钥。请只使用你信任的服务端点。',
   probeCost: '连接测试会发送一次简短请求，可能消耗少量 API 额度。',
-  futureNote: '可在个人简介、工作经历和项目描述中使用 AI 简历润色。',
+  futureNote: '可使用 AI 访谈梳理经历，或润色选中的简历字段。',
   save: '保存到当前会话',
   saved: '已保存到当前会话',
   test: '测试连接',
