@@ -1,4 +1,4 @@
-import { createCustomSection, getCustomSectionKey } from '@entities/module';
+import { type ActiveSectionKey, createCustomSection, getCustomSectionKey } from '@entities/module';
 import {
   createEmptyResume,
   deriveSectionsFromResume,
@@ -99,5 +99,34 @@ describe('useSortableSections', () => {
     const state = useResumeStore.getState();
     expect(state.resume.customSections).toEqual([]);
     expect(state.activeSections).toEqual([]);
+  });
+
+  it('preserves custom section identity, content, enabled state, and persisted order', () => {
+    const resume = normalizeResumeSchema(createEmptyResume(), { clone: true });
+    const customSection = createCustomSection('References');
+    customSection.text = 'Keep this content with its module ID.';
+    resume.customSections = [customSection];
+    const customKey = getCustomSectionKey(customSection.id);
+    const activeSections: ActiveSectionKey[] = ['experience', customKey, 'education'];
+    useResumeStore.setState({ resume, activeSections });
+    const { result } = renderHook(() => useSortableSections(), { wrapper });
+
+    const nextOrder: ActiveSectionKey[] = [customKey, 'education', 'experience'];
+    act(() => result.current.reorderSections(nextOrder));
+
+    const state = useResumeStore.getState();
+    expect(state.activeSections).toEqual(nextOrder);
+    expect(state.resume.customSections).toHaveLength(1);
+    expect(state.resume.customSections[0]).toMatchObject({
+      id: customSection.id,
+      title: 'References',
+      text: 'Keep this content with its module ID.',
+    });
+
+    const stored = JSON.parse(localStorage.getItem('inkless-cat/resume-store') ?? '{}') as {
+      state?: { activeSections?: string[]; resume?: { customSections?: Array<{ id: string }> } };
+    };
+    expect(stored.state?.activeSections).toEqual(nextOrder);
+    expect(stored.state?.resume?.customSections?.[0]?.id).toBe(customSection.id);
   });
 });

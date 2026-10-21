@@ -10,7 +10,11 @@ import { useI18n } from '@shared/i18n';
 import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { type DragState, useSectionDragController } from './useSectionDragController';
+import {
+  type DragCompletion,
+  type DragState,
+  useSectionDragController,
+} from './useSectionDragController';
 
 export type SectionToggleHandler = (sectionKey: string, enabled: boolean) => void;
 export type SectionReorderHandler = (order: string[]) => void;
@@ -29,10 +33,11 @@ export type SectionManagerController = {
   standardAnyEnabled: boolean;
   displayOrder: string[];
   dragState: DragState;
+  dragCompletion: DragCompletion | null;
   dragListRef: MutableRefObject<HTMLUListElement | null>;
   getSectionTitle: (key: string) => string;
   handleToggleAllStandard: (nextState: boolean) => void;
-  handlePointerDown: (event: ReactPointerEvent<HTMLLIElement>, sectionKey: string) => void;
+  handlePointerDown: (event: ReactPointerEvent<HTMLElement>, sectionKey: string) => void;
 };
 
 export const useSectionManager = ({
@@ -111,10 +116,11 @@ export const useSectionManager = ({
     [onToggleSection, resolvedActiveSections],
   );
 
-  const { displayOrder, dragState, dragListRef, handlePointerDown } = useSectionDragController({
-    resolvedActiveSections,
-    onReorderSections,
-  });
+  const { displayOrder, dragState, dragCompletion, dragListRef, handlePointerDown } =
+    useSectionDragController({
+      resolvedActiveSections,
+      onReorderSections,
+    });
 
   return {
     resolvedActiveSections,
@@ -123,6 +129,7 @@ export const useSectionManager = ({
     standardAnyEnabled,
     displayOrder,
     dragState,
+    dragCompletion,
     dragListRef,
     getSectionTitle,
     handleToggleAllStandard,
