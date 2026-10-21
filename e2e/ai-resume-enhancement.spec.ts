@@ -3,7 +3,9 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 
 import { expect, type Page, test } from '@playwright/test';
 
-const endpoint = 'https://provider.example/v1/chat/completions';
+// Keep the browser request on the same HTTP protocol as the local app so the
+// route can forward it to the chunked mock server without changing protocols.
+const endpoint = '**/v1/chat/completions';
 const apiKey = 'test_only_resume_enhancement_key';
 
 type RequestBody = {
@@ -144,7 +146,8 @@ test.afterEach(async () => {
 const configureProvider = async (page: Page) => {
   await page.getByRole('button', { name: 'AI 设置' }).click();
   const dialog = page.getByRole('dialog', { name: 'AI 服务设置' });
-  await dialog.getByLabel('API Base URL').fill('https://provider.example/v1');
+  const localProviderBaseUrl = new URL('/v1', page.url()).href.replace(/\/$/u, '');
+  await dialog.getByLabel('API Base URL').fill(localProviderBaseUrl);
   await dialog.getByRole('textbox', { name: 'API Key' }).fill(apiKey);
   await dialog.getByLabel('模型 ID').fill('resume-mock-model');
   await dialog.getByRole('button', { name: '保存到当前会话' }).click();
@@ -545,7 +548,7 @@ test('English UI distinguishes an unsupported SSE response from authentication f
     .getByRole('button', { name: '仅切换语言' })
     .click();
 
-  const summary = page.getByRole('textbox', { name: 'Summary' });
+  const summary = page.getByRole('textbox', { name: 'Summary' }).first();
   const original = await summary.inputValue();
   const dialog = await openPersonalEnhancement(page, 'Personal summary');
   await generateInDialog(dialog, 'Polish with AI');
