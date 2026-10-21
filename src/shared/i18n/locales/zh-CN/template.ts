@@ -1,12 +1,13 @@
 export const template = {
   panelTitle: '模板与样式',
-  panelDescription: '选择不同模板快速切换配色与排版，也可创建属于自己的模板。',
+  panelDescription: '缩略图展示版式示意。选择样式只改变外观；填充示例会在确认后替换简历内容。',
+  selectionLegend: '选择一个简历模板。切换样式不会更改简历内容。',
+  thumbnailLabel: '版式示意',
   systemTemplates: '系统模板',
   customTemplates: '自定义模板',
-  customTemplatesHint: '保存当前简历为模板，随时快速切换',
+  customTemplatesHint: '将当前简历另存为模板，随时快速切换',
   emptyCustomTip: '还没有自定义模板，填写下方表单即可保存当前简历。',
   actions: {
-    useStyle: '使用样式',
     loadSample: '填充示例',
     updateSample: '更新示例',
     delete: '删除',
@@ -17,7 +18,12 @@ export const template = {
   },
   inputs: {
     namePlaceholder: '自定义模板',
+    unnamedName: '未命名模板',
     descriptionPlaceholder: '模板用途说明',
+  },
+  validation: {
+    nameRequired: '模板名称不能为空；已恢复上一个有效名称。',
+    nameTooLong: '模板名称不能超过 {limit} 个字符；已恢复上一个有效名称。',
   },
   creation: {
     nameLabel: '模板名称',

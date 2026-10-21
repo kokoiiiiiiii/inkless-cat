@@ -42,7 +42,7 @@ export const useTemplateLibrary = ({
   defaultTemplateId,
 }: UseTemplateLibraryParams) => {
   const { t, locale } = useI18n();
-  const { showError } = useAppFeedback();
+  const { showError, showInfo } = useAppFeedback();
   const runDestructiveAction = useDestructiveAction();
 
   const showLimitExceeded = useCallback(
@@ -147,7 +147,8 @@ export const useTemplateLibrary = ({
         showLimitExceeded(MAX_CUSTOM_TEMPLATES);
         return;
       }
-      if ((payload.name?.length ?? 0) > MAX_TEMPLATE_NAME_LENGTH) {
+      const name = payload.name?.trim();
+      if ((name?.length ?? 0) > MAX_TEMPLATE_NAME_LENGTH) {
         showLimitExceeded(MAX_TEMPLATE_NAME_LENGTH);
         return;
       }
@@ -169,7 +170,7 @@ export const useTemplateLibrary = ({
 
       const template: ResumeTemplate = {
         id,
-        name: payload.name || '自定义模板',
+        name: name || t('template.inputs.unnamedName'),
         description: payload.description || '用户自定义模板',
         accentColor,
         previewStyle,
@@ -179,7 +180,7 @@ export const useTemplateLibrary = ({
       setCustomTemplates((previous) => [...previous, template]);
       setTemplateId(id);
     },
-    [customTemplates.length, resume, setCustomTemplates, setTemplateId, showLimitExceeded],
+    [customTemplates.length, resume, setCustomTemplates, setTemplateId, showLimitExceeded, t],
   );
 
   const handleDeleteCustomTemplate = useCallback(
@@ -211,11 +212,20 @@ export const useTemplateLibrary = ({
   const handleUpdateCustomTemplate = useCallback(
     (targetId: string, updates: TemplateUpdatePayload) => {
       if (!targetId || !updates) return;
-      if ((updates.name?.length ?? 0) > MAX_TEMPLATE_NAME_LENGTH) {
-        showLimitExceeded(MAX_TEMPLATE_NAME_LENGTH);
-        return;
+      let normalizedUpdates = updates;
+      if (updates.name !== undefined) {
+        const name = updates.name.trim();
+        if (!name) {
+          showInfo(t('template.validation.nameRequired'));
+          return;
+        }
+        if (name.length > MAX_TEMPLATE_NAME_LENGTH) {
+          showInfo(t('template.validation.nameTooLong', { limit: MAX_TEMPLATE_NAME_LENGTH }));
+          return;
+        }
+        normalizedUpdates = { ...updates, name };
       }
-      if ((updates.description?.length ?? 0) > MAX_TEMPLATE_DESCRIPTION_LENGTH) {
+      if ((normalizedUpdates.description?.length ?? 0) > MAX_TEMPLATE_DESCRIPTION_LENGTH) {
         showLimitExceeded(MAX_TEMPLATE_DESCRIPTION_LENGTH);
         return;
       }
@@ -227,25 +237,25 @@ export const useTemplateLibrary = ({
             }
             const next: ResumeTemplate = { ...template };
 
-            if (updates.name !== undefined) {
-              next.name = updates.name;
+            if (normalizedUpdates.name !== undefined) {
+              next.name = normalizedUpdates.name;
             }
-            if (updates.description !== undefined) {
-              next.description = updates.description;
+            if (normalizedUpdates.description !== undefined) {
+              next.description = normalizedUpdates.description;
             }
-            if (updates.accentColor !== undefined) {
-              next.accentColor = updates.accentColor;
+            if (normalizedUpdates.accentColor !== undefined) {
+              next.accentColor = normalizedUpdates.accentColor;
             }
-            if (updates.previewStyle !== undefined) {
-              next.previewStyle = updates.previewStyle;
+            if (normalizedUpdates.previewStyle !== undefined) {
+              next.previewStyle = normalizedUpdates.previewStyle;
             }
-            if (updates.sample === '__CURRENT__') {
+            if (normalizedUpdates.sample === '__CURRENT__') {
               next.sample = clone(resume);
-            } else if (updates.sample) {
-              next.sample = clone(updates.sample);
+            } else if (normalizedUpdates.sample) {
+              next.sample = clone(normalizedUpdates.sample);
             }
-            if (updates.theme !== undefined) {
-              const normalized = normalizeTemplateTheme(updates.theme);
+            if (normalizedUpdates.theme !== undefined) {
+              const normalized = normalizeTemplateTheme(normalizedUpdates.theme);
               if (normalized) {
                 next.theme = normalized;
               } else {
@@ -253,7 +263,7 @@ export const useTemplateLibrary = ({
               }
             }
 
-            if (updates.previewStyle && updates.previewStyle !== 'custom') {
+            if (normalizedUpdates.previewStyle && normalizedUpdates.previewStyle !== 'custom') {
               delete next.theme;
             }
             if (next.previewStyle === 'custom' && next.accentColor) {
@@ -268,13 +278,13 @@ export const useTemplateLibrary = ({
         return true;
       };
 
-      if (updates.sample === undefined) {
+      if (normalizedUpdates.sample === undefined) {
         applyUpdate();
       } else {
         runDestructiveAction(t('common.confirmations.updateTemplateSample'), applyUpdate);
       }
     },
-    [resume, runDestructiveAction, setCustomTemplates, showLimitExceeded, t],
+    [resume, runDestructiveAction, setCustomTemplates, showInfo, showLimitExceeded, t],
   );
 
   return {

@@ -22,20 +22,20 @@ export type VariantConfig = {
 
 const modernVariant: VariantConfig = {
   article: 'border border-slate-200/80 bg-white/90 text-slate-600 shadow-soft',
-  heading: 'text-slate-900 dark:text-white',
-  subheading: 'text-blue-600 dark:text-blue-300',
-  metaWrapper: 'text-slate-500 dark:text-slate-400',
-  metaLabel: 'text-slate-700 dark:text-slate-300',
-  metaValue: 'text-slate-500 dark:text-slate-400',
-  sectionHeading: 'text-slate-900 dark:text-white',
-  divider: 'border-slate-200 dark:border-slate-800',
-  card: 'border border-slate-200/80 bg-slate-50/70 dark:border-slate-800/70 dark:bg-slate-900/40',
-  chip: 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200',
-  link: 'text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200',
+  heading: 'text-slate-900',
+  subheading: 'text-blue-600',
+  metaWrapper: 'text-slate-500',
+  metaLabel: 'text-slate-700',
+  metaValue: 'text-slate-500',
+  sectionHeading: 'text-slate-900',
+  divider: 'border-slate-200',
+  card: 'border border-slate-200/80 bg-slate-50/70',
+  chip: 'bg-blue-100 text-blue-600',
+  link: 'text-blue-600 hover:text-blue-500',
   accentBar: 'bg-blue-500/80',
   bullet: 'bg-blue-500',
-  timelineBorder: 'border-slate-200 dark:border-slate-700',
-  timelineMeta: 'text-slate-400 dark:text-slate-500',
+  timelineBorder: 'border-slate-200',
+  timelineMeta: 'text-slate-400',
 };
 
 const customVariant: VariantConfig = {

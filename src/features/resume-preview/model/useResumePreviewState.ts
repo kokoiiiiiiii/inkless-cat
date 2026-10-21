@@ -1,6 +1,6 @@
 import { sectionOrder } from '@entities/module';
 import type { ResumeCustomSection, ResumeData } from '@entities/resume';
-import type { TemplateTheme } from '@entities/template';
+import { resolveCustomTemplateTheme, type TemplateTheme } from '@entities/template';
 import { useI18n } from '@shared/i18n';
 import type { CSSProperties } from 'react';
 import { useCallback, useMemo } from 'react';
@@ -200,7 +200,11 @@ export const useResumePreviewState = ({
   };
 
   const variant = useMemo(() => resolveVariant(templateStyle), [templateStyle]);
-  const resolvedAccent = accentColor ?? theme?.accent;
+  const resolvedTheme = useMemo(
+    () => (templateStyle === 'custom' ? resolveCustomTemplateTheme(theme) : theme),
+    [templateStyle, theme],
+  );
+  const resolvedAccent = accentColor ?? resolvedTheme?.accent;
 
   const accentStyle = useMemo<CSSProperties | undefined>(
     () => (resolvedAccent ? { background: resolvedAccent } : undefined),
@@ -210,35 +214,25 @@ export const useResumePreviewState = ({
   const themeStyles = useMemo<ThemeStyles>(
     () => ({
       article:
-        theme?.background || theme?.text
-          ? { background: theme?.background, color: theme?.text }
+        resolvedTheme?.background || resolvedTheme?.text
+          ? { background: resolvedTheme?.background, color: resolvedTheme?.text }
           : undefined,
-      heading: theme?.heading ? { color: theme.heading } : undefined,
-      subheading: theme?.subheading ? { color: theme.subheading } : undefined,
-      text: theme?.text ? { color: theme.text } : undefined,
-      muted: theme?.muted ? { color: theme.muted } : undefined,
+      heading: resolvedTheme?.heading ? { color: resolvedTheme.heading } : undefined,
+      subheading: resolvedTheme?.subheading ? { color: resolvedTheme.subheading } : undefined,
+      text: resolvedTheme?.text ? { color: resolvedTheme.text } : undefined,
+      muted: resolvedTheme?.muted ? { color: resolvedTheme.muted } : undefined,
       card:
-        theme?.cardBackground || theme?.cardBorder
+        resolvedTheme?.cardBackground || resolvedTheme?.cardBorder
           ? {
-              background: theme?.cardBackground,
-              borderColor: theme?.cardBorder,
+              background: resolvedTheme?.cardBackground,
+              borderColor: resolvedTheme?.cardBorder,
             }
           : undefined,
-      divider: theme?.divider ? { borderColor: theme.divider } : undefined,
+      divider: resolvedTheme?.divider ? { borderColor: resolvedTheme.divider } : undefined,
       chip: resolvedAccent ? { background: resolvedAccent, color: '#ffffff' } : undefined,
       link: resolvedAccent ? { color: resolvedAccent } : undefined,
     }),
-    [
-      resolvedAccent,
-      theme?.background,
-      theme?.cardBackground,
-      theme?.cardBorder,
-      theme?.divider,
-      theme?.heading,
-      theme?.muted,
-      theme?.subheading,
-      theme?.text,
-    ],
+    [resolvedAccent, resolvedTheme],
   );
 
   const articleStyle = useMemo<CSSProperties>(

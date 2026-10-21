@@ -1,12 +1,15 @@
 export const template = {
   panelTitle: 'Templates & Styles',
-  panelDescription: 'Switch layouts and palettes instantly, or create your own template.',
+  panelDescription:
+    'Thumbnails illustrate each layout. Applying a style changes appearance only; loading a sample replaces resume content after confirmation.',
+  selectionLegend:
+    'Choose one resume template. Applying a style will not change your resume content.',
+  thumbnailLabel: 'Layout',
   systemTemplates: 'System Templates',
   customTemplates: 'Custom Templates',
   customTemplatesHint: 'Save the current resume as a template to switch quickly',
   emptyCustomTip: 'No custom templates yet. Use the form below to save one.',
   actions: {
-    useStyle: 'Use Style',
     loadSample: 'Load Sample',
     updateSample: 'Update Sample',
     delete: 'Delete',
@@ -17,7 +20,13 @@ export const template = {
   },
   inputs: {
     namePlaceholder: 'Custom Template',
+    unnamedName: 'Unnamed template',
     descriptionPlaceholder: 'What this template is for',
+  },
+  validation: {
+    nameRequired: 'A template name is required. The previous valid name has been restored.',
+    nameTooLong:
+      'Template names can contain up to {limit} characters. The previous valid name has been restored.',
   },
   creation: {
     nameLabel: 'Template Name',
@@ -60,11 +69,11 @@ export const template = {
     },
     'creative-pastel': {
       name: 'Creative Pastel',
-      description: 'Warm palette with storytelling flair for brand/marketing roles.',
+      description: 'Warm colors with a storytelling feel for brand and marketing roles.',
     },
     customizable: {
       name: 'Custom Theme',
-      description: 'Match company branding with fully customizable colors and fonts.',
+      description: 'Customize the accent and typography to match a brand.',
     },
   },
 } as const;
