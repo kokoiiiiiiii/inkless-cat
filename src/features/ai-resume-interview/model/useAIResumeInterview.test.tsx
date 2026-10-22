@@ -540,6 +540,47 @@ describe('useAIResumeInterview', () => {
     act(() => result.current.cancelGeneration());
   });
 
+  it('recounts successful follow-ups from the retained branch without resetting request limits', async () => {
+    const streamComplete = vi
+      .fn<AIInterviewProviderClient['streamComplete']>()
+      .mockResolvedValueOnce({ content: 'Which part did you personally own?' })
+      .mockResolvedValueOnce({ content: 'How did you coordinate the shared work?' })
+      .mockResolvedValueOnce({ content: 'Which result can you describe?' });
+    const { result } = renderHook(() => useAIResumeInterview(createProvider(streamComplete)), {
+      wrapper,
+    });
+    startWithDraft(result, 'ai', 'Backend engineer');
+    const targetRoleQuestionId = result.current.session?.currentQuestion?.id;
+    await approveAndFlush(result);
+    await waitFor(() => expect(result.current.session?.questions).toHaveLength(2));
+
+    act(() => {
+      result.current.setAnswerDraft('I coordinated the shared team work.');
+      result.current.submitAnswer();
+    });
+    await waitFor(() => expect(result.current.session?.questions).toHaveLength(3));
+    expect(result.current.session?.followUpCounts.targetRole).toBe(2);
+    expect(result.current.session?.followUpRequestCounts.targetRole).toBe(2);
+
+    act(() => {
+      result.current.editAnswer(targetRoleQuestionId ?? '');
+      result.current.confirmEditAnswer();
+    });
+    expect(result.current.session?.followUpCounts.targetRole ?? 0).toBe(0);
+    expect(result.current.session?.followUpRequestCounts.targetRole).toBe(2);
+
+    act(() => {
+      result.current.setAnswerDraft('Senior backend engineer');
+      result.current.submitAnswer();
+    });
+    await waitFor(() => expect(result.current.session?.questions).toHaveLength(2));
+    expect(result.current.session?.questions.at(-1)?.content).toBe(
+      'Which result can you describe?',
+    );
+    expect(result.current.session?.followUpCounts.targetRole).toBe(1);
+    expect(result.current.session?.followUpRequestCounts.targetRole).toBe(3);
+  });
+
   it('rejects invalid model questions without losing the answer and permits guide questions', async () => {
     const streamComplete = vi.fn<AIInterviewProviderClient['streamComplete']>().mockResolvedValue({
       content: 'What did you build? What changed?',

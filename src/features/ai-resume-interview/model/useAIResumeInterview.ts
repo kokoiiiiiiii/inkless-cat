@@ -954,8 +954,12 @@ export const useAIResumeInterview = (
         current.questions.slice(0, questionIndex).map((item) => item.id),
       );
       const answers = current.answers.filter((item) => retainedQuestionIds.has(item.questionId));
+      const followUpCounts: InterviewSession['followUpCounts'] = {};
       const fallbackUsed: InterviewSession['fallbackUsed'] = {};
       for (const item of questions) {
+        if (item.source === 'ai') {
+          followUpCounts[item.phase] = (followUpCounts[item.phase] ?? 0) + 1;
+        }
         if (item.source === 'template' && item.ruleKind === 'fallback') {
           fallbackUsed[item.phase] = true;
         }
@@ -967,6 +971,7 @@ export const useAIResumeInterview = (
         currentQuestion: question,
         questions,
         answers,
+        followUpCounts,
         fallbackUsed,
         skippedPhases: current.skippedPhases.filter(
           (phase) => INTERVIEW_PHASES.indexOf(phase) < INTERVIEW_PHASES.indexOf(question.phase),
