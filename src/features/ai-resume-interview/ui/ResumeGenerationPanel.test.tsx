@@ -1,6 +1,6 @@
 import { createEmptyResume, deriveSectionsFromResume, useResumeStore } from '@entities/resume';
 import { I18nProvider } from '@shared/i18n';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useMemo, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -164,6 +164,124 @@ describe('ResumeGenerationPanel', () => {
     expect(useResumeStore.getState().resume.experience[0]?.company).toBe('Existing Company');
   });
 
+  it('sends wording only after explicit review, and applies suggestions to the draft one at a time', async () => {
+    const previous = useResumeStore.getState().resume;
+    const streamComplete = vi.fn().mockResolvedValue({
+      content: JSON.stringify({
+        suggestions: [
+          {
+            id: 'experience:generated-experience-1-fact-work:highlight:0',
+            text: 'I authored the import tool',
+          },
+          {
+            id: 'experience:generated-experience-1-fact-work:highlight:1',
+            text: 'the team launched the migration',
+          },
+        ],
+      }),
+    });
+    const configuredProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete,
+    };
+    render(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={session}
+          facts={confirmedFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    expect(streamComplete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '检查即将发送的文字' }));
+    expect(screen.getByText(/以下 2 项叙述文字会直接发送/u)).toBeTruthy();
+    expect(screen.getByText('I wrote the import tool')).toBeTruthy();
+    expect(streamComplete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '发送叙述文字并获取建议' }));
+    await waitFor(() =>
+      expect(screen.getByText('个人负责：I authored the import tool')).toBeTruthy(),
+    );
+    expect(streamComplete).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(streamComplete.mock.calls[0]?.[0])).not.toContain('lin@example.com');
+    expect(JSON.stringify(streamComplete.mock.calls[0]?.[0])).not.toContain('BrightWorks');
+    expect(useResumeStore.getState().resume).toBe(previous);
+
+    fireEvent.click(screen.getByText('编辑候选简历', { exact: true }));
+    const highlights = screen.getByLabelText<HTMLTextAreaElement>(/职责与成果/u);
+    expect(highlights.value).toContain('个人负责：I wrote the import tool');
+    fireEvent.click(screen.getAllByRole('button', { name: '在草稿中采用' })[0]!);
+    expect(highlights.value).toContain('个人负责：I authored the import tool');
+    expect(highlights.value).toContain('与团队协作：the team launched the migration');
+    expect(useResumeStore.getState().resume).toBe(previous);
+  });
+
+  it('discards a delayed wording response after the interview facts change', async () => {
+    let resolveRequest!: (value: { content: string }) => void;
+    const streamComplete = vi.fn(
+      () =>
+        new Promise<{ content: string }>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    const configuredProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete,
+    };
+    const props = { activeSession: session, currentFacts: confirmedFacts };
+    const { rerender } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={props.activeSession}
+          facts={props.currentFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查即将发送的文字' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送叙述文字并获取建议' }));
+    expect(await screen.findByRole('status')).toBeTruthy();
+
+    const changedSession = { ...session, updatedAt: session.updatedAt + 1 };
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={changedSession}
+          facts={props.currentFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+    await act(async () => {
+      resolveRequest({
+        content: JSON.stringify({
+          suggestions: [
+            {
+              id: 'experience:generated-experience-1-fact-work:highlight:0',
+              text: 'I authored the import tool',
+            },
+            {
+              id: 'experience:generated-experience-1-fact-work:highlight:1',
+              text: 'the team launched the migration',
+            },
+          ],
+        }),
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('I authored the import tool')).toBeNull();
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
   it('invalidates the old candidate when the interview session changes', () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
@@ -264,6 +382,6 @@ describe('ResumeGenerationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
 
     expect(useResumeStore.getState().resume.personal.fullName).toBe('Newer user edit');
-    expect(screen.getByRole('status').textContent).toContain('正式简历发生了变化');
+    expect(screen.getByText(/正式简历发生了变化/u)).toBeTruthy();
   });
 });

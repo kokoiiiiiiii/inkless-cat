@@ -211,6 +211,73 @@ test('builds an editable separate resume draft from confirmed facts without appl
   expect(requests).toBe(0);
 });
 
+test('sends only reviewed prose for optional wording suggestions and keeps them separate until accepted', async ({
+  page,
+}) => {
+  const { requests, baseUrl } = await startSSEMock(async (body, response) => {
+    const userMessage = body.messages.find((message) => message.role === 'user');
+    const payload = JSON.parse(userMessage?.content ?? '{}') as {
+      items: Array<{ id: string; text: string }>;
+    };
+    await writeSSEContent(
+      response,
+      JSON.stringify({
+        suggestions: payload.items.map(({ id, text }) => ({
+          id,
+          text: text.replace('I built reliable services', 'I developed reliable services'),
+        })),
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('/');
+  await configureProvider(page, baseUrl);
+  const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'I built reliable services using TypeScript.');
+  const summary = dialog.getByRole('complementary');
+  await summary.getByRole('button', { name: '手动整理事实' }).click();
+  await summary.getByLabel('事实类型').selectOption({ label: '个人信息' });
+  await summary.getByLabel('来源回答').selectOption({
+    label: '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+  });
+  await summary.getByLabel('简介').fill('I built reliable services using TypeScript.');
+  await summary.getByRole('button', { name: '添加待核实事实' }).click();
+  await summary.getByRole('button', { name: '我已核对这些字段' }).click();
+
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  await expect(summary.getByText('I built reliable services using TypeScript.')).toBeVisible();
+  expect(requests).toHaveLength(0);
+  await summary.getByRole('button', { name: '检查即将发送的文字' }).click();
+  await expect(summary.getByText(/以下 1 项叙述文字会直接发送/u)).toBeVisible();
+  await expect(summary.getByText('I built reliable services using TypeScript.')).toBeVisible();
+  expect(requests).toHaveLength(0);
+
+  await summary.getByRole('button', { name: '发送叙述文字并获取建议' }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  const payload = JSON.parse(
+    requests[0]?.messages.find(({ role }) => role === 'user')?.content ?? '{}',
+  ) as { items: Array<{ id: string; text: string }> };
+  expect(Object.keys(payload).sort()).toEqual(['items']);
+  expect(payload.items).toEqual([
+    { id: 'personal-summary', text: 'I built reliable services using TypeScript.' },
+  ]);
+  await expect(summary.getByText('I developed reliable services using TypeScript.')).toBeVisible();
+
+  const draft = summary.getByTestId('generated-resume-draft');
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  const candidateSummary = draft.getByLabel('简介');
+  await expect(candidateSummary).toHaveValue('I built reliable services using TypeScript.');
+  await draft.getByRole('button', { name: '在草稿中采用' }).click();
+  await expect(candidateSummary).toHaveValue('I developed reliable services using TypeScript.');
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
+  expect(requests).toHaveLength(1);
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
+});
+
 test('uses mocked SSE for contextual follow-ups, editing, and skip controls', async ({ page }) => {
   const { requests, baseUrl } = await startSSEMock(async (body, response, requestIndex) => {
     const userMessage = body.messages.find((message) => message.role === 'user');

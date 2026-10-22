@@ -250,7 +250,7 @@ export const aiInterview = {
   generation: {
     title: 'Build a resume draft',
     description:
-      'Build a separate draft only from facts you confirmed whose source answers are still current. AI will not infer facts or send an extra request automatically.',
+      'Build a separate draft only from facts you confirmed whose source answers are still current. Optional AI wording suggestions require your explicit request; AI cannot infer facts.',
     deterministicNotice:
       'Using {count} confirmed facts with current sources. Fields use fixed mappings; no sample resume is read or mixed in.',
     build: 'Build draft',
@@ -273,6 +273,42 @@ export const aiInterview = {
     responsibilityBoundary:
       'Keep each responsibility prefix: personally owned, shared with the team, or ownership unspecified.',
     previewTitle: 'Separate draft preview',
+    polishTitle: 'Optional wording suggestions',
+    polishDescription:
+      'The draft is built without AI. If you choose, AI can suggest edits to existing prose only; it cannot add sections or facts. Suggestions stay separate until you review and use them.',
+    polishProviderMissing: 'Configure an AI service to request optional wording suggestions.',
+    polishReviewText: 'Review text to send',
+    polishCloseReview: 'Close text review',
+    polishConsent:
+      'Only the prose fields listed below ({count}) will be sent directly to {model} ({endpoint}) after you click Send. No request is made by building or editing the draft.',
+    polishSend: 'Send prose for suggestions',
+    polishCancel: 'Cancel request',
+    polishRequesting: 'Requesting wording suggestions. This request will not retry automatically.',
+    polishNoText: 'There are no existing prose fields to polish.',
+    polishInputTooLong:
+      'The selected prose exceeds the request size limit. Shorten the draft and review it again.',
+    polishCancelled:
+      'The wording request was cancelled or became outdated; its response was discarded.',
+    polishRequestFailed:
+      'The wording request failed. The current draft is unchanged; review the text before retrying.',
+    polishInvalidOutput:
+      'The model response did not match the expected structure. The draft is unchanged.',
+    polishProtectedContentChanged:
+      'The suggestion changed a protected name, date, metric, technical term, achievement claim, or link. It was discarded; the draft is unchanged.',
+    polishSuggestionsTitle: 'Review wording suggestions ({count})',
+    polishSuggestionsNotice:
+      'AI suggestions are unverified. Check every line against the confirmed source before using it. Each choice changes this draft only.',
+    polishOriginal: 'Current wording',
+    polishSuggestion: 'AI suggestion',
+    polishUseSuggestion: 'Use suggestion in draft',
+    polishKeepOriginal: 'Keep current wording',
+    polishFields: {
+      personalSummary: 'Personal summary',
+      experienceHighlight: 'Experience {index}, bullet {item}',
+      projectSummary: 'Project {index}, summary',
+      projectHighlight: 'Project {index}, bullet {item}',
+      educationDetails: 'Education {index}, details',
+    },
     includedFacts:
       'This draft uses {count} confirmed facts. Interview answers and candidate facts remain in this page’s memory.',
     prepareReplace: 'Review and replace current resume',

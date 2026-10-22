@@ -8,7 +8,7 @@ import {
 import { ResumePreview } from '@features/resume-preview';
 import { type TranslationKey, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ResumeFact } from '../model/facts';
 import {
@@ -16,6 +16,15 @@ import {
   getCurrentConfirmedFacts,
   getResumeDraftBasisKey,
 } from '../model/resumeGeneration';
+import {
+  applyResumePolishSuggestion,
+  buildResumePolishFields,
+  buildResumePolishRequest,
+  createResumePolishSuggestions,
+  MAX_RESUME_POLISH_OUTPUT_CODE_UNITS,
+  parseResumePolishResponse,
+  type ResumePolishSuggestion,
+} from '../model/resumeGenerationPolish';
 import type { AIInterviewProviderClient, InterviewSession } from '../model/types';
 
 type ResumeGenerationPanelProps = {
@@ -35,6 +44,17 @@ type ResumeSnapshot = {
   resume: ResumeData;
   activeSections: ActiveSectionKey[];
   workspaceGeneration: number;
+};
+
+type ResumePolishState = 'idle' | 'requesting' | 'suggested' | 'failed' | 'cancelled';
+
+type ActivePolishRequest = {
+  id: number;
+  controller: AbortController;
+  basisKey: string;
+  draftFingerprint: string;
+  providerConfiguration: AIInterviewProviderClient['configuration'];
+  providerStreamComplete: AIInterviewProviderClient['streamComplete'];
 };
 
 const inputClass =
@@ -67,6 +87,12 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   const [message, setMessage] = useState<string | null>(null);
   const [undoSnapshot, setUndoSnapshot] = useState<ResumeSnapshot | null>(null);
   const [appliedSnapshot, setAppliedSnapshot] = useState<ResumeSnapshot | null>(null);
+  const [showPolishReview, setShowPolishReview] = useState(false);
+  const [polishState, setPolishState] = useState<ResumePolishState>('idle');
+  const [polishError, setPolishError] = useState<string | null>(null);
+  const [polishSuggestions, setPolishSuggestions] = useState<ResumePolishSuggestion[]>([]);
+  const activePolishRequestRef = useRef<ActivePolishRequest | null>(null);
+  const polishRequestSequenceRef = useRef(0);
 
   const currentFacts = useMemo(() => getCurrentConfirmedFacts(session, facts), [facts, session]);
   const basisKey = getResumeDraftBasisKey(session, facts, {
@@ -79,6 +105,20 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
       draft.basisKey === basisKey &&
       draft.providerStreamComplete === provider.streamComplete,
   );
+  const draftFingerprint = draft ? JSON.stringify(draft.resume) : '';
+  const polishFields = useMemo(() => (draft ? buildResumePolishFields(draft.resume) : []), [draft]);
+  const currentPolishContextRef = useRef({
+    basisKey,
+    draftFingerprint,
+    providerConfiguration: provider.configuration,
+    providerStreamComplete: provider.streamComplete,
+  });
+  currentPolishContextRef.current = {
+    basisKey,
+    draftFingerprint,
+    providerConfiguration: provider.configuration,
+    providerStreamComplete: provider.streamComplete,
+  };
   const validation = draft ? resumeSchema.safeParse(draft.resume) : null;
   const missingFields = draft
     ? getMissingFields(draft.resume, (key) =>
@@ -89,7 +129,47 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     (fact) => fact.status === 'conflict' && fact.conflictFields && fact.conflictFields.length > 0,
   );
 
+  useEffect(() => {
+    const active = activePolishRequestRef.current;
+    if (!active) return;
+    const current = currentPolishContextRef.current;
+    if (
+      active.basisKey === current.basisKey &&
+      active.draftFingerprint === current.draftFingerprint &&
+      active.providerConfiguration === current.providerConfiguration &&
+      active.providerStreamComplete === current.providerStreamComplete
+    ) {
+      return;
+    }
+    active.controller.abort();
+    activePolishRequestRef.current = null;
+    setPolishSuggestions([]);
+    setPolishState('cancelled');
+    setPolishError(t('aiInterview.generation.polishCancelled'));
+  }, [basisKey, draftFingerprint, provider.configuration, provider.streamComplete, t]);
+
+  useEffect(() => {
+    setShowPolishReview(false);
+    setPolishSuggestions([]);
+    setPolishState('idle');
+    setPolishError(null);
+  }, [basisKey, provider.configuration, provider.streamComplete]);
+
+  useEffect(
+    () => () => {
+      activePolishRequestRef.current?.controller.abort();
+      activePolishRequestRef.current = null;
+    },
+    [],
+  );
+
   const buildDraft = () => {
+    activePolishRequestRef.current?.controller.abort();
+    activePolishRequestRef.current = null;
+    setShowPolishReview(false);
+    setPolishSuggestions([]);
+    setPolishState('idle');
+    setPolishError(null);
     const result = buildResumeDraftFromFacts(session, facts, locale);
     setDraft({
       basisKey,
@@ -105,8 +185,144 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   };
 
   const updateDraft = (updater: (resume: ResumeData) => ResumeData) => {
+    const active = activePolishRequestRef.current;
+    if (active) {
+      active.controller.abort();
+      activePolishRequestRef.current = null;
+    }
+    setShowPolishReview(false);
+    setPolishSuggestions([]);
+    setPolishState('idle');
+    setPolishError(null);
     setDraft((current) => (current ? { ...current, resume: updater(current.resume) } : current));
   };
+
+  const cancelPolish = () => {
+    const active = activePolishRequestRef.current;
+    if (!active) return;
+    active.controller.abort();
+    activePolishRequestRef.current = null;
+    setPolishState('cancelled');
+    setPolishError(t('aiInterview.generation.polishCancelled'));
+  };
+
+  const requestPolishSuggestions = async () => {
+    if (
+      !draft ||
+      !isDraftCurrent ||
+      !validation?.success ||
+      !provider.isConfigured ||
+      !provider.configuration ||
+      polishState === 'requesting'
+    ) {
+      return;
+    }
+    const request = buildResumePolishRequest(polishFields, locale);
+    if (!request.ok) {
+      setPolishState('failed');
+      setPolishError(
+        request.error === 'no_text'
+          ? t('aiInterview.generation.polishNoText')
+          : t('aiInterview.generation.polishInputTooLong'),
+      );
+      return;
+    }
+
+    const requestId = ++polishRequestSequenceRef.current;
+    const controller = new AbortController();
+    activePolishRequestRef.current?.controller.abort();
+    activePolishRequestRef.current = {
+      id: requestId,
+      controller,
+      basisKey,
+      draftFingerprint,
+      providerConfiguration: provider.configuration,
+      providerStreamComplete: provider.streamComplete,
+    };
+    setShowPolishReview(false);
+    setPolishSuggestions([]);
+    setPolishError(null);
+    setPolishState('requesting');
+
+    try {
+      const response = await provider.streamComplete(request.messages, {
+        signal: controller.signal,
+        timeoutMs: 30_000,
+        maxOutputCodeUnits: MAX_RESUME_POLISH_OUTPUT_CODE_UNITS,
+        onDelta: () => {},
+      });
+      const current = currentPolishContextRef.current;
+      const active = activePolishRequestRef.current;
+      if (!active || active.id !== requestId) return;
+      if (
+        controller.signal.aborted ||
+        current.basisKey !== basisKey ||
+        current.draftFingerprint !== draftFingerprint ||
+        current.providerConfiguration !== provider.configuration ||
+        current.providerStreamComplete !== provider.streamComplete
+      ) {
+        activePolishRequestRef.current = null;
+        setPolishState('cancelled');
+        setPolishError(t('aiInterview.generation.polishCancelled'));
+        return;
+      }
+      const parsed = parseResumePolishResponse(response.content, request.fields);
+      if (!parsed.ok) {
+        setPolishState('failed');
+        setPolishError(
+          parsed.error === 'protected_content_changed'
+            ? t('aiInterview.generation.polishProtectedContentChanged')
+            : t('aiInterview.generation.polishInvalidOutput'),
+        );
+        return;
+      }
+      setPolishSuggestions(createResumePolishSuggestions(request.fields, parsed));
+      setPolishState('suggested');
+    } catch {
+      if (activePolishRequestRef.current?.id !== requestId) return;
+      setPolishState(controller.signal.aborted ? 'cancelled' : 'failed');
+      setPolishError(
+        controller.signal.aborted
+          ? t('aiInterview.generation.polishCancelled')
+          : t('aiInterview.generation.polishRequestFailed'),
+      );
+    } finally {
+      if (activePolishRequestRef.current?.id === requestId) {
+        activePolishRequestRef.current = null;
+      }
+    }
+  };
+
+  const acceptPolishSuggestion = (suggestion: ResumePolishSuggestion) => {
+    if (!isDraftCurrent) return;
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            resume: applyResumePolishSuggestion(current.resume, suggestion),
+          }
+        : current,
+    );
+    setPolishSuggestions((current) => {
+      const remaining = current.filter((item) => item.id !== suggestion.id);
+      if (remaining.length === 0) setPolishState('idle');
+      return remaining;
+    });
+  };
+
+  const dismissPolishSuggestion = (suggestionId: string) => {
+    setPolishSuggestions((current) => {
+      const remaining = current.filter((item) => item.id !== suggestionId);
+      if (remaining.length === 0) setPolishState('idle');
+      return remaining;
+    });
+  };
+
+  const getPolishFieldLabel = (field: ResumePolishSuggestion | (typeof polishFields)[number]) =>
+    t(`aiInterview.generation.polishFields.${field.label}` as TranslationKey, {
+      index: (field.sectionIndex ?? 0) + 1,
+      item: (field.itemIndex ?? 0) + 1,
+    });
 
   const setPersonalField = (
     key: 'fullName' | 'title' | 'email' | 'phone' | 'location' | 'summary',
@@ -342,6 +558,175 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
               </p>
             )}
           </div>
+
+          <section
+            className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+            aria-labelledby="resume-polish-heading"
+          >
+            <h5
+              id="resume-polish-heading"
+              className="text-sm font-semibold text-slate-900 dark:text-white"
+            >
+              {t('aiInterview.generation.polishTitle')}
+            </h5>
+            <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              {t('aiInterview.generation.polishDescription')}
+            </p>
+            {!provider.isConfigured && (
+              <p
+                className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300"
+                role="status"
+              >
+                {t('aiInterview.generation.polishProviderMissing')}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={buttonClass}
+                disabled={
+                  !isDraftCurrent ||
+                  !validation?.success ||
+                  !provider.isConfigured ||
+                  !provider.configuration ||
+                  polishFields.length === 0 ||
+                  polishState === 'requesting'
+                }
+                onClick={() => {
+                  setShowPolishReview((visible) => !visible);
+                  setPolishError(null);
+                }}
+              >
+                {showPolishReview
+                  ? t('aiInterview.generation.polishCloseReview')
+                  : t('aiInterview.generation.polishReviewText')}
+              </button>
+              {polishState === 'requesting' && (
+                <button type="button" className={buttonClass} onClick={cancelPolish}>
+                  {t('aiInterview.generation.polishCancel')}
+                </button>
+              )}
+            </div>
+
+            {showPolishReview && provider.configuration && (
+              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                <p>
+                  {t('aiInterview.generation.polishConsent', {
+                    count: polishFields.length,
+                    model: provider.configuration.model,
+                    endpoint: provider.configuration.baseUrl,
+                  })}
+                </p>
+                <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-lg bg-white/70 p-2 dark:bg-black/20">
+                  {polishFields.map((field) => (
+                    <li key={field.id} className="break-words">
+                      <strong>
+                        {t(`aiInterview.generation.polishFields.${field.label}` as TranslationKey, {
+                          index: (field.sectionIndex ?? 0) + 1,
+                          item: (field.itemIndex ?? 0) + 1,
+                        })}
+                      </strong>
+                      <p>{field.requestText}</p>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={primaryButtonClass}
+                    disabled={
+                      !isDraftCurrent || !validation?.success || polishState === 'requesting'
+                    }
+                    onClick={() => void requestPolishSuggestions()}
+                  >
+                    {t('aiInterview.generation.polishSend')}
+                  </button>
+                  <button
+                    type="button"
+                    className={buttonClass}
+                    disabled={polishState === 'requesting'}
+                    onClick={() => setShowPolishReview(false)}
+                  >
+                    {t('aiInterview.generation.cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {polishState === 'requesting' && (
+              <p
+                className="mt-3 text-xs leading-5 text-slate-600 dark:text-slate-300"
+                role="status"
+                aria-live="polite"
+              >
+                {t('aiInterview.generation.polishRequesting')}
+              </p>
+            )}
+            {polishError && (
+              <p
+                className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
+                role="alert"
+              >
+                {polishError}
+              </p>
+            )}
+            {polishSuggestions.length > 0 && (
+              <div className="mt-3 space-y-3" aria-labelledby="resume-polish-suggestions-heading">
+                <div>
+                  <h6
+                    id="resume-polish-suggestions-heading"
+                    className="text-xs font-semibold text-slate-900 dark:text-white"
+                  >
+                    {t('aiInterview.generation.polishSuggestionsTitle', {
+                      count: polishSuggestions.length,
+                    })}
+                  </h6>
+                  <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                    {t('aiInterview.generation.polishSuggestionsNotice')}
+                  </p>
+                </div>
+                {polishSuggestions.map((suggestion) => (
+                  <article
+                    key={suggestion.id}
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    <h6 className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                      {getPolishFieldLabel(suggestion)}
+                    </h6>
+                    <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      {t('aiInterview.generation.polishOriginal')}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-slate-700 dark:text-slate-200">
+                      {suggestion.originalText}
+                    </p>
+                    <p className="mt-2 text-[11px] font-semibold text-brand-800 dark:text-brand-200">
+                      {t('aiInterview.generation.polishSuggestion')}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-slate-800 dark:text-slate-100">
+                      {suggestion.suggestedText}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className={primaryButtonClass}
+                        disabled={!isDraftCurrent}
+                        onClick={() => acceptPolishSuggestion(suggestion)}
+                      >
+                        {t('aiInterview.generation.polishUseSuggestion')}
+                      </button>
+                      <button
+                        type="button"
+                        className={buttonClass}
+                        onClick={() => dismissPolishSuggestion(suggestion.id)}
+                      >
+                        {t('aiInterview.generation.polishKeepOriginal')}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
           {!validation?.success && (
             <p

@@ -225,7 +225,7 @@ export const aiInterview = {
   generation: {
     title: '生成简历草稿',
     description:
-      '仅从本次访谈中来源仍有效且已由你确认的事实构建独立草稿。AI 不会推断事实，也不会自动发送额外请求。',
+      '仅从本次访谈中来源仍有效且已由你确认的事实构建独立草稿。可选表达优化需要你主动发送；AI 不能推断事实。',
     deterministicNotice:
       '当前纳入 {count} 条已确认且来源有效的事实。字段使用固定映射；不会读取或混入示例简历。',
     build: '构建草稿',
@@ -243,6 +243,38 @@ export const aiInterview = {
     education: '教育经历 {index}',
     responsibilityBoundary: '请保留事实原有的职责归属前缀：个人负责、与团队协作或归属未说明。',
     previewTitle: '独立草稿预览',
+    polishTitle: '可选的表达优化建议',
+    polishDescription:
+      '草稿由确定性映射构建，不调用 AI。你可以主动让 AI 优化已有叙述文字；AI 不能添加栏目或事实。建议会单独展示，只有你检查并采纳后才改动这份草稿。',
+    polishProviderMissing: '配置 AI 服务后，才能请求可选的表达优化建议。',
+    polishReviewText: '检查即将发送的文字',
+    polishCloseReview: '关闭发送内容检查',
+    polishConsent:
+      '点击发送后，以下 {count} 项叙述文字会直接发送给 {model}（{endpoint}）。构建或编辑草稿不会发送请求。',
+    polishSend: '发送叙述文字并获取建议',
+    polishCancel: '取消请求',
+    polishRequesting: '正在请求表达优化建议。此请求不会自动重试。',
+    polishNoText: '没有可优化的现有叙述文字。',
+    polishInputTooLong: '所选文字超过请求长度上限。请缩短草稿后重新检查。',
+    polishCancelled: '表达优化请求已取消或内容已过期；旧响应已丢弃。',
+    polishRequestFailed: '表达优化请求失败。草稿未改变；检查文字后可手动重试。',
+    polishInvalidOutput: '模型回复不符合预期结构，草稿未改变。',
+    polishProtectedContentChanged:
+      '建议改动了受保护的名称、日期、指标、技术名词或业绩描述，已丢弃；草稿未改变。',
+    polishSuggestionsTitle: '检查表达建议（{count}）',
+    polishSuggestionsNotice:
+      'AI 建议尚未核实。请对照已确认来源逐项检查；每次采纳只会改变这份草稿。',
+    polishOriginal: '当前表达',
+    polishSuggestion: 'AI 建议',
+    polishUseSuggestion: '在草稿中采用',
+    polishKeepOriginal: '保留当前表达',
+    polishFields: {
+      personalSummary: '个人简介',
+      experienceHighlight: '工作经历 {index}，职责/成果 {item}',
+      projectSummary: '项目经历 {index}，项目简介',
+      projectHighlight: '项目经历 {index}，职责/成果 {item}',
+      educationDetails: '教育经历 {index}，补充说明',
+    },
     includedFacts: '本草稿来自 {count} 条已确认事实；访谈回答和候选事实仍只保存在本页内存。',
     prepareReplace: '检查并替换当前简历',
     replaceTitle: '确认替换当前简历',
