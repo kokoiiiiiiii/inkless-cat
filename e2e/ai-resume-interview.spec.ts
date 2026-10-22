@@ -203,6 +203,7 @@ test('builds an editable separate resume draft from confirmed facts without appl
   await expect(summary.getByText('独立草稿预览')).toBeVisible();
   await expect(summary.getByText('Backend engineer').last()).toBeVisible();
   await expect(summary.getByText(/缺失字段/u)).toBeVisible();
+  await summary.getByText('编辑候选简历', { exact: true }).click();
   await summary.getByLabel('目标岗位/头衔').fill('Senior backend engineer');
 
   const after = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
