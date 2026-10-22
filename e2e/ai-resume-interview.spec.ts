@@ -328,6 +328,79 @@ test('shows a request failure and waits for a user-initiated retry', async ({ pa
   await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
 });
 
+test('reviews the exact answers before fact extraction and rejects ungrounded model output', async ({
+  page,
+}) => {
+  const { requests, baseUrl } = await startSSEMock(async (body, response, requestIndex) => {
+    const userMessage = body.messages.find((message) => message.role === 'user');
+    const payload = JSON.parse(userMessage?.content ?? '{}') as {
+      answers?: Array<{ questionId: string; answerId: string; answer: string }>;
+    };
+    const source = payload.answers?.[0];
+    const content =
+      requestIndex === 0
+        ? JSON.stringify({
+            facts: source
+              ? [
+                  {
+                    kind: 'targetRole',
+                    sourceQuestionId: source.questionId,
+                    sourceAnswerId: source.answerId,
+                    value: 'Backend engineer',
+                  },
+                ]
+              : [],
+          })
+        : JSON.stringify({
+            facts: source
+              ? [
+                  {
+                    kind: 'experience',
+                    sourceQuestionId: source.questionId,
+                    sourceAnswerId: source.answerId,
+                    value: {
+                      company: 'Fictional Systems',
+                      achievements: ['Increased revenue by 70%'],
+                    },
+                  },
+                ]
+              : [],
+          });
+    await writeSSEContent(response, content);
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await configureProvider(page, baseUrl);
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend engineer');
+  const facts = dialog.getByRole('complementary').getByRole('region', { name: '事实核实' });
+
+  await facts.getByRole('button', { name: 'AI 提取事实' }).click();
+  await expect(facts.getByText(/以下 1 条回答/u)).toBeVisible();
+  await expect(facts.getByText('Backend engineer', { exact: true })).toBeVisible();
+  await expect(facts.getByText(baseUrl)).toBeVisible();
+  expect(requests).toHaveLength(0);
+  await facts.getByRole('button', { name: '发送这些回答并提取' }).click();
+  await expect(facts.getByText('待确认', { exact: true })).toBeVisible();
+  expect(requests).toHaveLength(1);
+  expect(JSON.stringify(requests[0]?.messages)).not.toContain(apiKey);
+  expect(JSON.stringify(requests[0]?.messages)).not.toContain('Qing Chen');
+  await facts.getByRole('button', { name: '确认事实' }).click();
+  await expect(facts.getByText('已确认', { exact: true })).toBeVisible();
+  await expect(facts.getByText('已确认事实汇总（1）')).toBeVisible();
+
+  await facts.getByRole('button', { name: 'AI 提取事实' }).click();
+  await facts.getByRole('button', { name: '发送这些回答并提取' }).click();
+  await expect(facts.getByRole('alert')).toContainText('模型返回内容未通过结构和来源校验');
+  expect(requests).toHaveLength(2);
+  await expect(facts.getByText('Fictional Systems')).toHaveCount(0);
+  await expect(facts.getByText('已确认事实汇总（1）')).toBeVisible();
+
+  await dialog.getByRole('button', { name: '取消访谈' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
+});
+
 test('keeps keyboard focus inside the cancel confirmation and restores the right target', async ({
   page,
 }) => {
@@ -461,8 +534,17 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
   ).toBe(true);
   const dialogBox = await dialog.boundingBox();
   expect(dialogBox?.width).toBeLessThanOrEqual(390);
-  await dialog.getByRole('button', { name: '摘要' }).click();
+  await answer(dialog, 'Backend engineer');
+  const summaryTab = dialog.getByRole('button', { name: '摘要' });
+  await summaryTab.focus();
+  await page.keyboard.press('Enter');
   await expect(dialog.getByRole('heading', { name: '访谈摘要' })).toBeVisible();
+  const facts = dialog.getByRole('complementary').getByRole('region', { name: '事实核实' });
+  await expect(facts).toBeVisible();
+  const manualEntry = facts.getByRole('button', { name: '手动整理事实' });
+  await manualEntry.focus();
+  await page.keyboard.press('Enter');
+  await expect(facts.getByRole('heading', { name: '添加一条事实' })).toBeVisible();
   await dialog.getByRole('button', { name: '访谈', exact: true }).click();
   for (let index = 0; index < 6; index += 1) {
     await dialog.getByRole('button', { name: '跳过本阶段' }).click();

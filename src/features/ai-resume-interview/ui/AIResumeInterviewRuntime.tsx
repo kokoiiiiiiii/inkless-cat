@@ -14,6 +14,8 @@ import {
 } from '../lib/interviewRules';
 import type { AIInterviewProviderClient, InterviewPhase, InterviewQuestion } from '../model/types';
 import { useAIResumeInterview } from '../model/useAIResumeInterview';
+import { useResumeFacts } from '../model/useResumeFacts';
+import FactVerificationPanel from './FactVerificationPanel';
 
 type AIResumeInterviewRuntimeProps = {
   open: boolean;
@@ -49,9 +51,10 @@ const AIResumeInterviewRuntime = ({
   onPause,
   onOpenProviderSettings,
 }: AIResumeInterviewRuntimeProps) => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const controller = useAIResumeInterview(provider);
   const { session, progress } = controller;
+  const factsController = useResumeFacts(session, provider, locale);
   const cancelPendingEdit = controller.cancelEditAnswer;
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const confirmationDialogRef = useRef<HTMLElement | null>(null);
@@ -382,6 +385,12 @@ const AIResumeInterviewRuntime = ({
             {t('aiInterview.phaseSkipped', { phase: t(phaseKeys[phase]) })}
           </p>
         ))}
+        <FactVerificationPanel
+          session={session}
+          provider={provider}
+          controller={factsController}
+          onOpenProviderSettings={openProviderSettings}
+        />
       </div>
     </section>
   );
