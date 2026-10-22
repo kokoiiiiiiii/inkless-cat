@@ -19,8 +19,15 @@ const AIResumeEnhancementRuntime = ({ provider, request }: AIResumeEnhancementRu
 
   useEffect(() => {
     if (!request || handledRequestId.current === request.id) return;
-    handledRequestId.current = request.id;
-    open(request.target, request.opener);
+    let isCurrent = true;
+    queueMicrotask(() => {
+      if (!isCurrent || handledRequestId.current === request.id) return;
+      handledRequestId.current = request.id;
+      open(request.target, request.opener);
+    });
+    return () => {
+      isCurrent = false;
+    };
   }, [open, request]);
 
   return (

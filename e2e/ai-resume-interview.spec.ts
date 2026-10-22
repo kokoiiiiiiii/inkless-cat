@@ -350,7 +350,7 @@ test('keeps similar facts separate until the user links them and preserves respo
   expect(separateSources.every(({ factIds }) => factIds.length === 1)).toBe(true);
 
   const associationGroup = facts.getByRole('group', { name: '已确认且仍有来源的事实' });
-  await associationGroup.getByRole('checkbox').check();
+  await associationGroup.getByRole('checkbox').nth(0).check();
   await associationGroup.getByRole('checkbox').nth(1).check();
   await associationGroup.getByRole('checkbox').nth(2).check();
   await facts.getByRole('button', { name: '确认属于同一条记录' }).click();
