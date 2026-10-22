@@ -17,6 +17,7 @@ jobs:
           node-version: '>=22.12.0 <23.0.0'
           check-latest: true
           cache: npm
+      - run: npm install --global npm@11.20.0
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run typecheck
