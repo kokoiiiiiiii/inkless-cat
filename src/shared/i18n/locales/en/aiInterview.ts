@@ -142,6 +142,12 @@ export const aiInterview = {
     title: 'Verify facts',
     description:
       'Turn answers into source-linked candidate facts. Review and confirm each AI-extracted item yourself.',
+    semanticReviewNotice:
+      'A matching phrase links a suggestion to its source; it does not prove the value belongs in that field. Review every labeled field before confirming.',
+    originAi: 'AI suggestion',
+    originManual: 'Added by you',
+    sourceLinked: 'Source answer linked',
+    sourceChanged: 'Source answer changed or unavailable',
     pendingCount: '{count} items need review',
     confirmedCount: '{count} confirmed',
     unconfirmedCount: '{count} unconfirmed',
@@ -174,7 +180,7 @@ export const aiInterview = {
     edit: 'Edit',
     saveEdit: 'Save and review again',
     cancelEdit: 'Cancel edit',
-    confirm: 'Confirm fact',
+    confirmReviewed: 'I reviewed these fields',
     reject: 'Reject',
     viewSource: 'View source answer',
     sourceQuestion: 'Question',
@@ -182,7 +188,8 @@ export const aiInterview = {
     sourceUnavailable:
       'The source answer changed, was removed, or the interview restarted. This fact cannot be used for generation.',
     conflictNotice:
-      'This conflicts with another answer. Choose and confirm one version, or edit it and review again.',
+      'Only the fields listed below conflict. Confirming this version removes those disputed values from the other candidate and keeps its independent fields for your review.',
+    conflictFields: 'Conflicting fields',
     staleNotice:
       'The source answer changed or is unavailable. This fact is invalidated; extract it again or organize it manually.',
     confirmedSummary: 'Confirmed facts ({count})',
@@ -201,8 +208,8 @@ export const aiInterview = {
       phone: 'Phone',
       location: 'Location',
       summary: 'Summary',
-      company: 'Company',
-      role: 'Role or responsibility',
+      company: 'Employer / company (not a client)',
+      role: 'Job title',
       startDate: 'Start date',
       endDate: 'End date',
       responsibilities: 'Responsibilities (ownership unspecified)',
@@ -217,8 +224,8 @@ export const aiInterview = {
       skill: 'Skill',
     },
     status: {
-      pending: 'Needs review',
-      confirmed: 'Confirmed',
+      pending: 'Field meanings need your review',
+      confirmed: 'You confirmed these field meanings',
       rejected: 'Rejected',
       conflict: 'Conflict',
       stale: 'Invalidated',

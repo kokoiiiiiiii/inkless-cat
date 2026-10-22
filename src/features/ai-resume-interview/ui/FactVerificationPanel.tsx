@@ -7,6 +7,7 @@ import {
   factCandidateSchema,
   getAnswerId,
   getFactSource,
+  isFactCurrent,
   selectFactExtractionInput,
 } from '../model/facts';
 import type { AIInterviewProviderClient, InterviewSession } from '../model/types';
@@ -223,6 +224,10 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
   const [draftValue, setDraftValue] = useState<unknown>(fact.value);
   const [validationError, setValidationError] = useState(false);
   const source = getFactSource(session, fact);
+  const conflictFieldLabels = (fact.conflictFields ?? [])
+    .map((key) => factFields[fact.kind].find((field) => field.key === key))
+    .filter((field): field is FactField => field !== undefined)
+    .map((field) => t(field.label));
 
   const saveEdit = () => {
     const parsed = factCandidateSchema.safeParse({
@@ -247,8 +252,18 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             {t(kindLabels[fact.kind])}
           </p>
-          <p className="mt-1 break-words text-sm leading-6 text-slate-900 dark:text-slate-100">
-            {editing ? t('aiInterview.facts.editing') : describeFact(fact, t)}
+          <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+            {t(
+              fact.origin === 'ai'
+                ? 'aiInterview.facts.originAi'
+                : 'aiInterview.facts.originManual',
+            )}
+            {' · '}
+            {t(
+              isFactCurrent(session, fact)
+                ? 'aiInterview.facts.sourceLinked'
+                : 'aiInterview.facts.sourceChanged',
+            )}
           </p>
         </div>
         <span
@@ -257,12 +272,39 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
           {statusLabel(fact.status, t)}
         </span>
       </div>
+      <dl className="mt-3 space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 dark:bg-slate-900">
+        {factFields[fact.kind].map((field) => {
+          const fieldText = getFieldText(fact.value, field.key);
+          if (!fieldText.trim()) return null;
+          return (
+            <div key={field.key} className="min-w-0 break-words">
+              <dt className="inline font-semibold text-slate-700 dark:text-slate-200">
+                {t(field.label)}:{' '}
+              </dt>
+              <dd className="inline whitespace-pre-wrap text-slate-800 dark:text-slate-100">
+                {fieldText}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      {editing && (
+        <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+          {t('aiInterview.facts.editing')}
+        </p>
+      )}
       {fact.status === 'conflict' && (
         <p
           className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
           role="status"
         >
           {t('aiInterview.facts.conflictNotice')}
+          {conflictFieldLabels.length > 0 && (
+            <span className="mt-1 block">
+              <strong>{t('aiInterview.facts.conflictFields')}:</strong>{' '}
+              {conflictFieldLabels.join(', ')}
+            </span>
+          )}
         </p>
       )}
       {fact.status === 'stale' && (
@@ -351,7 +393,7 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
               className={smallPrimaryClass}
               onClick={() => controller.confirmFact(fact.id)}
             >
-              {t('aiInterview.facts.confirm')}
+              {t('aiInterview.facts.confirmReviewed')}
             </button>
           )}
           {fact.status !== 'rejected' && fact.status !== 'stale' && (
@@ -474,6 +516,9 @@ const FactVerificationPanel = ({
           </h4>
           <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
             {t('aiInterview.facts.description')}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+            {t('aiInterview.facts.semanticReviewNotice')}
           </p>
         </div>
         <p

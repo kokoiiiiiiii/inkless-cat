@@ -83,13 +83,89 @@ describe('FactVerificationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '添加待核实事实' }));
 
     expect(screen.getByText('后端工程师')).toBeTruthy();
-    expect(screen.getByText('待确认')).toBeTruthy();
+    expect(screen.getByText('字段含义待你核对')).toBeTruthy();
     fireEvent.click(screen.getByText('查看来源回答'));
     expect(screen.getByText('你希望应聘什么岗位？')).toBeTruthy();
     expect(screen.getByText('我希望应聘后端工程师。')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: '确认事实' }));
-    expect(screen.getByText('已确认')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '我已核对这些字段' }));
+    expect(screen.getByText('字段含义已由你确认')).toBeTruthy();
     expect(screen.getByText('已确认事实汇总（1）')).toBeTruthy();
+  });
+
+  it('shows linked source separately from semantic confirmation and lets the user correct field meaning', async () => {
+    const reviewSession: InterviewSession = {
+      ...session,
+      answers: [
+        {
+          id: 'a-experience',
+          questionId: 'q-role',
+          text: 'I worked for BrightWorks as an engineer. We built a billing app for Northwind Health, our customer. I personally wrote the import tool, while the whole team launched the migration.',
+          skipped: false,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+    };
+    const reviewProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete: vi.fn<AIInterviewProviderClient['streamComplete']>().mockResolvedValue({
+        content: JSON.stringify({
+          facts: [
+            {
+              kind: 'experience',
+              sourceQuestionId: 'q-role',
+              sourceAnswerId: 'a-experience',
+              value: {
+                company: 'Northwind Health',
+                role: 'engineer',
+                individualResponsibilities: ['the whole team launched the migration'],
+              },
+            },
+          ],
+        }),
+      }),
+    };
+    const SemanticReviewHarness = () => {
+      const controller = useResumeFacts(reviewSession, reviewProvider, 'zh-CN');
+      return (
+        <FactVerificationPanel
+          session={reviewSession}
+          provider={reviewProvider}
+          controller={controller}
+          onOpenProviderSettings={vi.fn()}
+        />
+      );
+    };
+
+    render(<SemanticReviewHarness />, { wrapper });
+    fireEvent.click(screen.getByRole('button', { name: 'AI 提取事实' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送这些回答并提取' }));
+
+    expect(await screen.findByText('Northwind Health')).toBeTruthy();
+    expect(screen.getByText('字段含义待你核对')).toBeTruthy();
+    expect(screen.getByText(/已关联来源回答/u)).toBeTruthy();
+    expect(screen.getByText('雇主/任职公司（非客户公司）:')).toBeTruthy();
+    expect(screen.getByText('个人独立负责:')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }));
+    fireEvent.change(screen.getByLabelText('雇主/任职公司（非客户公司）'), {
+      target: { value: 'BrightWorks' },
+    });
+    fireEvent.change(screen.getByLabelText('个人独立负责'), {
+      target: { value: 'I personally wrote the import tool' },
+    });
+    fireEvent.change(screen.getByLabelText('与团队协作'), {
+      target: { value: 'the whole team launched the migration' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存修改并重新核实' }));
+
+    expect(screen.getByText('字段含义待你核对')).toBeTruthy();
+    fireEvent.click(screen.getByText('查看来源回答'));
+    expect(screen.getByText(reviewSession.answers[0]?.text ?? '')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '我已核对这些字段' }));
+    expect(screen.getByText('字段含义已由你确认')).toBeTruthy();
   });
 });

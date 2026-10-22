@@ -14,6 +14,7 @@ import {
   isFactCurrent,
   markConflicts,
   parseFactExtractionResponse,
+  resolveFactConflicts,
   selectFactExtractionInput,
 } from './facts';
 import type { AIInterviewProviderClient, InterviewSession } from './types';
@@ -259,34 +260,14 @@ export const useResumeFacts = (
       const currentSession = currentRef.current.session;
       if (
         !selected ||
+        selected.status === 'rejected' ||
         selected.status === 'stale' ||
         !currentSession ||
         !isFactCurrent(currentSession, selected)
       ) {
         return current;
       }
-      const next = current.map((fact) => {
-        if (fact.id === factId)
-          return { ...fact, status: 'confirmed' as const, updatedAt: Date.now() };
-        const selectedConflictKeys = new Set(
-          selected.conflictKeys ?? (selected.conflictKey ? [selected.conflictKey] : []),
-        );
-        if (
-          selectedConflictKeys.size > 0 &&
-          (fact.conflictKeys ?? (fact.conflictKey ? [fact.conflictKey] : [])).some((key) =>
-            selectedConflictKeys.has(key),
-          )
-        ) {
-          return {
-            ...fact,
-            status: 'rejected' as const,
-            conflictKey: undefined,
-            conflictKeys: undefined,
-            updatedAt: Date.now(),
-          };
-        }
-        return fact;
-      });
+      const next = resolveFactConflicts(current, factId);
       return markConflicts(next);
     });
   }, []);
@@ -301,6 +282,7 @@ export const useResumeFacts = (
                 status: 'rejected' as const,
                 conflictKey: undefined,
                 conflictKeys: undefined,
+                conflictFields: undefined,
                 updatedAt: Date.now(),
               }
             : fact,

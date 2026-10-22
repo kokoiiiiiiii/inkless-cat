@@ -382,12 +382,12 @@ test('reviews the exact answers before fact extraction and rejects ungrounded mo
   await expect(facts.getByText(baseUrl)).toBeVisible();
   expect(requests).toHaveLength(0);
   await facts.getByRole('button', { name: '发送这些回答并提取' }).click();
-  await expect(facts.getByText('待确认', { exact: true })).toBeVisible();
+  await expect(facts.getByText('字段含义待你核对', { exact: true })).toBeVisible();
   expect(requests).toHaveLength(1);
   expect(JSON.stringify(requests[0]?.messages)).not.toContain(apiKey);
   expect(JSON.stringify(requests[0]?.messages)).not.toContain('Qing Chen');
-  await facts.getByRole('button', { name: '确认事实' }).click();
-  await expect(facts.getByText('已确认', { exact: true })).toBeVisible();
+  await facts.getByRole('button', { name: '我已核对这些字段' }).click();
+  await expect(facts.getByText('字段含义已由你确认', { exact: true })).toBeVisible();
   await expect(facts.getByText('已确认事实汇总（1）')).toBeVisible();
 
   await facts.getByRole('button', { name: 'AI 提取事实' }).click();
@@ -396,6 +396,80 @@ test('reviews the exact answers before fact extraction and rejects ungrounded mo
   expect(requests).toHaveLength(2);
   await expect(facts.getByText('Fictional Systems')).toHaveCount(0);
   await expect(facts.getByText('已确认事实汇总（1）')).toBeVisible();
+
+  await dialog.getByRole('button', { name: '取消访谈' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
+});
+
+test('keeps source traceability separate from employer and responsibility field review', async ({
+  page,
+}) => {
+  const { requests, baseUrl } = await startSSEMock(async (body, response) => {
+    const userMessage = body.messages.find((message) => message.role === 'user');
+    const payload = JSON.parse(userMessage?.content ?? '{}') as {
+      answers?: Array<{ questionId: string; answerId: string }>;
+    };
+    const source = payload.answers?.[0];
+    await writeSSEContent(
+      response,
+      JSON.stringify({
+        facts: source
+          ? [
+              {
+                kind: 'experience',
+                sourceQuestionId: source.questionId,
+                sourceAnswerId: source.answerId,
+                value: {
+                  company: 'Northwind Health',
+                  role: 'engineer',
+                  location: 'Seattle',
+                  individualResponsibilities: ['the whole team launched the migration'],
+                  teamResponsibilities: ['I personally wrote the import tool'],
+                },
+              },
+            ]
+          : [],
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await configureProvider(page, baseUrl);
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(
+    dialog,
+    'Backend engineer. I work for BrightWorks as an engineer in Seattle. BrightWorks built billing software for Northwind Health, our customer. I personally wrote the import tool, while the whole team launched the migration.',
+  );
+  const facts = dialog.getByRole('complementary').getByRole('region', { name: '事实核实' });
+  const resumeStoreBefore = await page.evaluate(() =>
+    localStorage.getItem('inkless-cat/resume-store'),
+  );
+
+  await facts.getByRole('button', { name: 'AI 提取事实' }).click();
+  await facts.getByRole('button', { name: '发送这些回答并提取' }).click();
+  await expect(facts.getByText('Northwind Health', { exact: true })).toBeVisible();
+  await expect(facts.getByText('字段含义待你核对', { exact: true })).toBeVisible();
+  await expect(facts.getByText(/已关联来源回答/u)).toBeVisible();
+  await expect(facts.getByText('雇主/任职公司（非客户公司）:', { exact: true })).toBeVisible();
+  await expect(facts.getByText('个人独立负责:', { exact: true })).toBeVisible();
+  await expect(facts.getByText('与团队协作:', { exact: true })).toBeVisible();
+  expect(requests).toHaveLength(1);
+
+  await facts.getByRole('button', { name: '编辑' }).click();
+  await facts.getByLabel('雇主/任职公司（非客户公司）').fill('BrightWorks');
+  await facts.getByLabel('个人独立负责').fill('I personally wrote the import tool');
+  await facts.getByLabel('与团队协作').fill('the whole team launched the migration');
+  await facts.getByRole('button', { name: '保存修改并重新核实' }).click();
+  await facts.getByText('查看来源回答').click();
+  await expect(
+    facts.getByText(/BrightWorks built billing software for Northwind Health/u),
+  ).toBeVisible();
+  await facts.getByRole('button', { name: '我已核对这些字段' }).click();
+  await expect(facts.getByText('字段含义已由你确认', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(
+    resumeStoreBefore,
+  );
 
   await dialog.getByRole('button', { name: '取消访谈' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();

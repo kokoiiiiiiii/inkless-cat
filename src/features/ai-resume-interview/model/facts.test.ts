@@ -8,6 +8,7 @@ import {
   invalidateStaleFacts,
   markConflicts,
   parseFactExtractionResponse,
+  resolveFactConflicts,
   selectFactExtractionInput,
 } from './facts';
 import type { InterviewAnswer, InterviewSession } from './types';
@@ -87,6 +88,43 @@ describe('resume facts and interview provenance', () => {
       updatedAt: 20,
     });
     expect(facts[0]?.sourceFingerprint).toMatch(/^fnv1a64-/u);
+  });
+
+  it('keeps source-matching employer and responsibility candidates pending for semantic review', () => {
+    const session = makeSession({
+      answers: [
+        makeAnswer({
+          text: 'I worked for BrightWorks as an engineer. We built a billing app for Northwind Health, our customer. I personally wrote the import tool, while the whole team launched the migration.',
+        }),
+      ],
+    });
+    const fact = parseFactExtractionResponse(
+      JSON.stringify({
+        facts: [
+          {
+            kind: 'experience',
+            sourceQuestionId: 'question-role',
+            sourceAnswerId: 'answer-role',
+            value: {
+              company: 'Northwind Health',
+              role: 'engineer',
+              individualResponsibilities: ['the whole team launched the migration'],
+            },
+          },
+        ],
+      }),
+      session,
+      session.answers,
+    )[0];
+
+    expect(fact).toMatchObject({
+      status: 'pending',
+      origin: 'ai',
+      value: {
+        company: 'Northwind Health',
+        individualResponsibilities: ['the whole team launched the migration'],
+      },
+    });
   });
 
   it('rejects fabricated company names, dates, metrics, and other values absent from the answer', () => {
@@ -267,7 +305,12 @@ describe('resume facts and interview provenance', () => {
           kind: 'experience',
           sourceQuestionId: 'question-role',
           sourceAnswerId: 'answer-role',
-          value: { company: 'Acme', role: '后端工程师', endDate: '2022' },
+          value: {
+            company: 'Acme',
+            role: '后端工程师',
+            location: 'Seattle',
+            individualResponsibilities: ['built the reporting API'],
+          },
         } as never,
         session,
         'manual',
@@ -278,7 +321,12 @@ describe('resume facts and interview provenance', () => {
           kind: 'experience',
           sourceQuestionId: 'question-work-follow-up',
           sourceAnswerId: 'answer-work-follow-up',
-          value: { company: 'Acme', role: '后端工程师', endDate: '2023' },
+          value: {
+            company: 'Acme',
+            role: '后端工程师',
+            location: 'Vancouver',
+            teamResponsibilities: ['collaborated on the rollout'],
+          },
         } as never,
         session,
         'manual',
@@ -295,7 +343,70 @@ describe('resume facts and interview provenance', () => {
       'conflict',
     ]);
     expect(markConflicts(personalFacts)[0]?.conflictKeys).toContain('personal.email');
-    expect(markConflicts(experienceFacts)[0]?.conflictKeys?.[0]).toContain('experience:');
+    expect(markConflicts(experienceFacts)[0]?.conflictFields).toEqual(['location']);
+    expect(markConflicts(experienceFacts)[1]?.conflictFields).toEqual(['location']);
+    expect(markConflicts(experienceFacts)[0]?.value).toMatchObject({
+      individualResponsibilities: ['built the reporting API'],
+    });
+    expect(markConflicts(experienceFacts)[1]?.value).toMatchObject({
+      teamResponsibilities: ['collaborated on the rollout'],
+    });
+  });
+
+  it('removes only the disputed location and retains the other candidate under its source', () => {
+    const session = makeSession();
+    const candidates = [
+      createResumeFact(
+        {
+          kind: 'experience',
+          sourceQuestionId: 'question-role',
+          sourceAnswerId: 'answer-role',
+          value: {
+            company: 'Acme',
+            role: 'Engineer',
+            location: 'Seattle',
+            individualResponsibilities: ['built the reporting API'],
+          },
+        } as never,
+        session,
+        'manual',
+        30,
+      ),
+      createResumeFact(
+        {
+          kind: 'experience',
+          sourceQuestionId: 'question-role',
+          sourceAnswerId: 'answer-role',
+          value: {
+            company: 'Acme',
+            role: 'Engineer',
+            location: 'Vancouver',
+            teamResponsibilities: ['collaborated on the rollout'],
+          },
+        } as never,
+        session,
+        'manual',
+        31,
+      ),
+    ];
+    const conflicted = markConflicts(candidates);
+    const resolved = resolveFactConflicts(conflicted, conflicted[0]?.id ?? '');
+
+    expect(resolved[0]).toMatchObject({
+      status: 'confirmed',
+      value: { location: 'Seattle', individualResponsibilities: ['built the reporting API'] },
+    });
+    expect(resolved[1]).toMatchObject({
+      status: 'pending',
+      sourceAnswerId: 'answer-role',
+      value: {
+        company: 'Acme',
+        role: 'Engineer',
+        teamResponsibilities: ['collaborated on the rollout'],
+      },
+    });
+    expect((resolved[1]?.value as Record<string, unknown>).location).toBeUndefined();
+    expect(resolved[1]?.conflictFields).toBeUndefined();
   });
 
   it('excludes skipped answers, caps request count, and rejects an over-budget request', () => {

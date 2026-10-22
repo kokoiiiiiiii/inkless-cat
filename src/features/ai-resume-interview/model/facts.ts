@@ -121,6 +121,7 @@ export type ResumeFact = {
   sourceFingerprint: string;
   conflictKey?: string;
   conflictKeys?: string[];
+  conflictFields?: string[];
   origin: 'ai' | 'manual';
 };
 
@@ -205,7 +206,7 @@ export const isFactCurrent = (session: InterviewSession, fact: ResumeFact): bool
   );
 };
 
-type FactConflictValue = { key: string; value: string };
+type FactConflictValue = { key: string; field: string; value: string };
 
 const normalizedIdentity = (values: Array<string | undefined>): string =>
   values
@@ -215,7 +216,7 @@ const normalizedIdentity = (values: Array<string | undefined>): string =>
 
 const getFactConflictValues = (fact: ResumeFact): FactConflictValue[] => {
   if (fact.kind === 'targetRole' && typeof fact.value === 'string') {
-    return [{ key: 'targetRole', value: normalizeForMatch(fact.value) }];
+    return [{ key: 'targetRole', field: 'value', value: normalizeForMatch(fact.value) }];
   }
   if (!fact.value || typeof fact.value !== 'object') return [];
 
@@ -224,7 +225,7 @@ const getFactConflictValues = (fact: ResumeFact): FactConflictValue[] => {
     return (['fullName', 'email', 'phone', 'location'] as const).flatMap((key) => {
       const fieldValue = value[key];
       return typeof fieldValue === 'string' && fieldValue.trim()
-        ? [{ key: `personal.${key}`, value: normalizeForMatch(fieldValue) }]
+        ? [{ key: `personal.${key}`, field: key, value: normalizeForMatch(fieldValue) }]
         : [];
     });
   }
@@ -236,6 +237,7 @@ const getFactConflictValues = (fact: ResumeFact): FactConflictValue[] => {
         ? [
             {
               key: `${prefix}:${identity}:${field}`,
+              field,
               value: normalizeForMatch(fieldValue),
             },
           ]
@@ -269,26 +271,99 @@ export const markConflicts = (facts: ResumeFact[]): ResumeFact[] => {
     ...(fact.status === 'conflict' ? { status: 'pending' as const } : {}),
     conflictKey: undefined,
     conflictKeys: undefined,
+    conflictFields: undefined,
   }));
-  const groups = new Map<string, Map<string, { fact: ResumeFact; value: string }>>();
+  const groups = new Map<string, Map<string, { fact: ResumeFact; field: string; value: string }>>();
   for (const fact of next) {
     if (fact.status === 'rejected' || fact.status === 'stale') continue;
-    for (const { key, value } of getFactConflictValues(fact)) {
+    for (const { key, field, value } of getFactConflictValues(fact)) {
       const group = groups.get(key) ?? new Map();
-      group.set(fact.id, { fact, value });
+      group.set(fact.id, { fact, field, value });
       groups.set(key, group);
     }
   }
   for (const [key, group] of groups) {
     const distinct = new Set([...group.values()].map(({ value }) => value));
     if (distinct.size < 2) continue;
-    for (const { fact } of group.values()) {
+    for (const { fact, field } of group.values()) {
       fact.status = 'conflict';
       fact.conflictKey ??= key;
       fact.conflictKeys = [...(fact.conflictKeys ?? []), key];
+      fact.conflictFields = [...new Set([...(fact.conflictFields ?? []), field])];
     }
   }
   return next;
+};
+
+const removeFields = (fact: ResumeFact, fields: string[]): ResumeFact => {
+  if (typeof fact.value !== 'object' || fact.value === null || fields.length === 0) return fact;
+  const value = { ...(fact.value as Record<string, unknown>) };
+  for (const field of fields) delete value[field];
+  return { ...fact, value: value };
+};
+
+const hasIndependentFactData = (fact: ResumeFact): boolean => {
+  if (typeof fact.value !== 'object' || fact.value === null) return false;
+  const independentFields: Partial<Record<FactKind, string[]>> = {
+    personal: ['fullName', 'email', 'phone', 'location', 'summary'],
+    experience: [
+      'location',
+      'startDate',
+      'endDate',
+      'responsibilities',
+      'individualResponsibilities',
+      'teamResponsibilities',
+      'achievements',
+    ],
+    project: [
+      'role',
+      'summary',
+      'link',
+      'responsibilities',
+      'individualResponsibilities',
+      'teamResponsibilities',
+      'achievements',
+    ],
+    education: ['startDate', 'endDate', 'details'],
+  };
+  const value = fact.value as Record<string, unknown>;
+  return (independentFields[fact.kind] ?? []).some((field) => {
+    const item = value[field];
+    return typeof item === 'string' ? Boolean(item.trim()) : Array.isArray(item) && item.length > 0;
+  });
+};
+
+/** Resolve differing fields and retain each remaining value's original source link. */
+export const resolveFactConflicts = (facts: ResumeFact[], selectedId: string): ResumeFact[] => {
+  const selected = facts.find((fact) => fact.id === selectedId);
+  if (!selected) return facts;
+  const selectedValues = new Map(
+    getFactConflictValues(selected).map((item) => [item.key, item.value]),
+  );
+
+  return facts.map((fact) => {
+    if (fact.id === selectedId) {
+      return { ...fact, status: 'confirmed' as const, updatedAt: Date.now() };
+    }
+    if (fact.status !== 'conflict') return fact;
+
+    const differingKeys = getFactConflictValues(fact).filter(
+      ({ key, value }) => selectedValues.has(key) && selectedValues.get(key) !== value,
+    );
+    if (differingKeys.length === 0) return fact;
+
+    const fieldsToRemove = [...new Set(differingKeys.map(({ field }) => field))];
+    const reduced = removeFields(fact, fieldsToRemove);
+    const hasIndependentData = hasIndependentFactData(reduced);
+    return {
+      ...reduced,
+      status: hasIndependentData ? ('pending' as const) : ('rejected' as const),
+      conflictKey: undefined,
+      conflictKeys: undefined,
+      conflictFields: undefined,
+      updatedAt: Date.now(),
+    };
+  });
 };
 
 export const invalidateStaleFacts = (
@@ -305,6 +380,7 @@ export const invalidateStaleFacts = (
       updatedAt: Date.now(),
       conflictKey: undefined,
       conflictKeys: undefined,
+      conflictFields: undefined,
     };
   });
   return changed ? markConflicts(next) : facts;

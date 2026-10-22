@@ -260,6 +260,105 @@ describe('useResumeFacts', () => {
     expect(result.current.facts.map((fact) => fact.status)).toEqual(['confirmed', 'rejected']);
   });
 
+  it('resolves a work location field while preserving the other candidate’s independent duties', async () => {
+    const workSession = makeSession({
+      questions: [
+        ...makeSession().questions,
+        {
+          id: 'q-work-one',
+          phase: 'work',
+          content: 'Where did you work and what did you do?',
+          source: 'template',
+          followUpIndex: 0,
+          createdAt: 3,
+        },
+        {
+          id: 'q-work-two',
+          phase: 'work',
+          content: 'Can you clarify the same role?',
+          source: 'template',
+          followUpIndex: 1,
+          createdAt: 5,
+        },
+      ],
+      answers: [
+        ...makeSession().answers,
+        {
+          id: 'a-work-one',
+          questionId: 'q-work-one',
+          text: 'At Acme I worked as an Engineer in Seattle, where I personally built the reporting API.',
+          skipped: false,
+          createdAt: 4,
+          updatedAt: 4,
+        },
+        {
+          id: 'a-work-two',
+          questionId: 'q-work-two',
+          text: 'At Acme I worked as an Engineer in Vancouver, where we collaborated on the rollout.',
+          skipped: false,
+          createdAt: 6,
+          updatedAt: 6,
+        },
+      ],
+    });
+    const response = {
+      facts: [
+        {
+          kind: 'experience',
+          sourceQuestionId: 'q-work-one',
+          sourceAnswerId: 'a-work-one',
+          value: {
+            company: 'Acme',
+            role: 'Engineer',
+            location: 'Seattle',
+            individualResponsibilities: ['I personally built the reporting API'],
+          },
+        },
+        {
+          kind: 'experience',
+          sourceQuestionId: 'q-work-two',
+          sourceAnswerId: 'a-work-two',
+          value: {
+            company: 'Acme',
+            role: 'Engineer',
+            location: 'Vancouver',
+            teamResponsibilities: ['we collaborated on the rollout'],
+          },
+        },
+      ],
+    };
+    const provider = createProvider(
+      vi.fn().mockResolvedValue({ content: JSON.stringify(response) }),
+    );
+    const { result } = renderHook(() => useResumeFacts(workSession, provider, 'en'), { wrapper });
+
+    await act(async () => result.current.extract());
+    const [selected, competing] = result.current.facts;
+    expect(result.current.facts.map((fact) => fact.status)).toEqual(['conflict', 'conflict']);
+
+    act(() => result.current.confirmFact(selected?.id ?? ''));
+
+    expect(result.current.confirmedCount).toBe(1);
+    expect(result.current.facts[0]).toMatchObject({
+      status: 'confirmed',
+      value: {
+        location: 'Seattle',
+        individualResponsibilities: ['I personally built the reporting API'],
+      },
+    });
+    expect(result.current.facts[1]).toMatchObject({
+      status: 'pending',
+      sourceAnswerId: 'a-work-two',
+      value: {
+        company: 'Acme',
+        role: 'Engineer',
+        teamResponsibilities: ['we collaborated on the rollout'],
+      },
+    });
+    expect((result.current.facts[1]?.value as Record<string, unknown>).location).toBeUndefined();
+    expect(competing?.sourceAnswerId).toBe('a-work-two');
+  });
+
   it('does not confirm a fact after its source answer changes', async () => {
     const props = { session: makeSession(), provider: createProvider() };
     const { result, rerender } = renderHook(
