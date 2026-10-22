@@ -202,7 +202,9 @@ test('requires current-draft confirmation and keeps undo after rebuilding withou
   });
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/');
+  await page.getByLabel('姓名').fill('Synthetic baseline');
   const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  expect(before).not.toBeNull();
   const dialog = await openInterview(page);
 
   await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
@@ -273,7 +275,7 @@ test('aggregates confirmed facts for one experience while keeping responsibility
     '工作经历',
     [
       ['雇主/任职公司（非客户公司）', 'BrightWorks'],
-      ['岗位或职责', 'Backend Engineer'],
+      ['岗位名称', 'Backend Engineer'],
       ['开始时间', '2022'],
     ],
     '2022',
@@ -284,7 +286,7 @@ test('aggregates confirmed facts for one experience while keeping responsibility
     '工作经历',
     [
       ['雇主/任职公司（非客户公司）', 'BrightWorks'],
-      ['岗位或职责', 'Backend Engineer'],
+      ['岗位名称', 'Backend Engineer'],
       ['个人独立负责', '独立设计并开发设备采集服务'],
     ],
     '独立设计并开发设备采集服务',
@@ -295,7 +297,7 @@ test('aggregates confirmed facts for one experience while keeping responsibility
     '工作经历',
     [
       ['雇主/任职公司（非客户公司）', 'BrightWorks'],
-      ['岗位或职责', 'Backend Engineer'],
+      ['岗位名称', 'Backend Engineer'],
       ['与团队协作', '与团队协作完成 MES 集成'],
     ],
     '与团队协作完成 MES 集成',
