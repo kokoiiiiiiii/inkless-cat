@@ -16,6 +16,7 @@ import type { AIInterviewProviderClient, InterviewPhase, InterviewQuestion } fro
 import { useAIResumeInterview } from '../model/useAIResumeInterview';
 import { useResumeFacts } from '../model/useResumeFacts';
 import FactVerificationPanel from './FactVerificationPanel';
+import ResumeGenerationPanel from './ResumeGenerationPanel';
 
 type AIResumeInterviewRuntimeProps = {
   open: boolean;
@@ -390,6 +391,11 @@ const AIResumeInterviewRuntime = ({
           provider={provider}
           controller={factsController}
           onOpenProviderSettings={openProviderSettings}
+        />
+        <ResumeGenerationPanel
+          session={session}
+          facts={factsController.facts}
+          provider={provider}
         />
       </div>
     </section>

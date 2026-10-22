@@ -174,6 +174,42 @@ test('opens from the editor, supports guide questions without AI, and never chan
   expect(after).toBe(before);
 });
 
+test('builds an editable separate resume draft from confirmed facts without applying or requesting AI', async ({
+  page,
+}) => {
+  let requests = 0;
+  await page.route('**/chat/completions', async (route) => {
+    requests += 1;
+    await route.abort();
+  });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('/');
+  const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  const dialog = await openInterview(page);
+
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend engineer');
+  const summary = dialog.getByRole('complementary');
+  await expect(summary.getByTestId('resume-generation-panel')).toBeVisible();
+  await summary.getByRole('button', { name: '手动整理事实' }).click();
+  await summary.getByLabel('来源回答').selectOption({
+    label: '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+  });
+  await summary.getByLabel('目标岗位').fill('Backend engineer');
+  await summary.getByRole('button', { name: '添加待核实事实' }).click();
+  await summary.getByRole('button', { name: '我已核对这些字段' }).click();
+
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  await expect(summary.getByText('独立草稿预览')).toBeVisible();
+  await expect(summary.getByText('Backend engineer').last()).toBeVisible();
+  await expect(summary.getByText(/缺失字段/u)).toBeVisible();
+  await summary.getByLabel('目标岗位/头衔').fill('Senior backend engineer');
+
+  const after = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  expect(after).toBe(before);
+  expect(requests).toBe(0);
+});
+
 test('uses mocked SSE for contextual follow-ups, editing, and skip controls', async ({ page }) => {
   const { requests, baseUrl } = await startSSEMock(async (body, response, requestIndex) => {
     const userMessage = body.messages.find((message) => message.role === 'user');

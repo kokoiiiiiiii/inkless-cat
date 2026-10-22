@@ -247,6 +247,86 @@ export const aiInterview = {
         'The model output failed structure or source validation. No candidate facts were saved.',
     },
   },
+  generation: {
+    title: 'Build a resume draft',
+    description:
+      'Build a separate draft only from facts you confirmed whose source answers are still current. AI will not infer facts or send an extra request automatically.',
+    deterministicNotice:
+      'Using {count} confirmed facts with current sources. Fields use fixed mappings; no sample resume is read or mixed in.',
+    build: 'Build draft',
+    rebuild: 'Rebuild from current facts',
+    noConfirmedFacts:
+      'Review and confirm facts above first. Pending, conflicted, and invalidated facts are excluded.',
+    conflictsTitle: 'Unresolved conflicts ({count})',
+    conflictsExcluded:
+      'Conflicted candidate facts are excluded. Resolve them and rebuild from the current facts.',
+    staleDraft:
+      'The facts, interview, or AI service changed. This older draft is invalid and cannot be written; rebuild it.',
+    missingTitle: 'Missing fields ({count})',
+    noMissing:
+      'These common fields have content. Review each fact and resume wording before applying.',
+    schemaError: 'The draft failed ResumeData Schema validation. Fix the fields before continuing.',
+    editTitle: 'Edit candidate resume',
+    experience: 'Experience {index}',
+    project: 'Project {index}',
+    education: 'Education {index}',
+    responsibilityBoundary:
+      'Keep each responsibility prefix: personally owned, shared with the team, or ownership unspecified.',
+    previewTitle: 'Separate draft preview',
+    includedFacts:
+      'This draft uses {count} confirmed facts. Interview answers and candidate facts remain in this page’s memory.',
+    prepareReplace: 'Review and replace current resume',
+    replaceTitle: 'Confirm resume replacement',
+    replaceNotice:
+      'This replaces the single active Workspace resume. The app checks for changes before writing and keeps an in-memory snapshot that you can undo on this page.',
+    replaceAcknowledgement:
+      'I reviewed the candidate preview and understand it will replace the current resume.',
+    confirmReplace: 'Confirm resume replacement',
+    cancel: 'Back to review',
+    resumeChanged:
+      'The active resume changed while you were confirming. Nothing was written; review it again before confirming.',
+    applied:
+      'The candidate resume was applied. You can restore the previous resume from its in-memory snapshot on this page.',
+    undo: 'Undo and restore previous resume',
+    undoUnavailable:
+      'The active resume changed again. The old snapshot is disabled to avoid overwriting later edits.',
+    undone: 'The active resume has been restored to its previous version.',
+    missing: {
+      name: 'Name',
+      title: 'Target role/title',
+      contact: 'Email or phone',
+      summary: 'Summary',
+      experience: 'Work experience',
+      experienceCompany: 'Employer/company in experience',
+      experienceRole: 'Role in experience',
+      experienceDates: 'Dates in experience',
+      projects: 'Projects',
+      projectName: 'Project name',
+      education: 'Education',
+      educationSchool: 'School',
+      educationDegree: 'Degree or field',
+      skills: 'Skills',
+    },
+    fields: {
+      name: 'Name',
+      title: 'Target role/title',
+      email: 'Email',
+      phone: 'Phone',
+      location: 'Location',
+      summary: 'Summary',
+      company: 'Employer/company',
+      role: 'Role or responsibility',
+      startDate: 'Start date',
+      endDate: 'End date',
+      highlights: 'Responsibilities and outcomes',
+      project: 'Project name',
+      link: 'Project link',
+      school: 'School',
+      degree: 'Degree or field',
+      details: 'Details',
+      skills: 'Skills (one per line)',
+    },
+  },
   finish: 'Finish interview',
   completedTitle: 'Interview complete',
   completedBody:
