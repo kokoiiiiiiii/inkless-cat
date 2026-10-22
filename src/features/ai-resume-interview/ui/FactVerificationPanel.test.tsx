@@ -71,6 +71,22 @@ const Harness = () => {
 };
 
 describe('FactVerificationPanel', () => {
+  it('keeps multiline summary fields as schema strings so users can confirm them', () => {
+    render(<Harness />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: '手动整理事实' }));
+    fireEvent.change(screen.getByLabelText('事实类型'), { target: { value: 'personal' } });
+    fireEvent.change(screen.getByLabelText('来源回答'), { target: { value: 'a-role' } });
+    fireEvent.change(screen.getByLabelText('简介'), {
+      target: { value: 'I built reliable services using TypeScript.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '添加待核实事实' }));
+
+    expect(screen.getByText('I built reliable services using TypeScript.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '我已核对这些字段' }));
+    expect(screen.getByText('字段含义已由你确认')).toBeTruthy();
+  });
+
   it('supports manual fact entry, source review, confirmation, and rejection without a provider', () => {
     render(<Harness />, { wrapper });
 
