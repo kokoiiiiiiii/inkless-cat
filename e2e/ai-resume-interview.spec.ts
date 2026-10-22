@@ -195,7 +195,7 @@ test('builds an editable separate resume draft from confirmed facts without appl
   await summary.getByLabel('来源回答').selectOption({
     label: '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
   });
-  await summary.getByLabel('目标岗位').fill('Backend engineer');
+  await summary.getByRole('textbox', { name: '目标岗位' }).fill('Backend engineer');
   await summary.getByRole('button', { name: '添加待核实事实' }).click();
   await summary.getByRole('button', { name: '我已核对这些字段' }).click();
 
