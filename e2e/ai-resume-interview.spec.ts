@@ -898,6 +898,7 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
     .getByRole('dialog', { name: '切换语言' })
     .getByRole('button', { name: '仅切换语言' })
     .click();
+  await expect(page.getByRole('button', { name: 'Create resume with AI' })).toBeVisible();
   let dialog = await openInterview(page, true);
   await expect(dialog.getByText('Start from scratch')).toBeVisible();
   await dialog.getByRole('button', { name: 'Start with guide questions' }).click();

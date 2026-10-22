@@ -13,6 +13,29 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe('ActionButtons locale dialog accessibility', () => {
+  it('uses a base-dictionary label for the lazy AI interview launcher', () => {
+    render(
+      <ActionButtons
+        onResetSample={vi.fn()}
+        onClear={vi.fn()}
+        onImportClick={vi.fn()}
+        onExport={vi.fn()}
+        onExportWorkspace={vi.fn()}
+        onExportMarkdown={vi.fn()}
+        onPrint={vi.fn()}
+        theme="light"
+        onToggleTheme={vi.fn()}
+        inputRef={createRef<HTMLInputElement>()}
+        onFileChange={vi.fn()}
+        onLocaleChange={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByRole('button', { name: 'AI 创建简历' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'aiInterview.trigger' })).toBeNull();
+  });
+
   it('focuses the dialog, traps keyboard focus, closes with Escape, and restores focus', () => {
     render(
       <ActionButtons

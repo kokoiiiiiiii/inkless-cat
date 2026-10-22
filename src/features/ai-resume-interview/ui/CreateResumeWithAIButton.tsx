@@ -19,7 +19,7 @@ const CreateResumeWithAIButton = () => {
         if (button) open(button);
       }}
     >
-      {t('aiInterview.trigger')}
+      {t('topbar.aiResume')}
     </button>
   );
 };
