@@ -128,7 +128,7 @@ test('interview dialog uses readable summary tabs on tablet and phone widths', a
     { width: 320, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
-    await expect(dialog.getByRole('button', { name: '访谈' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '访谈', exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '摘要' })).toBeVisible();
     await expect(dialog.locator('main')).toBeVisible();
     await expect(dialog.getByRole('complementary')).toBeHidden();
@@ -139,11 +139,11 @@ test('interview dialog uses readable summary tabs on tablet and phone widths', a
     await dialog.getByRole('button', { name: '摘要' }).click();
     await expect(dialog.locator('main')).toBeHidden();
     await expect(dialog.getByRole('complementary')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: '访谈' })).toHaveAttribute(
+    await expect(dialog.getByRole('button', { name: '访谈', exact: true })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
-    await dialog.getByRole('button', { name: '访谈' }).click();
+    await dialog.getByRole('button', { name: '访谈', exact: true }).click();
     await expect(dialog.locator('main')).toBeVisible();
   }
 
@@ -167,7 +167,7 @@ const addAndConfirmManualFact = async (
 ) => {
   await panel.getByRole('button', { name: '手动整理事实' }).click();
   await panel.getByLabel('事实类型').selectOption({ label: kindLabel });
-  await panel.getByLabel('来源回答').selectOption({ label: sourceLabel });
+  await panel.getByLabel('来源回答').first().selectOption({ label: sourceLabel });
   for (const [label, value] of fields) await panel.getByLabel(label).fill(value);
   await panel.getByRole('button', { name: '添加待核实事实' }).click();
   const factCard = panel.locator('article').filter({ hasText: uniqueMarker });

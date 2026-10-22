@@ -6,7 +6,7 @@ export const common = {
   featureFailedLoad: '功能加载失败。请重新加载页面后重试。',
   reloadPage: '重新加载页面',
   aiEnhance: 'AI 润色',
-  aiEnhanceWithField: '使用 AI 润色{field}',
+  aiEnhanceWithField: '为{field}打开 AI 润色',
   aiFields: {
     personalSummary: '个人简介',
     experienceHighlights: '工作经历 · 重点成果',
