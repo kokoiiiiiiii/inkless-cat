@@ -1,6 +1,6 @@
 import { AIProviderProvider } from '@features/ai-provider-settings';
 import { I18nProvider } from '@shared/i18n';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -131,11 +131,10 @@ describe('AI provider settings dialog accessibility', () => {
     expect(document.body.style.overflow).toBe('');
 
     fireEvent.click(trigger);
-    expect(await screen.findByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
-      'value',
-      'https://provider.example/v1/模型',
-    );
+    const reopenedBaseUrl = await screen.findByRole('textbox', { name: 'API Base URL' });
+    expect(reopenedBaseUrl).toHaveProperty('value', 'https://provider.example/v1/模型');
     expect(screen.getByRole('textbox', { name: '模型 ID' })).toHaveProperty('value', '混合模型');
+    await waitFor(() => expect(document.activeElement).toBe(reopenedBaseUrl));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
     expect(document.activeElement).toBe(trigger);
