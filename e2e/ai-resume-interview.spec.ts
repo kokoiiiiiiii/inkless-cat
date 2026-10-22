@@ -247,14 +247,17 @@ test('sends only reviewed prose for optional wording suggestions and keeps them 
   await summary.getByRole('button', { name: '我已核对这些字段' }).click();
 
   await summary.getByRole('button', { name: '构建草稿' }).click();
-  await expect(summary.getByText('I built reliable services using TypeScript.')).toBeVisible();
+  const draft = summary.getByTestId('generated-resume-draft');
+  const summaryText = 'I built reliable services using TypeScript.';
+  const previewSummary = draft.getByRole('paragraph').filter({ hasText: summaryText });
+  await expect(previewSummary).toHaveText(summaryText);
   expect(requests).toHaveLength(0);
-  await summary.getByRole('button', { name: '检查即将发送的文字' }).click();
-  await expect(summary.getByText(/以下 1 项叙述文字会直接发送/u)).toBeVisible();
-  await expect(summary.getByText('I built reliable services using TypeScript.')).toBeVisible();
+  await draft.getByRole('button', { name: '检查即将发送的文字' }).click();
+  await expect(draft.getByText(/以下 1 项叙述文字会直接发送/u)).toBeVisible();
+  await expect(draft.getByRole('listitem').filter({ hasText: summaryText })).toBeVisible();
   expect(requests).toHaveLength(0);
 
-  await summary.getByRole('button', { name: '发送叙述文字并获取建议' }).click();
+  await draft.getByRole('button', { name: '发送叙述文字并获取建议' }).click();
   await expect.poll(() => requests.length).toBe(1);
   const payload = JSON.parse(
     requests[0]?.messages.find(({ role }) => role === 'user')?.content ?? '{}',
@@ -263,9 +266,10 @@ test('sends only reviewed prose for optional wording suggestions and keeps them 
   expect(payload.items).toEqual([
     { id: 'personal-summary', text: 'I built reliable services using TypeScript.' },
   ]);
-  await expect(summary.getByText('I developed reliable services using TypeScript.')).toBeVisible();
+  await expect(
+    draft.getByText('I developed reliable services using TypeScript.', { exact: true }),
+  ).toBeVisible();
 
-  const draft = summary.getByTestId('generated-resume-draft');
   await draft.getByText('编辑候选简历', { exact: true }).click();
   const candidateSummary = draft.getByLabel('简介');
   await expect(candidateSummary).toHaveValue('I built reliable services using TypeScript.');
