@@ -282,7 +282,7 @@ const AIResumeInterviewRuntime = ({
     }
   };
 
-  if (!open || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   const getStateAnnouncement = () => {
     if (!session) return '';
@@ -398,6 +398,7 @@ const AIResumeInterviewRuntime = ({
           entityLinks={factsController.entityLinks}
           entitySeparations={factsController.entitySeparations}
           provider={provider}
+          active={open}
         />
       </div>
     </section>
@@ -772,6 +773,9 @@ const AIResumeInterviewRuntime = ({
     <div
       ref={dialogRef}
       className="fixed inset-0 z-[75] flex min-h-dvh items-center justify-center overflow-y-auto bg-slate-950/55 px-2 py-2 dark:bg-black/75 sm:px-5 sm:py-4"
+      style={open ? undefined : { display: 'none' }}
+      aria-hidden={!open || undefined}
+      inert={!open}
     >
       <div
         className="my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-h-[calc(100dvh-2rem)]"

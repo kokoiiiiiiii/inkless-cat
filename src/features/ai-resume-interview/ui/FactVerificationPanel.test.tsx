@@ -1,6 +1,7 @@
 import { I18nProvider } from '@shared/i18n';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AIInterviewProviderClient, InterviewSession } from '../model/types';
@@ -141,6 +142,57 @@ describe('FactVerificationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '我已核对这些字段' }));
     expect(screen.getByText('字段含义已由你确认')).toBeTruthy();
     expect(screen.getByText('已确认事实汇总（1）')).toBeTruthy();
+  });
+
+  it('clears an unsubmitted manual fact and source answer when a new session starts', () => {
+    const nextSession: InterviewSession = {
+      ...session,
+      id: 'session-ui-next',
+      generation: 2,
+      questions: [{ ...session.questions[0]!, id: 'q-role-next' }],
+      answers: [
+        {
+          ...session.answers[0]!,
+          id: 'a-role-next',
+          questionId: 'q-role-next',
+          text: 'A different session answer.',
+        },
+      ],
+    };
+    const SessionChangingHarness = () => {
+      const [activeSession, setActiveSession] = useState(session);
+      const controller = useResumeFacts(activeSession, provider, 'zh-CN');
+      return (
+        <>
+          <button type="button" onClick={() => setActiveSession(nextSession)}>
+            Start a new session
+          </button>
+          <FactVerificationPanel
+            session={activeSession}
+            provider={provider}
+            controller={controller}
+            onOpenProviderSettings={vi.fn()}
+          />
+        </>
+      );
+    };
+
+    render(<SessionChangingHarness />, { wrapper });
+    fireEvent.click(screen.getByRole('button', { name: '手动整理事实' }));
+    fireEvent.change(screen.getByLabelText('来源回答'), { target: { value: 'a-role' } });
+    fireEvent.change(screen.getByLabelText('目标岗位'), {
+      target: { value: 'First session only' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start a new session' }));
+    fireEvent.click(screen.getByRole('button', { name: '手动整理事实' }));
+
+    expect(screen.getByLabelText<HTMLInputElement>('目标岗位').value).toBe('');
+    expect(screen.getByLabelText<HTMLSelectElement>('来源回答').value).toBe('');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: '添加待核实事实' }).disabled).toBe(
+      true,
+    );
+    expect(screen.queryByText('First session only')).toBeNull();
   });
 
   it('shows linked source separately from semantic confirmation and lets the user correct field meaning', async () => {

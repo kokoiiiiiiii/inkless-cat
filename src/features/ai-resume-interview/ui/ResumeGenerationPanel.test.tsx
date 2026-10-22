@@ -648,6 +648,116 @@ describe('ResumeGenerationPanel', () => {
     ).toBe(true);
   });
 
+  it('hides a prior session draft and its pending replacement confirmation after a new session starts', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'First session draft' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+
+    const nextSession: InterviewSession = {
+      ...session,
+      id: 'generation-panel-session-next',
+      generation: 2,
+      questions: [{ ...session.questions[0]!, id: 'q-source-next' }],
+      answers: [
+        {
+          ...session.answers[0]!,
+          id: 'a-source-next',
+          questionId: 'q-source-next',
+          text: 'This is a separate interview.',
+        },
+      ],
+    };
+    const nextFacts = [
+      {
+        ...createResumeFact(
+          {
+            kind: 'personal',
+            sourceQuestionId: 'q-source-next',
+            sourceAnswerId: 'a-source-next',
+            value: { fullName: 'Second session candidate' },
+          },
+          nextSession,
+          'manual',
+          10,
+        ),
+        id: 'fact-personal-next',
+        status: 'confirmed' as const,
+      },
+    ];
+
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel session={nextSession} facts={nextFacts} provider={provider} />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByTestId('generated-resume-draft')).toBeNull();
+    expect(screen.queryByText('First session draft')).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /理解这会替换当前正式简历/u })).toBeNull();
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+    expect(screen.getByRole('button', { name: '构建草稿' })).toBeTruthy();
+  });
+
+  it('preserves the same session draft while the interview is paused and resumed', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Paused session draft' } });
+
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel session={null} facts={[]} provider={provider} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByTestId('generated-resume-draft')).toBeNull();
+
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByTestId('generated-resume-draft')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('姓名').value).toBe('Paused session draft');
+  });
+
+  it('keeps a valid formal resume Undo available after the draft session changes', () => {
+    const previous = useResumeStore.getState().resume;
+    const { rerender } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Applied candidate' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Applied candidate');
+
+    const nextSession = { ...session, id: 'generation-panel-session-next', generation: 2 };
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel session={nextSession} facts={[]} provider={provider} />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByTestId('generated-resume-draft')).toBeNull();
+    expect(screen.getByRole('button', { name: '撤销并恢复原简历' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
+    expect(useResumeStore.getState().resume).toEqual(previous);
+  });
+
   it('invalidates a candidate when its confirmed fact set changes', () => {
     const { rerender } = render(
       <I18nProvider>

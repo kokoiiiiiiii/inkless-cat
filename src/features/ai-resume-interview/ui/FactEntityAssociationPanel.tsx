@@ -1,6 +1,6 @@
 import type { TranslationKey } from '@shared/i18n';
 import { useI18n } from '@shared/i18n';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   type FactEntityKind,
@@ -39,6 +39,7 @@ const factLabel = (
 
 const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociationPanelProps) => {
   const { t } = useI18n();
+  const sessionId = session?.id ?? null;
   const [selectedFactIds, setSelectedFactIds] = useState<string[]>([]);
   const [message, setMessage] = useState<{
     key: string;
@@ -56,6 +57,28 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
       ),
     [controller.facts, session],
   );
+  const linkedFactIds = useMemo(
+    () => new Set(controller.entityLinks.flatMap((link) => link.factIds)),
+    [controller.entityLinks],
+  );
+  const selectableFactIds = useMemo(
+    () =>
+      new Set(eligibleFacts.filter((fact) => !linkedFactIds.has(fact.id)).map((fact) => fact.id)),
+    [eligibleFacts, linkedFactIds],
+  );
+  const currentSelectedFactIds = selectedFactIds.filter((factId) => selectableFactIds.has(factId));
+  const previousSessionIdRef = useRef(sessionId);
+
+  useEffect(() => {
+    if (sessionId === null || previousSessionIdRef.current === sessionId) return;
+    previousSessionIdRef.current = sessionId;
+    setSelectedFactIds([]);
+    setMessage(null);
+  }, [sessionId]);
+
+  useEffect(() => {
+    setSelectedFactIds((current) => current.filter((factId) => selectableFactIds.has(factId)));
+  }, [selectableFactIds]);
   const ambiguities = useMemo(
     () =>
       getFactEntityAmbiguities(
@@ -69,10 +92,19 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
 
   if (eligibleFacts.length === 0 && controller.entityLinks.length === 0) return null;
 
-  const getSelectedFacts = () => eligibleFacts.filter((fact) => selectedFactIds.includes(fact.id));
+  const getSelectedFacts = () =>
+    eligibleFacts.filter((fact) => currentSelectedFactIds.includes(fact.id));
 
   const handleAssociate = () => {
-    const result = controller.linkEntityFacts(selectedFactIds);
+    const selectedIds = eligibleFacts
+      .filter((fact) => selectableFactIds.has(fact.id) && currentSelectedFactIds.includes(fact.id))
+      .map((fact) => fact.id);
+    setSelectedFactIds(selectedIds);
+    if (selectedIds.length < 2) {
+      setMessage({ key: 'aiInterview.entities.errors.factNotCurrent', error: true });
+      return;
+    }
+    const result = controller.linkEntityFacts(selectedIds);
     if (!result.ok) {
       const reasonKey = {
         'invalid-count': 'invalidCount',
@@ -90,6 +122,13 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
         ...(conflictFields.length > 0 ? { values: { fields: conflictFields.join(', ') } } : {}),
         error: true,
       });
+      if (
+        result.reason === 'missing-fact' ||
+        result.reason === 'fact-not-current' ||
+        result.reason === 'already-linked'
+      ) {
+        setSelectedFactIds([]);
+      }
       return;
     }
     setSelectedFactIds([]);
@@ -101,7 +140,9 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
       setMessage({ key: 'aiInterview.entities.errors.factNotCurrent', error: true });
       return;
     }
-    setSelectedFactIds((current) => current.filter((id) => !factIds.includes(id)));
+    setSelectedFactIds((current) =>
+      current.filter((id) => selectableFactIds.has(id) && !factIds.includes(id)),
+    );
     setMessage({ key: 'aiInterview.entities.separateSaved' });
   };
 
@@ -131,7 +172,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
           {eligibleFacts.map((fact) => {
             const link = controller.entityLinks.find((item) => item.factIds.includes(fact.id));
             const source = session ? getFactSource(session, fact) : null;
-            const checked = selectedFactIds.includes(fact.id);
+            const checked = currentSelectedFactIds.includes(fact.id);
             return (
               <label
                 key={fact.id}
@@ -143,9 +184,12 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
                   checked={checked}
                   disabled={Boolean(link)}
                   onChange={() => {
-                    setSelectedFactIds((current) =>
-                      checked ? current.filter((id) => id !== fact.id) : [...current, fact.id],
-                    );
+                    setSelectedFactIds((current) => {
+                      const currentSelectable = current.filter((id) => selectableFactIds.has(id));
+                      return checked
+                        ? currentSelectable.filter((id) => id !== fact.id)
+                        : [...currentSelectable, fact.id];
+                    });
                     setMessage(null);
                   }}
                 />
@@ -173,12 +217,12 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
           })}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-xs text-slate-600 dark:text-slate-300" aria-live="polite">
-              {t('aiInterview.entities.selectedCount', { count: selectedFactIds.length })}
+              {t('aiInterview.entities.selectedCount', { count: currentSelectedFactIds.length })}
             </span>
             <button
               type="button"
               className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-400 dark:text-slate-950"
-              disabled={selectedFactIds.length < 2 || hasMixedKinds}
+              disabled={currentSelectedFactIds.length < 2 || hasMixedKinds}
               onClick={handleAssociate}
             >
               {t('aiInterview.entities.associateSelected')}
@@ -186,8 +230,8 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
             <button
               type="button"
               className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-              disabled={selectedFactIds.length < 2 || hasMixedKinds}
-              onClick={() => handleKeepSeparate(selectedFactIds)}
+              disabled={currentSelectedFactIds.length < 2 || hasMixedKinds}
+              onClick={() => handleKeepSeparate(currentSelectedFactIds)}
             >
               {t('aiInterview.entities.keepSeparateSelected')}
             </button>
@@ -271,12 +315,10 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
             {t('aiInterview.entities.savedLinks', { count: controller.entityLinks.length })}
           </h6>
           {controller.entityLinks.map((link) => {
-            const linkedFacts = link.factIds.map((factId) =>
-              controller.facts.find((fact) => fact.id === factId),
-            );
-            const completeFacts = linkedFacts.filter(
-              (fact): fact is ResumeFact => fact !== undefined,
-            );
+            const linkedFactsById = new Map(controller.facts.map((fact) => [fact.id, fact]));
+            const completeFacts = link.factIds
+              .map((factId) => linkedFactsById.get(factId))
+              .filter((fact): fact is ResumeFact => fact !== undefined);
             const isCurrent =
               completeFacts.length === link.factIds.length &&
               completeFacts.every(
@@ -297,11 +339,14 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
                   · {t(`aiInterview.facts.kinds.${link.kind}` as TranslationKey)}
                 </p>
                 <ul className="mt-1 space-y-1 text-slate-700 dark:text-slate-200">
-                  {link.factIds.map((factId, index) => (
-                    <li key={`${factId}-${index}`} className="break-words">
-                      {completeFacts[index] ? factLabel(completeFacts[index], t) : factId}
-                    </li>
-                  ))}
+                  {link.factIds.map((factId) => {
+                    const fact = linkedFactsById.get(factId);
+                    return (
+                      <li key={factId} className="break-words">
+                        {fact ? factLabel(fact, t) : factId}
+                      </li>
+                    );
+                  })}
                 </ul>
                 {link.status !== 'active' && (
                   <p className="mt-1 text-amber-800 dark:text-amber-200" role="status">

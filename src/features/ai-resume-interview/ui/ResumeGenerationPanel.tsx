@@ -35,9 +35,11 @@ type ResumeGenerationPanelProps = {
   entityLinks?: FactEntityLink[];
   entitySeparations?: FactEntitySeparation[];
   provider: AIInterviewProviderClient;
+  active?: boolean;
 };
 
 type GeneratedDraft = {
+  sessionId: string | null;
   basisKey: string;
   providerStreamComplete: AIInterviewProviderClient['streamComplete'];
   resume: ResumeData;
@@ -100,14 +102,17 @@ const ResumeGenerationPanel = ({
   entityLinks = [],
   entitySeparations = [],
   provider,
+  active = true,
 }: ResumeGenerationPanelProps) => {
   const { t, locale } = useI18n();
+  const sessionId = session?.id ?? null;
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
   const [replacementSnapshot, setReplacementSnapshot] = useState<ReplacementConfirmation | null>(
     null,
   );
   const [replacementAcknowledged, setReplacementAcknowledged] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessageState] = useState<string | null>(null);
+  const [messageSessionId, setMessageSessionId] = useState(sessionId);
   const [undoSnapshot, setUndoSnapshot] = useState<ResumeSnapshot | null>(null);
   const [appliedSnapshot, setAppliedSnapshot] = useState<ResumeSnapshot | null>(null);
   const [showPolishReview, setShowPolishReview] = useState(false);
@@ -119,6 +124,16 @@ const ResumeGenerationPanel = ({
   const replacementSnapshotRef = useRef<ReplacementConfirmation | null>(null);
   const replacementAcknowledgedRef = useRef(false);
   const draftVersionRef = useRef(0);
+  const previousSessionIdRef = useRef(sessionId);
+
+  const setMessage = useCallback(
+    (nextMessage: string | null) => {
+      setMessageState(nextMessage);
+      setMessageSessionId(sessionId);
+    },
+    [sessionId],
+  );
+  const visibleMessage = messageSessionId === sessionId ? message : null;
 
   const currentFacts = useMemo(() => getCurrentConfirmedFacts(session, facts), [facts, session]);
   const basisKey = getResumeDraftBasisKey(
@@ -133,9 +148,11 @@ const ResumeGenerationPanel = ({
   );
   const isDraftCurrent = Boolean(
     draft &&
+      draft.sessionId === sessionId &&
       draft.basisKey === basisKey &&
       draft.providerStreamComplete === provider.streamComplete,
   );
+  const hasDraftForCurrentSession = draft?.sessionId === sessionId;
   const draftFingerprint = draft ? JSON.stringify(draft.resume) : '';
   const polishFields = useMemo(() => (draft ? buildResumePolishFields(draft.resume) : []), [draft]);
   const currentPolishContextRef = useRef({
@@ -188,8 +205,27 @@ const ResumeGenerationPanel = ({
         setMessage(t('aiInterview.generation.replacementNeedsReview'));
       }
     },
-    [t],
+    [setMessage, t],
   );
+
+  useEffect(() => {
+    if (sessionId === null || previousSessionIdRef.current === sessionId) return;
+    previousSessionIdRef.current = sessionId;
+    activePolishRequestRef.current?.controller.abort();
+    activePolishRequestRef.current = null;
+    polishRequestSequenceRef.current += 1;
+    draftVersionRef.current += 1;
+    replacementSnapshotRef.current = null;
+    replacementAcknowledgedRef.current = false;
+    setDraft(null);
+    setReplacementSnapshot(null);
+    setReplacementAcknowledged(false);
+    setMessage(null);
+    setShowPolishReview(false);
+    setPolishState('idle');
+    setPolishError(null);
+    setPolishSuggestions([]);
+  }, [sessionId, setMessage]);
 
   useEffect(() => {
     const active = activePolishRequestRef.current;
@@ -231,6 +267,16 @@ const ResumeGenerationPanel = ({
     setPolishError(null);
   }, [basisKey, provider.configuration, provider.streamComplete]);
 
+  useEffect(() => {
+    if (active) return;
+    const request = activePolishRequestRef.current;
+    if (!request) return;
+    request.controller.abort();
+    activePolishRequestRef.current = null;
+    setPolishState('cancelled');
+    setPolishError(t('aiInterview.generation.polishCancelled'));
+  }, [active, t]);
+
   useEffect(
     () => () => {
       activePolishRequestRef.current?.controller.abort();
@@ -258,6 +304,7 @@ const ResumeGenerationPanel = ({
       entitySeparations,
     );
     setDraft({
+      sessionId,
       basisKey,
       providerStreamComplete: provider.streamComplete,
       resume: result.resume,
@@ -600,7 +647,9 @@ const ResumeGenerationPanel = ({
           disabled={currentFacts.length === 0}
           onClick={buildDraft}
         >
-          {draft ? t('aiInterview.generation.rebuild') : t('aiInterview.generation.build')}
+          {hasDraftForCurrentSession
+            ? t('aiInterview.generation.rebuild')
+            : t('aiInterview.generation.build')}
         </button>
       </div>
 
@@ -635,22 +684,33 @@ const ResumeGenerationPanel = ({
         </div>
       )}
 
-      {!draft && currentFacts.length === 0 && (
+      {!hasDraftForCurrentSession && currentFacts.length === 0 && (
         <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
           {t('aiInterview.generation.noConfirmedFacts')}
         </p>
       )}
 
-      {message && (
+      {visibleMessage && (
         <p
           role="status"
           className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
         >
-          {message}
+          {visibleMessage}
         </p>
       )}
 
-      {draft && (
+      {undoSnapshot && appliedSnapshot && (
+        <div className="mt-3">
+          <button type="button" className={buttonClass} onClick={undoApply}>
+            {t('aiInterview.generation.undo')}
+          </button>
+          <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {t('aiInterview.generation.undoNotice')}
+          </p>
+        </div>
+      )}
+
+      {draft && draft.sessionId === sessionId && (
         <div
           className="mt-4 space-y-4"
           data-testid="generated-resume-draft"
@@ -1095,16 +1155,6 @@ const ResumeGenerationPanel = ({
               >
                 {t('aiInterview.generation.prepareReplace')}
               </button>
-              {undoSnapshot && appliedSnapshot && (
-                <div className="basis-full">
-                  <button type="button" className={buttonClass} onClick={undoApply}>
-                    {t('aiInterview.generation.undo')}
-                  </button>
-                  <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    {t('aiInterview.generation.undoNotice')}
-                  </p>
-                </div>
-              )}
             </div>
           )}
           <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">

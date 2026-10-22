@@ -1,6 +1,6 @@
 import type { TranslationKey } from '@shared/i18n';
 import { useI18n } from '@shared/i18n';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { localizeInterviewQuestion } from '../lib/interviewRules';
 import type { FactKind, ResumeFact } from '../model/facts';
@@ -461,12 +461,28 @@ const FactVerificationPanel = ({
   onOpenProviderSettings,
 }: FactVerificationPanelProps) => {
   const { t } = useI18n();
+  const sessionId = session?.id ?? null;
   const [showConsent, setShowConsent] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualKind, setManualKind] = useState<FactKind>('targetRole');
   const [manualValue, setManualValue] = useState<unknown>(() => blankFactValue('targetRole'));
   const [manualSourceId, setManualSourceId] = useState('');
   const [manualError, setManualError] = useState(false);
+  const [formSessionId, setFormSessionId] = useState(sessionId);
+  const isFormSessionCurrent = formSessionId === sessionId;
+  const previousSessionIdRef = useRef(sessionId);
+
+  useEffect(() => {
+    if (sessionId === null || previousSessionIdRef.current === sessionId) return;
+    previousSessionIdRef.current = sessionId;
+    setFormSessionId(sessionId);
+    setShowConsent(false);
+    setShowManualForm(false);
+    setManualKind('targetRole');
+    setManualValue(blankFactValue('targetRole'));
+    setManualSourceId('');
+    setManualError(false);
+  }, [sessionId]);
 
   const extractionInput = useMemo(() => {
     if (!session) return null;
@@ -477,9 +493,9 @@ const FactVerificationPanel = ({
     }
   }, [session]);
 
-  const canManualAdd = Boolean(session && manualSourceId);
+  const canManualAdd = Boolean(session && isFormSessionCurrent && manualSourceId);
   const addManualFact = () => {
-    if (!session || !manualSourceId) {
+    if (!session || !isFormSessionCurrent || !manualSourceId) {
       setManualError(true);
       return;
     }
@@ -595,7 +611,9 @@ const FactVerificationPanel = ({
           className={smallSecondaryClass}
           onClick={() => setShowManualForm((visible) => !visible)}
         >
-          {showManualForm ? t('aiInterview.facts.closeManual') : t('aiInterview.facts.addManually')}
+          {isFormSessionCurrent && showManualForm
+            ? t('aiInterview.facts.closeManual')
+            : t('aiInterview.facts.addManually')}
         </button>
         {!provider.isConfigured && (
           <button type="button" className={smallSecondaryClass} onClick={onOpenProviderSettings}>
@@ -610,7 +628,7 @@ const FactVerificationPanel = ({
         </p>
       )}
 
-      {showConsent && extractionInput && provider.configuration && (
+      {isFormSessionCurrent && showConsent && extractionInput && provider.configuration && (
         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
           <h5 className="font-semibold">{t('aiInterview.facts.consentTitle')}</h5>
           <p className="mt-1">
@@ -698,7 +716,7 @@ const FactVerificationPanel = ({
         </div>
       )}
 
-      {showManualForm && session && (
+      {isFormSessionCurrent && showManualForm && session && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
           <h5 className="text-sm font-semibold text-slate-900 dark:text-white">
             {t('aiInterview.facts.manualTitle')}
