@@ -1,10 +1,15 @@
-import { AIProviderSettingsDialog, useAIProviderClient } from '@features/ai-provider-settings';
+import { useAIProviderClient } from '@features/ai-provider-settings';
 import { AIResumeInterviewProvider, CreateResumeWithAIButton } from '@features/ai-resume-interview';
 import { type Locale, useI18n } from '@shared/i18n';
+import { LazyChunkBoundary } from '@shared/ui/LazyChunkBoundary';
 import type { ChangeEvent, RefObject } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { baseButtonClass, primaryButtonClass } from './constants';
+
+const AIProviderSettingsDialog = lazy(
+  () => import('@features/ai-provider-settings/ui/AIProviderSettingsDialog'),
+);
 
 type ActionButtonsProps = {
   onResetSample: () => void;
@@ -35,14 +40,31 @@ const ActionButtons = ({
   onFileChange,
   onLocaleChange,
 }: ActionButtonsProps) => {
-  const { t, locale } = useI18n();
+  const { loadAIProviderTranslations, t, locale } = useI18n();
   const provider = useAIProviderClient();
   const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
   const [aiSettingsOpen, setAISettingsOpen] = useState(false);
+  const [aiSettingsPreparing, setAISettingsPreparing] = useState(false);
+  const [aiSettingsLoadFailed, setAISettingsLoadFailed] = useState(false);
   const localeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const aiSettingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeAISettings = useCallback(() => setAISettingsOpen(false), []);
+  const loadAndOpenAISettings = useCallback(async () => {
+    setAISettingsPreparing(true);
+    setAISettingsLoadFailed(false);
+    try {
+      await loadAIProviderTranslations();
+      setAISettingsOpen(true);
+    } catch {
+      setAISettingsLoadFailed(true);
+    } finally {
+      setAISettingsPreparing(false);
+    }
+  }, [loadAIProviderTranslations]);
+  const openAISettings = useCallback(() => {
+    void loadAndOpenAISettings();
+  }, [loadAndOpenAISettings]);
   const nextLocale = locale === 'en' ? 'zh-CN' : 'en';
   const translateWithFallback = (key: string, fallback: string) => {
     const translated = t(key);
@@ -113,10 +135,7 @@ const ActionButtons = ({
   }, [pendingLocale]);
 
   return (
-    <AIResumeInterviewProvider
-      provider={provider}
-      onOpenProviderSettings={() => setAISettingsOpen(true)}
-    >
+    <AIResumeInterviewProvider provider={provider} onOpenProviderSettings={openAISettings}>
       <>
         <div className="scrollbar-thin flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
           <button type="button" className={baseButtonClass} onClick={onResetSample}>
@@ -145,9 +164,9 @@ const ActionButtons = ({
             ref={aiSettingsTriggerRef}
             type="button"
             className={baseButtonClass}
-            onClick={() => setAISettingsOpen(true)}
+            onClick={openAISettings}
           >
-            {t('aiProvider.open')}
+            {t('topbar.aiProviderSettings')}
           </button>
           <button type="button" className={baseButtonClass} onClick={onToggleTheme}>
             {theme === 'light' ? t('topbar.themeDark') : t('topbar.themeLight')}
@@ -168,11 +187,51 @@ const ActionButtons = ({
             onChange={onFileChange}
           />
         </div>
-        <AIProviderSettingsDialog
-          open={aiSettingsOpen}
-          onClose={closeAISettings}
-          triggerRef={aiSettingsTriggerRef}
-        />
+        {aiSettingsPreparing && (
+          <span className="sr-only" role="status">
+            {t('common.loadingFeature')}
+          </span>
+        )}
+        {aiSettingsLoadFailed && (
+          <div
+            className="fixed bottom-4 right-4 z-[100] max-w-sm rounded-xl border border-rose-300 bg-white p-4 text-sm text-slate-900 shadow-xl dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+            role="alert"
+          >
+            <p>{t('common.featureFailedLoad')}</p>
+            <button className="mt-2 font-semibold underline" type="button" onClick={openAISettings}>
+              {t('common.reloadPage')}
+            </button>
+          </div>
+        )}
+        {aiSettingsOpen && (
+          <LazyChunkBoundary
+            renderError={(reload) => (
+              <div
+                className="fixed bottom-4 right-4 z-[100] max-w-sm rounded-xl border border-rose-300 bg-white p-4 text-sm text-slate-900 shadow-xl dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+                role="alert"
+              >
+                <p>{t('common.featureFailedLoad')}</p>
+                <button className="mt-2 font-semibold underline" type="button" onClick={reload}>
+                  {t('common.reloadPage')}
+                </button>
+              </div>
+            )}
+          >
+            <Suspense
+              fallback={
+                <span className="sr-only" role="status">
+                  {t('common.loadingFeature')}
+                </span>
+              }
+            >
+              <AIProviderSettingsDialog
+                open={aiSettingsOpen}
+                onClose={closeAISettings}
+                triggerRef={aiSettingsTriggerRef}
+              />
+            </Suspense>
+          </LazyChunkBoundary>
+        )}
         {pendingLocale && (
           <div
             ref={dialogRef}

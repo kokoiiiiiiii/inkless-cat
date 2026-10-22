@@ -208,61 +208,19 @@ export const isFactCurrent = (session: InterviewSession, fact: ResumeFact): bool
 
 type FactConflictValue = { key: string; field: string; value: string };
 
-const normalizedIdentity = (values: Array<string | undefined>): string =>
-  values
-    .map((value) => normalizeForMatch(value ?? ''))
-    .filter(Boolean)
-    .join('|');
-
 const getFactConflictValues = (fact: ResumeFact): FactConflictValue[] => {
   if (fact.kind === 'targetRole' && typeof fact.value === 'string') {
     return [{ key: 'targetRole', field: 'value', value: normalizeForMatch(fact.value) }];
   }
-  if (!fact.value || typeof fact.value !== 'object') return [];
+  if (fact.kind !== 'personal' || !fact.value || typeof fact.value !== 'object') return [];
 
   const value = fact.value as Record<string, unknown>;
-  if (fact.kind === 'personal') {
-    return (['fullName', 'email', 'phone', 'location'] as const).flatMap((key) => {
-      const fieldValue = value[key];
-      return typeof fieldValue === 'string' && fieldValue.trim()
-        ? [{ key: `personal.${key}`, field: key, value: normalizeForMatch(fieldValue) }]
-        : [];
-    });
-  }
-
-  const addStringFields = (prefix: string, identity: string, fields: string[]) =>
-    fields.flatMap((field) => {
-      const fieldValue = value[field];
-      return identity && typeof fieldValue === 'string' && fieldValue.trim()
-        ? [
-            {
-              key: `${prefix}:${identity}:${field}`,
-              field,
-              value: normalizeForMatch(fieldValue),
-            },
-          ]
-        : [];
-    });
-
-  if (fact.kind === 'experience') {
-    const identity = normalizedIdentity([
-      typeof value.company === 'string' ? value.company : undefined,
-      typeof value.role === 'string' ? value.role : undefined,
-    ]);
-    return addStringFields('experience', identity, ['location', 'startDate', 'endDate']);
-  }
-  if (fact.kind === 'project') {
-    const identity = normalizedIdentity([typeof value.name === 'string' ? value.name : undefined]);
-    return addStringFields('project', identity, ['role', 'summary', 'link']);
-  }
-  if (fact.kind === 'education') {
-    const identity = normalizedIdentity([
-      typeof value.school === 'string' ? value.school : undefined,
-      typeof value.degree === 'string' ? value.degree : undefined,
-    ]);
-    return addStringFields('education', identity, ['startDate', 'endDate']);
-  }
-  return [];
+  return (['fullName', 'email', 'phone', 'location'] as const).flatMap((key) => {
+    const fieldValue = value[key];
+    return typeof fieldValue === 'string' && fieldValue.trim()
+      ? [{ key: `personal.${key}`, field: key, value: normalizeForMatch(fieldValue) }]
+      : [];
+  });
 };
 
 export const markConflicts = (facts: ResumeFact[]): ResumeFact[] => {

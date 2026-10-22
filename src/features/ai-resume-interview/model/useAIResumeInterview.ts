@@ -94,7 +94,7 @@ const getProviderError = (error: unknown): InterviewError => {
 export const useAIResumeInterview = (
   provider: AIInterviewProviderClient,
 ): AIResumeInterviewController => {
-  const { t, locale } = useI18n();
+  const { t, locale, dictionaryRevision } = useI18n();
   const [session, setSession] = useState<InterviewSession | null>(null);
   const sessionRef = useRef<InterviewSession | null>(null);
   const [answerDraft, setAnswerDraftState] = useState('');
@@ -162,7 +162,7 @@ export const useAIResumeInterview = (
       }
       return { ...current, questions, currentQuestion, updatedAt: Date.now() };
     });
-  }, [clearEditRecovery, locale, setPendingEdit, t, updateSession]);
+  }, [clearEditRecovery, dictionaryRevision, locale, setPendingEdit, t, updateSession]);
 
   const clearPreview = useCallback(() => {
     if (previewTimerRef.current !== null) {

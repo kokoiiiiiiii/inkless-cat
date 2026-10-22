@@ -51,7 +51,7 @@ describe('ActionButtons locale dialog accessibility', () => {
 });
 
 describe('AI provider settings dialog accessibility', () => {
-  it('portals the dialog, protects Chinese IME input from Escape, and restores focus', () => {
+  it('portals the dialog, protects Chinese IME input from Escape, and restores focus', async () => {
     render(
       <ActionButtons
         onResetSample={vi.fn()}
@@ -73,8 +73,8 @@ describe('AI provider settings dialog accessibility', () => {
     const trigger = screen.getByRole('button', { name: 'AI 设置' });
     fireEvent.click(trigger);
 
-    const dialog = screen.getByRole('dialog', { name: 'AI 服务设置' });
-    const baseUrl = screen.getByRole('textbox', { name: 'API Base URL' });
+    const dialog = await screen.findByRole('dialog', { name: 'AI 服务设置' });
+    const baseUrl = await screen.findByRole('textbox', { name: 'API Base URL' });
     const model = screen.getByRole('textbox', { name: '模型 ID' });
     expect(dialog.parentElement?.parentElement).toBe(document.body);
     expect(document.activeElement).toBe(baseUrl);
@@ -108,7 +108,7 @@ describe('AI provider settings dialog accessibility', () => {
     expect(document.body.style.overflow).toBe('');
 
     fireEvent.click(trigger);
-    expect(screen.getByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
+    expect(await screen.findByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
       'value',
       'https://provider.example/v1/模型',
     );
@@ -118,7 +118,7 @@ describe('AI provider settings dialog accessibility', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('retains the saved session configuration after the settings dialog closes', () => {
+  it('retains the saved session configuration after the settings dialog closes', async () => {
     render(
       <ActionButtons
         onResetSample={vi.fn()}
@@ -139,7 +139,7 @@ describe('AI provider settings dialog accessibility', () => {
 
     const trigger = screen.getByRole('button', { name: 'AI 设置' });
     fireEvent.click(trigger);
-    fireEvent.change(screen.getByRole('textbox', { name: 'API Base URL' }), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'API Base URL' }), {
       target: { value: 'https://provider.example/v1' },
     });
     fireEvent.change(screen.getByLabelText('API Key'), {
@@ -153,7 +153,7 @@ describe('AI provider settings dialog accessibility', () => {
 
     expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
     fireEvent.click(trigger);
-    expect(screen.getByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
+    expect(await screen.findByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
       'value',
       'https://provider.example/v1',
     );

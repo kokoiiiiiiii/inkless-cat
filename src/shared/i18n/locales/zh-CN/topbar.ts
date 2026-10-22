@@ -1,4 +1,5 @@
 export const topbar = {
+  aiProviderSettings: 'AI 设置',
   loadSample: '载入示例',
   clear: '清空',
   import: '导入',

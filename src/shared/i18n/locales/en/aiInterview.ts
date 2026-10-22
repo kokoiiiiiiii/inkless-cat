@@ -247,6 +247,51 @@ export const aiInterview = {
         'The model output failed structure or source validation. No candidate facts were saved.',
     },
   },
+  entities: {
+    title: 'Link facts to one experience, project, or education record',
+    description:
+      'Facts stay separate by default. Names, employers, dates, or links alone do not prove identity. Select confirmed facts only when you know they describe the same record.',
+    selectFacts: 'Confirmed source facts',
+    sourceFact: 'Fact ID: {factId} · Source answer ID: {answerId}',
+    selectedCount: '{count} selected',
+    associateSelected: 'Confirm they are one record',
+    keepSeparateSelected: 'Keep separate',
+    linkCreated:
+      'The selected facts are linked. Their original facts and source IDs remain unchanged.',
+    separateSaved: 'These facts will stay separate unless their source facts change.',
+    linked: 'Part of a user-confirmed record',
+    ambiguitiesTitle: 'Review possible identity matches ({count})',
+    ambiguityBody:
+      'These facts share identity details. They will still generate as separate records until you decide:',
+    ambiguityConflictBody:
+      'These facts share identity details but some fields conflict. Check the sources and resolve the conflicts first; they remain separate until confirmed:',
+    reviewAssociation: 'Review association',
+    chooseAssociateAction: 'Choose “Confirm they are one record” to link, or “Keep separate”.',
+    keepSeparate: 'Keep these facts separate',
+    savedLinks: 'User-confirmed associations ({count})',
+    status: {
+      active: 'Association active',
+      needsReview: 'Association needs review',
+      invalid: 'Association invalid',
+    },
+    linkUnavailable:
+      'This association is excluded from generation. Review the current source facts before confirming it again.',
+    conflictingFields:
+      'Conflicting fields: {fields}. Edit and confirm the facts before linking them.',
+    confirmLink: 'Confirm association again',
+    unlink: 'Unlink facts',
+    removeInvalidLink: 'Remove invalid association',
+    linkConfirmed: 'Association confirmed again.',
+    linkRemoved: 'Association removed. Facts will generate separately.',
+    errors: {
+      invalidCount: 'Select at least two facts of the same kind.',
+      missingFact: 'A selected fact is no longer available. Review the source facts and try again.',
+      kindMismatch: 'Only facts of the same kind can be linked.',
+      factNotCurrent: 'Only current, confirmed facts can be linked.',
+      alreadyLinked: 'Unlink the existing association before changing its members.',
+      fieldConflict: 'These values conflict in {fields}. Resolve them before linking the facts.',
+    },
+  },
   generation: {
     title: 'Build a resume draft',
     description:

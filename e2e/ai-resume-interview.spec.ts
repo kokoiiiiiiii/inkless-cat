@@ -116,6 +116,43 @@ const openInterview = async (page: Page, english = false) => {
   return page.getByRole('dialog', { name: english ? 'AI resume interview' : 'AI 智能简历访谈' });
 };
 
+test('interview dialog uses readable summary tabs on tablet and phone widths', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+    { width: 320, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(dialog.getByRole('button', { name: '访谈' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '摘要' })).toBeVisible();
+    await expect(dialog.locator('main')).toBeVisible();
+    await expect(dialog.getByRole('complementary')).toBeHidden();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+
+    await dialog.getByRole('button', { name: '摘要' }).click();
+    await expect(dialog.locator('main')).toBeHidden();
+    await expect(dialog.getByRole('complementary')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '访谈' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await dialog.getByRole('button', { name: '访谈' }).click();
+    await expect(dialog.locator('main')).toBeVisible();
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(dialog.getByRole('button', { name: '摘要' })).toBeHidden();
+  await expect(dialog.getByRole('complementary')).toBeVisible();
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
 const answer = async (dialog: import('@playwright/test').Locator, text: string) => {
   await dialog.getByRole('textbox', { name: '你的回答' }).fill(text);
   await dialog.getByRole('button', { name: '发送回答' }).click();
@@ -251,7 +288,7 @@ test('requires current-draft confirmation and keeps undo after rebuilding withou
   expect(requests).toBe(0);
 });
 
-test('aggregates confirmed facts for one experience while keeping responsibility ownership and provenance', async ({
+test('keeps similar facts separate until the user links them and preserves responsibility ownership and provenance', async ({
   page,
 }) => {
   let requests = 0;
@@ -304,6 +341,22 @@ test('aggregates confirmed facts for one experience while keeping responsibility
   );
 
   await summary.getByRole('button', { name: '构建草稿' }).click();
+  const separateDraft = summary.getByTestId('generated-resume-draft');
+  await expect(separateDraft.locator('fieldset')).toHaveCount(3);
+  const separateSources = JSON.parse(
+    (await separateDraft.getAttribute('data-source-fact-ids')) ?? '[]',
+  ) as Array<{ factIds: string[] }>;
+  expect(separateSources).toHaveLength(3);
+  expect(separateSources.every(({ factIds }) => factIds.length === 1)).toBe(true);
+
+  const associationGroup = facts.getByRole('group', { name: '已确认且仍有来源的事实' });
+  await associationGroup.getByRole('checkbox').check();
+  await associationGroup.getByRole('checkbox').nth(1).check();
+  await associationGroup.getByRole('checkbox').nth(2).check();
+  await facts.getByRole('button', { name: '确认属于同一条记录' }).click();
+  await expect(facts.getByRole('status')).toContainText('已关联所选事实');
+  await summary.getByRole('button', { name: '按最新事实重建' }).click();
+
   const draft = summary.getByTestId('generated-resume-draft');
   await expect(draft.locator('fieldset')).toHaveCount(1);
   const sources = JSON.parse((await draft.getAttribute('data-source-fact-ids')) ?? '[]') as Array<{

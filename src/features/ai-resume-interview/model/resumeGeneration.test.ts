@@ -1,6 +1,7 @@
 import { resumeSchema } from '@entities/resume';
 import { describe, expect, it } from 'vitest';
 
+import { createFactEntityLink, type FactEntityLink } from './factEntityLinks';
 import { createResumeFact, type FactCandidate, type ResumeFact } from './facts';
 import {
   buildResumeDraftFromFacts,
@@ -60,6 +61,12 @@ const fact = (
   id,
   status,
 });
+
+const linkFacts = (facts: ResumeFact[], factIds: string[], entityId: string): FactEntityLink => {
+  const result = createFactEntityLink(session, facts, [], factIds, entityId);
+  if (!result.ok) throw new Error(`Test setup could not create entity link: ${result.reason}`);
+  return result.link;
+};
 
 const provider = {
   configuration: { baseUrl: 'https://provider.example/v1', model: 'unused' },
@@ -247,7 +254,9 @@ describe('resume generation mapping', () => {
       }),
     ];
 
-    const result = buildResumeDraftFromFacts(session, facts, 'zh-CN');
+    const result = buildResumeDraftFromFacts(session, facts, 'zh-CN', [
+      linkFacts(facts, ['a-start', 'b-individual', 'c-team'], 'experience-1'),
+    ]);
 
     expect(result.resume.experience).toHaveLength(1);
     expect(result.resume.experience[0]).toMatchObject({
@@ -344,34 +353,33 @@ describe('resume generation mapping', () => {
     expect(result.resume.projects).toHaveLength(2);
     expect(result.entityWarnings).toContainEqual({
       kind: 'project',
-      reason: 'identity-ambiguous',
+      reason: 'field-conflict',
       factIds: ['project-a', 'project-b'],
     });
   });
 
   it('merges project facts only when they share the same explicit project link', () => {
-    const result = buildResumeDraftFromFacts(
-      session,
-      [
-        fact('project-link', {
-          kind: 'project',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: { name: 'Billing Platform', link: 'https://example.com/billing' },
-        }),
-        fact('project-duty', {
-          kind: 'project',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: {
-            name: 'Billing Platform',
-            link: 'https://example.com/billing',
-            individualResponsibilities: ['Designed invoice reconciliation'],
-          },
-        }),
-      ],
-      'en',
-    );
+    const facts = [
+      fact('project-link', {
+        kind: 'project',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: { name: 'Billing Platform', link: 'https://example.com/billing' },
+      }),
+      fact('project-duty', {
+        kind: 'project',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          name: 'Billing Platform',
+          link: 'https://example.com/billing',
+          individualResponsibilities: ['Designed invoice reconciliation'],
+        },
+      }),
+    ];
+    const result = buildResumeDraftFromFacts(session, facts, 'en', [
+      linkFacts(facts, ['project-link', 'project-duty'], 'project-1'),
+    ]);
 
     expect(result.resume.projects).toHaveLength(1);
     expect(result.resume.projects[0]?.highlights).toEqual([
@@ -382,33 +390,32 @@ describe('resume generation mapping', () => {
   });
 
   it('merges education facts only when school and degree both match', () => {
-    const result = buildResumeDraftFromFacts(
-      session,
-      [
-        fact('education-start', {
-          kind: 'education',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: {
-            school: 'Example University',
-            degree: 'BSc Computer Science',
-            startDate: '2018',
-          },
-        }),
-        fact('education-details', {
-          kind: 'education',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: {
-            school: 'Example University',
-            degree: 'BSc Computer Science',
-            endDate: '2022',
-            details: 'Completed distributed systems coursework.',
-          },
-        }),
-      ],
-      'en',
-    );
+    const facts = [
+      fact('education-start', {
+        kind: 'education',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          school: 'Example University',
+          degree: 'BSc Computer Science',
+          startDate: '2018',
+        },
+      }),
+      fact('education-details', {
+        kind: 'education',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          school: 'Example University',
+          degree: 'BSc Computer Science',
+          endDate: '2022',
+          details: 'Completed distributed systems coursework.',
+        },
+      }),
+    ];
+    const result = buildResumeDraftFromFacts(session, facts, 'en', [
+      linkFacts(facts, ['education-start', 'education-details'], 'education-1'),
+    ]);
 
     expect(result.resume.education).toEqual([
       expect.objectContaining({
@@ -423,34 +430,33 @@ describe('resume generation mapping', () => {
   });
 
   it('deduplicates repeated responsibilities but keeps distinct duties and ownership groups', () => {
-    const result = buildResumeDraftFromFacts(
-      session,
-      [
-        fact('work-a', {
-          kind: 'experience',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: {
-            company: 'BrightWorks',
-            role: 'Engineer',
-            individualResponsibilities: ['Design API', 'Build ingestion'],
-            teamResponsibilities: ['Deliver MES integration'],
-          },
-        }),
-        fact('work-b', {
-          kind: 'experience',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: {
-            company: 'BrightWorks',
-            role: 'Engineer',
-            individualResponsibilities: ['Design API', 'Create tests'],
-            responsibilities: ['Documented the rollout'],
-          },
-        }),
-      ],
-      'en',
-    );
+    const facts = [
+      fact('work-a', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          company: 'BrightWorks',
+          role: 'Engineer',
+          individualResponsibilities: ['Design API', 'Build ingestion'],
+          teamResponsibilities: ['Deliver MES integration'],
+        },
+      }),
+      fact('work-b', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          company: 'BrightWorks',
+          role: 'Engineer',
+          individualResponsibilities: ['Design API', 'Create tests'],
+          responsibilities: ['Documented the rollout'],
+        },
+      }),
+    ];
+    const result = buildResumeDraftFromFacts(session, facts, 'en', [
+      linkFacts(facts, ['work-a', 'work-b'], 'experience-duties'),
+    ]);
 
     expect(result.resume.experience[0]?.highlights).toEqual([
       'Personally owned: Design API',
@@ -461,25 +467,22 @@ describe('resume generation mapping', () => {
     ]);
   });
 
-  it('keeps conflicting values in separate records and reports the conflict', () => {
-    const result = buildResumeDraftFromFacts(
-      session,
-      [
-        fact('start-2022', {
-          kind: 'experience',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: { company: 'BrightWorks', role: 'Engineer', startDate: '2022' },
-        }),
-        fact('start-2023', {
-          kind: 'experience',
-          sourceQuestionId: 'q-source',
-          sourceAnswerId: 'a-source',
-          value: { company: 'BrightWorks', role: 'Engineer', startDate: '2023' },
-        }),
-      ],
-      'en',
-    );
+  it('keeps separate work periods with conflicting dates and blocks linking them', () => {
+    const facts = [
+      fact('start-2022', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: { company: 'BrightWorks', role: 'Engineer', startDate: '2022' },
+      }),
+      fact('start-2023', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: { company: 'BrightWorks', role: 'Engineer', startDate: '2023' },
+      }),
+    ];
+    const result = buildResumeDraftFromFacts(session, facts, 'en');
 
     expect(result.resume.experience.map(({ startDate }) => startDate)).toEqual(['2022', '2023']);
     expect(result.entityWarnings).toContainEqual({
@@ -487,6 +490,185 @@ describe('resume generation mapping', () => {
       reason: 'field-conflict',
       factIds: ['start-2022', 'start-2023'],
     });
+    expect(
+      createFactEntityLink(session, facts, [], ['start-2022', 'start-2023'], 'conflict'),
+    ).toEqual({
+      ok: false,
+      reason: 'field-conflict',
+      conflictFields: ['startDate'],
+    });
+  });
+
+  it('does not combine same-role facts when one employment record has missing dates', () => {
+    const facts = [
+      fact('dated-role', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          company: 'BrightWorks',
+          role: 'Engineer',
+          startDate: '2020',
+          endDate: '2022',
+          individualResponsibilities: ['Built the export API'],
+        },
+      }),
+      fact('undated-role', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          company: 'BrightWorks',
+          role: 'Engineer',
+          teamResponsibilities: ['Shared a migration with the team'],
+        },
+      }),
+    ];
+
+    const result = buildResumeDraftFromFacts(session, facts, 'en');
+
+    expect(result.resume.experience).toHaveLength(2);
+    expect(result.resume.experience[0]?.highlights).toEqual([
+      'Personally owned: Built the export API',
+    ]);
+    expect(result.resume.experience[1]?.highlights).toEqual([
+      'Shared with the team: Shared a migration with the team',
+    ]);
+    expect(result.recordFactIds.map(({ factIds }) => factIds)).toEqual([
+      ['dated-role'],
+      ['undated-role'],
+    ]);
+    expect(result.entityWarnings).toContainEqual({
+      kind: 'experience',
+      reason: 'identity-ambiguous',
+      factIds: ['dated-role', 'undated-role'],
+    });
+  });
+
+  it('keeps repeated school and degree facts from different study stages separate', () => {
+    const facts = [
+      fact('early-degree', {
+        kind: 'education',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          school: 'Example Institute',
+          degree: 'Computer Science',
+          startDate: '2017',
+          endDate: '2019',
+          details: 'Certificate program',
+        },
+      }),
+      fact('later-degree', {
+        kind: 'education',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          school: 'Example Institute',
+          degree: 'Computer Science',
+          startDate: '2020',
+          endDate: '2022',
+          details: 'Graduate program',
+        },
+      }),
+    ];
+
+    const result = buildResumeDraftFromFacts(session, facts, 'en');
+
+    expect(
+      result.resume.education.map(({ startDate, endDate, details }) => [
+        startDate,
+        endDate,
+        details,
+      ]),
+    ).toEqual([
+      ['2017', '2019', 'Certificate program'],
+      ['2020', '2022', 'Graduate program'],
+    ]);
+    expect(result.entityWarnings).toContainEqual({
+      kind: 'education',
+      reason: 'field-conflict',
+      factIds: ['early-degree', 'later-degree'],
+    });
+  });
+
+  it('keeps same-link project phases separate and refuses conflicting role links', () => {
+    const facts = [
+      fact('pilot', {
+        kind: 'project',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          name: 'Billing Platform',
+          role: 'Pilot phase',
+          link: 'https://example.com/billing',
+          individualResponsibilities: ['Built the first payment flow'],
+        },
+      }),
+      fact('rollout', {
+        kind: 'project',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          name: 'Billing Platform',
+          role: 'Regional rollout',
+          link: 'https://example.com/billing',
+          teamResponsibilities: ['Coordinated a regional launch'],
+        },
+      }),
+    ];
+
+    const result = buildResumeDraftFromFacts(session, facts, 'en');
+
+    expect(result.resume.projects).toHaveLength(2);
+    expect(result.resume.projects.map(({ highlights }) => highlights)).toEqual([
+      ['Personally owned: Built the first payment flow'],
+      ['Shared with the team: Coordinated a regional launch'],
+    ]);
+    expect(result.entityWarnings).toContainEqual({
+      kind: 'project',
+      reason: 'field-conflict',
+      factIds: ['pilot', 'rollout'],
+    });
+    expect(createFactEntityLink(session, facts, [], ['pilot', 'rollout'], 'phases')).toMatchObject({
+      ok: false,
+      reason: 'field-conflict',
+      conflictFields: ['role'],
+    });
+  });
+
+  it('links only after explicit user confirmation and separates again when unlinked', () => {
+    const facts = [
+      fact('entity-anchor', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: { company: 'BrightWorks', role: 'Engineer', startDate: '2022' },
+      }),
+      fact('entity-duty', {
+        kind: 'experience',
+        sourceQuestionId: 'q-source',
+        sourceAnswerId: 'a-source',
+        value: {
+          company: 'BrightWorks',
+          role: 'Engineer',
+          individualResponsibilities: ['Built a service'],
+        },
+      }),
+    ];
+    const link = linkFacts(facts, ['entity-anchor', 'entity-duty'], 'confirmed-entity');
+    const linked = buildResumeDraftFromFacts(session, facts, 'en', [link]);
+    const unlinked = buildResumeDraftFromFacts(session, facts, 'en');
+
+    expect(link.origin).toBe('user-confirmed');
+    expect(link.factIds).toEqual(['entity-anchor', 'entity-duty']);
+    expect(linked.resume.experience).toHaveLength(1);
+    expect(linked.recordFactIds[0]?.factIds).toEqual(['entity-anchor', 'entity-duty']);
+    expect(unlinked.resume.experience).toHaveLength(2);
+    expect(unlinked.recordFactIds.map(({ factIds }) => factIds)).toEqual([
+      ['entity-anchor'],
+      ['entity-duty'],
+    ]);
   });
 
   it('excludes pending, rejected, conflicted, and stale facts from entity groups', () => {

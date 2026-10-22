@@ -123,6 +123,88 @@ describe('useResumeFacts', () => {
     expect(result.current.errorCode).toBe('provider_not_configured');
   });
 
+  it('links only reviewed facts and revalidates the association after edits, source changes, and deletion', () => {
+    const sourceSession = makeSession();
+    const { result, rerender } = renderHook(
+      ({ session }) => useResumeFacts(session, createProvider(), 'en'),
+      { initialProps: { session: sourceSession }, wrapper },
+    );
+    const firstCandidate = {
+      kind: 'experience' as const,
+      sourceQuestionId: 'q-role',
+      sourceAnswerId: 'a-role',
+      value: { company: 'Example Works', role: 'Engineer', startDate: '2022' },
+    };
+    const secondCandidate = {
+      kind: 'experience' as const,
+      sourceQuestionId: 'q-role',
+      sourceAnswerId: 'a-role',
+      value: {
+        company: 'Example Works',
+        role: 'Engineer',
+        individualResponsibilities: ['Built the export API'],
+      },
+    };
+
+    act(() => {
+      result.current.addManualFact(firstCandidate);
+      result.current.addManualFact(secondCandidate);
+    });
+    const factIds = result.current.facts.map((fact) => fact.id);
+    expect(result.current.facts.map((fact) => fact.status)).toEqual(['pending', 'pending']);
+    let linkResult: ReturnType<typeof result.current.linkEntityFacts> | undefined;
+    act(() => {
+      expect(result.current.linkEntityFacts(factIds)).toMatchObject({
+        ok: false,
+        reason: 'fact-not-current',
+      });
+      result.current.confirmFact(factIds[0]!);
+      result.current.confirmFact(factIds[1]!);
+    });
+    act(() => {
+      linkResult = result.current.linkEntityFacts(factIds);
+    });
+    expect(linkResult?.ok).toBe(true);
+    const entityId = result.current.entityLinks[0]?.entityId;
+    expect(result.current.entityLinks[0]?.status).toBe('active');
+
+    act(() => {
+      result.current.updateFact(factIds[1]!, {
+        ...secondCandidate.value,
+        individualResponsibilities: ['Revised API responsibility'],
+      });
+    });
+    expect(result.current.entityLinks[0]?.status).toBe('needs-review');
+    act(() => result.current.confirmFact(factIds[1]!));
+    expect(result.current.entityLinks[0]?.status).toBe('needs-review');
+    act(() => {
+      expect(result.current.confirmEntityLink(entityId!)).toBe(true);
+    });
+    expect(result.current.entityLinks[0]?.status).toBe('active');
+
+    rerender({
+      session: makeSession({
+        answers: [
+          {
+            id: 'a-role',
+            questionId: 'q-role',
+            text: 'Changed source answer.',
+            skipped: false,
+            createdAt: 2,
+            updatedAt: 4,
+          },
+        ],
+      }),
+    });
+    expect(result.current.entityLinks[0]?.status).toBe('needs-review');
+    expect(result.current.facts.map((fact) => fact.status)).toEqual(['stale', 'stale']);
+
+    act(() => result.current.removeFact(factIds[0]!));
+    expect(result.current.facts.map((fact) => fact.id)).toEqual([factIds[1]]);
+    expect(result.current.entityLinks[0]?.status).toBe('invalid');
+    expect(result.current.entityLinks[0]?.factIds).toEqual([...factIds].sort());
+  });
+
   it('drops a delayed response after provider configuration changes', async () => {
     const request = deferred();
     const firstProvider = createProvider(vi.fn().mockReturnValue(request.promise));
@@ -260,7 +342,7 @@ describe('useResumeFacts', () => {
     expect(result.current.facts.map((fact) => fact.status)).toEqual(['confirmed', 'rejected']);
   });
 
-  it('resolves a work location field while preserving the other candidate’s independent duties', async () => {
+  it('keeps differing work locations as separate facts and preserves both source values', async () => {
     const workSession = makeSession({
       questions: [
         ...makeSession().questions,
@@ -334,7 +416,7 @@ describe('useResumeFacts', () => {
 
     await act(async () => result.current.extract());
     const [selected, competing] = result.current.facts;
-    expect(result.current.facts.map((fact) => fact.status)).toEqual(['conflict', 'conflict']);
+    expect(result.current.facts.map((fact) => fact.status)).toEqual(['pending', 'pending']);
 
     act(() => result.current.confirmFact(selected?.id ?? ''));
 
@@ -352,10 +434,12 @@ describe('useResumeFacts', () => {
       value: {
         company: 'Acme',
         role: 'Engineer',
+        location: 'Vancouver',
         teamResponsibilities: ['we collaborated on the rollout'],
       },
     });
-    expect((result.current.facts[1]?.value as Record<string, unknown>).location).toBeUndefined();
+    act(() => result.current.confirmFact(competing?.id ?? ''));
+    expect(result.current.facts.map((fact) => fact.status)).toEqual(['confirmed', 'confirmed']);
     expect(competing?.sourceAnswerId).toBe('a-work-two');
   });
 

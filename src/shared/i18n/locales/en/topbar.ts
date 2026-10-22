@@ -1,4 +1,5 @@
 export const topbar = {
+  aiProviderSettings: 'AI settings',
   loadSample: 'Load Sample',
   clear: 'Clear',
   import: 'Import',

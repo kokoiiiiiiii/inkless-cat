@@ -10,6 +10,7 @@ import { type TranslationKey, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { FactEntityLink, FactEntitySeparation } from '../model/factEntityLinks';
 import type { ResumeFact } from '../model/facts';
 import {
   buildResumeDraftFromFacts,
@@ -31,6 +32,8 @@ import type { AIInterviewProviderClient, InterviewSession } from '../model/types
 type ResumeGenerationPanelProps = {
   session: InterviewSession | null;
   facts: ResumeFact[];
+  entityLinks?: FactEntityLink[];
+  entitySeparations?: FactEntitySeparation[];
   provider: AIInterviewProviderClient;
 };
 
@@ -91,7 +94,13 @@ const getCurrentStoreSnapshot = (): ResumeSnapshot => {
   };
 };
 
-const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPanelProps) => {
+const ResumeGenerationPanel = ({
+  session,
+  facts,
+  entityLinks = [],
+  entitySeparations = [],
+  provider,
+}: ResumeGenerationPanelProps) => {
   const { t, locale } = useI18n();
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
   const [replacementSnapshot, setReplacementSnapshot] = useState<ReplacementConfirmation | null>(
@@ -112,11 +121,16 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   const draftVersionRef = useRef(0);
 
   const currentFacts = useMemo(() => getCurrentConfirmedFacts(session, facts), [facts, session]);
-  const basisKey = getResumeDraftBasisKey(session, facts, {
-    configuration: provider.configuration,
-    isConfigured: provider.isConfigured,
-    connectionStatus: provider.connectionStatus,
-  });
+  const basisKey = getResumeDraftBasisKey(
+    session,
+    facts,
+    {
+      configuration: provider.configuration,
+      isConfigured: provider.isConfigured,
+      connectionStatus: provider.connectionStatus,
+    },
+    { links: entityLinks, separations: entitySeparations },
+  );
   const isDraftCurrent = Boolean(
     draft &&
       draft.basisKey === basisKey &&
@@ -236,7 +250,13 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     setPolishSuggestions([]);
     setPolishState('idle');
     setPolishError(null);
-    const result = buildResumeDraftFromFacts(session, facts, locale);
+    const result = buildResumeDraftFromFacts(
+      session,
+      facts,
+      locale,
+      entityLinks,
+      entitySeparations,
+    );
     setDraft({
       basisKey,
       providerStreamComplete: provider.streamComplete,

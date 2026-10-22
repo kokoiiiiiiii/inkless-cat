@@ -1,6 +1,15 @@
 import { ProviderError } from '@shared/api/ai';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  confirmFactEntityLink as confirmFactEntityLinkOperation,
+  createFactEntityLink,
+  type CreateFactEntityLinkResult,
+  type FactEntityLink,
+  type FactEntitySeparation,
+  keepFactEntitiesSeparate,
+  validateFactEntityLinks,
+} from './factEntityLinks';
 import type { FactCandidate, FactKind, FactValueByKind, ResumeFact } from './facts';
 import {
   buildFactExtractionMessages,
@@ -23,6 +32,8 @@ export type FactExtractionState = 'idle' | 'extracting' | 'failed' | 'cancelled'
 
 export type ResumeFactsController = {
   facts: ResumeFact[];
+  entityLinks: FactEntityLink[];
+  entitySeparations: FactEntitySeparation[];
   pendingCount: number;
   confirmedCount: number;
   conflictCount: number;
@@ -37,7 +48,12 @@ export type ResumeFactsController = {
   updateFact: (factId: string, value: FactValueByKind[FactKind]) => void;
   confirmFact: (factId: string) => void;
   rejectFact: (factId: string) => void;
+  removeFact: (factId: string) => void;
   addManualFact: (candidate: FactCandidate) => void;
+  linkEntityFacts: (factIds: string[]) => CreateFactEntityLinkResult;
+  unlinkEntityFacts: (entityId: string) => void;
+  confirmEntityLink: (entityId: string) => boolean;
+  keepEntityFactsSeparate: (factIds: string[]) => boolean;
 };
 
 const getProviderIdentity = (provider: AIInterviewProviderClient) => ({
@@ -51,6 +67,8 @@ export const useResumeFacts = (
   locale: 'zh-CN' | 'en',
 ): ResumeFactsController => {
   const [storedFacts, setStoredFacts] = useState<ResumeFact[]>([]);
+  const [storedEntityLinks, setStoredEntityLinks] = useState<FactEntityLink[]>([]);
+  const [entitySeparations, setEntitySeparations] = useState<FactEntitySeparation[]>([]);
   const [extractionState, setExtractionState] = useState<FactExtractionState>('idle');
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [inputSummary, setInputSummary] = useState({
@@ -60,11 +78,20 @@ export const useResumeFacts = (
   });
   const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
   const requestSequenceRef = useRef(0);
+  const entitySequenceRef = useRef(0);
   const previousSessionIdRef = useRef(session?.id ?? null);
-  const currentRef = useRef({ session, provider: getProviderIdentity(provider) });
-  currentRef.current = { session, provider: getProviderIdentity(provider) };
-
-  const facts = session ? invalidateStaleFacts(session, storedFacts) : [];
+  const facts = useMemo(
+    () => (session ? invalidateStaleFacts(session, storedFacts) : []),
+    [session, storedFacts],
+  );
+  const entityLinks = validateFactEntityLinks(session, facts, storedEntityLinks);
+  const currentRef = useRef({
+    session,
+    provider: getProviderIdentity(provider),
+    facts,
+    entityLinks,
+  });
+  currentRef.current = { session, provider: getProviderIdentity(provider), facts, entityLinks };
 
   useEffect(() => {
     if (previousSessionIdRef.current === (session?.id ?? null)) return;
@@ -72,6 +99,8 @@ export const useResumeFacts = (
     activeRequestRef.current?.controller.abort();
     activeRequestRef.current = null;
     setStoredFacts([]);
+    setStoredEntityLinks([]);
+    setEntitySeparations([]);
     setExtractionState('idle');
     setErrorCode(null);
     setInputSummary({ answerIds: [], omitted: 0, codeUnits: 0 });
@@ -100,7 +129,11 @@ export const useResumeFacts = (
       const next = invalidateStaleFacts(session, current);
       return next === current ? current : next;
     });
-  }, [session]);
+    setStoredEntityLinks((current) => {
+      const next = validateFactEntityLinks(session, facts, current);
+      return next.some((link, index) => link.status !== current[index]?.status) ? next : current;
+    });
+  }, [facts, session]);
 
   const extract = useCallback(async () => {
     const snapshot = currentRef.current;
@@ -252,6 +285,13 @@ export const useResumeFacts = (
         }),
       ),
     );
+    setStoredEntityLinks((current) =>
+      current.map((link) =>
+        link.factIds.includes(factId) && link.status === 'active'
+          ? { ...link, status: 'needs-review' as const }
+          : link,
+      ),
+    );
   }, []);
 
   const confirmFact = useCallback((factId: string) => {
@@ -289,6 +329,69 @@ export const useResumeFacts = (
         ),
       ),
     );
+    setStoredEntityLinks((current) =>
+      current.map((link) =>
+        link.factIds.includes(factId) && link.status === 'active'
+          ? { ...link, status: 'needs-review' as const }
+          : link,
+      ),
+    );
+  }, []);
+
+  const removeFact = useCallback((factId: string) => {
+    setStoredFacts((current) => current.filter((fact) => fact.id !== factId));
+    setStoredEntityLinks((current) =>
+      current.map((link) =>
+        link.factIds.includes(factId) ? { ...link, status: 'invalid' as const } : link,
+      ),
+    );
+    setEntitySeparations((current) => current.filter((item) => !item.factIds.includes(factId)));
+  }, []);
+
+  const linkEntityFacts = useCallback((factIds: string[]) => {
+    const snapshot = currentRef.current;
+    const result = createFactEntityLink(
+      snapshot.session,
+      snapshot.facts,
+      snapshot.entityLinks,
+      factIds,
+      `entity-${++entitySequenceRef.current}`,
+    );
+    if (result.ok) setStoredEntityLinks((current) => [...current, result.link]);
+    return result;
+  }, []);
+
+  const unlinkEntityFacts = useCallback((entityId: string) => {
+    setStoredEntityLinks((current) => current.filter((link) => link.entityId !== entityId));
+  }, []);
+
+  const confirmEntityLink = useCallback((entityId: string) => {
+    const snapshot = currentRef.current;
+    const result = confirmFactEntityLinkOperation(
+      snapshot.session,
+      snapshot.facts,
+      snapshot.entityLinks,
+      entityId,
+    );
+    if (!result.ok) return false;
+    setStoredEntityLinks((current) =>
+      current.map((link) => (link.entityId === entityId ? result.link : link)),
+    );
+    return true;
+  }, []);
+
+  const keepEntityFactsSeparate = useCallback((factIds: string[]) => {
+    const snapshot = currentRef.current;
+    const next = keepFactEntitiesSeparate(snapshot.session, snapshot.facts, factIds);
+    if (next.length === 0) return false;
+    setEntitySeparations((current) => {
+      const byPair = new Map(
+        current.map((item) => [`${item.kind}:${item.factIds.join('|')}`, item] as const),
+      );
+      for (const item of next) byPair.set(`${item.kind}:${item.factIds.join('|')}`, item);
+      return [...byPair.values()];
+    });
+    return true;
   }, []);
 
   const addManualFact = useCallback(
@@ -308,6 +411,8 @@ export const useResumeFacts = (
 
   return {
     facts,
+    entityLinks,
+    entitySeparations,
     pendingCount: facts.filter((fact) => fact.status === 'pending').length,
     confirmedCount: facts.filter((fact) => fact.status === 'confirmed').length,
     conflictCount: facts.filter((fact) => fact.status === 'conflict').length,
@@ -322,6 +427,11 @@ export const useResumeFacts = (
     updateFact,
     confirmFact,
     rejectFact,
+    removeFact,
     addManualFact,
+    linkEntityFacts,
+    unlinkEntityFacts,
+    confirmEntityLink,
+    keepEntityFactsSeparate,
   };
 };

@@ -71,6 +71,40 @@ const Harness = () => {
 };
 
 describe('FactVerificationPanel', () => {
+  it('localizes source question labels when a session was created before interview translations loaded', () => {
+    const rawQuestionSession: InterviewSession = {
+      ...session,
+      questions: [
+        {
+          ...session.questions[0]!,
+          content: 'aiInterview.questions.targetRole.initial',
+          ruleKind: 'initial',
+        },
+      ],
+    };
+    const RawQuestionHarness = () => {
+      const controller = useResumeFacts(rawQuestionSession, provider, 'zh-CN');
+      return (
+        <FactVerificationPanel
+          session={rawQuestionSession}
+          provider={provider}
+          controller={controller}
+          onOpenProviderSettings={vi.fn()}
+        />
+      );
+    };
+
+    render(<RawQuestionHarness />, { wrapper });
+    fireEvent.click(screen.getByRole('button', { name: '手动整理事实' }));
+
+    expect(
+      screen.getByRole('option', {
+        name: '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText('aiInterview.questions.targetRole.initial')).toBeNull();
+  });
+
   it('keeps multiline summary fields as schema strings so users can confirm them', () => {
     render(<Harness />, { wrapper });
 
