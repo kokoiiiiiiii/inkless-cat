@@ -23,7 +23,7 @@ export const aiInterview = {
     'Guide questions do not send network requests. After configuring AI, you can choose to have the model ask follow-ups based on your answers.',
   privacyTitle: 'Before you send an answer to AI',
   privacyNotice:
-    'When you choose AI follow-ups, your answer and a small amount of relevant interview context go directly from this browser to the model service you configured. That service may process them under its own policies. Inkless Cat does not receive them through a server or proxy. Your API key stays in this page session’s memory. No example resume is included. You can choose guide questions instead.',
+    'When you choose AI follow-ups, your answer and a small amount of relevant interview context go directly from this browser to the model service you configured. That service may process them under its own policies. Inkless Cat does not receive them through a server or proxy. AI uses at most 8 recent complete answers, up to 500 characters each and 6,000 characters for the full context. Older answers left out of the context stay in this interview. No example resume is included. You can choose guide questions instead.',
   aiMode: 'AI follow-ups',
   templateMode: 'Guide questions only',
   tabInterview: 'Interview',
@@ -98,12 +98,27 @@ export const aiInterview = {
   answerLabel: 'Your answer',
   answerPlaceholder:
     'Write what you remember. “I don’t know” or “no measurable result” is a useful answer too.',
+  answerBudget:
+    'AI receives at most 8 recent complete answers, up to 500 characters each and 6,000 characters total. Older answers outside this context remain in the interview.',
+  answerCounter: '{count} / 500 characters (some emoji count as 2)',
+  answerOverBudget:
+    'This answer exceeds AI’s 500-character limit. Your full draft is still here; shorten it before sending.',
+  answerDraftTooLong:
+    'A draft can contain up to 20,000 characters. This paste did not change your current draft; shorten the text and try again.',
   send: 'Send answer',
   enterHint: 'Enter to send · Shift + Enter for a new line',
   skipQuestion: 'Skip question',
   skipPhase: 'Skip this phase',
   nextPhase: 'Continue to next phase',
   editAnswer: 'Edit answer',
+  editConfirmTitle: 'Return to this answer and restart the later interview branch?',
+  editConfirmBody:
+    'This removes {questionCount} later questions and {answerCount} answered responses, then starts again here. Cancel to keep the interview unchanged. After confirming, you can restore the previous interview before submitting a new answer or moving to another question.',
+  keepCurrentInterview: 'Keep current interview',
+  confirmEditAnswer: 'Return and edit',
+  restorePreviousInterview: 'Restore previous interview',
+  restoreInterviewNotice:
+    'The complete interview from before this edit is available to restore. Restoring replaces the current unsent draft.',
   answerSkipped: 'Skipped',
   emptyAnswer: 'No answer yet',
   continueWithTemplate: 'Continue with a guide question',

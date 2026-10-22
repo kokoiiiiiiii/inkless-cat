@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { InterviewAnswer, InterviewQuestion } from '../model/types';
-import { buildInterviewPrompt } from './buildInterviewPrompt';
+import {
+  buildInterviewPrompt,
+  InterviewAnswerBudgetError,
+  MAX_INTERVIEW_ANSWER_CODE_UNITS,
+  MAX_INTERVIEW_CONTEXT_CODE_UNITS,
+} from './buildInterviewPrompt';
 
 const makeQuestion = (
   id: string,
@@ -65,13 +70,46 @@ describe('buildInterviewPrompt', () => {
     );
   });
 
+  it('preserves short answers exactly', () => {
+    const answer = 'I independently owned the API reliability work.';
+    const messages = buildInterviewPrompt({
+      phase: 'work',
+      locale: 'en',
+      targetRole: 'Backend engineer',
+      currentQuestion: makeQuestion('current', 'Which responsibilities were yours?'),
+      questions: [makeQuestion('answer', 'What did you own?')],
+      answers: [{ questionId: 'answer', text: answer, skipped: false, createdAt: 1, updatedAt: 1 }],
+    });
+
+    const context = JSON.parse(messages[1]?.content ?? '{}') as {
+      recentAnswers: { answer: string }[];
+    };
+    expect(context.recentAnswers[0]?.answer).toBe(answer);
+  });
+
+  it('rejects over-budget answers instead of clipping them', () => {
+    const longAnswer = 'x'.repeat(MAX_INTERVIEW_ANSWER_CODE_UNITS + 1);
+    expect(() =>
+      buildInterviewPrompt({
+        phase: 'work',
+        locale: 'en',
+        targetRole: 'Backend engineer',
+        currentQuestion: makeQuestion('current', 'Which responsibilities were yours?'),
+        questions: [makeQuestion('current', 'Which responsibilities were yours?')],
+        answers: [
+          { questionId: 'current', text: longAnswer, skipped: false, createdAt: 1, updatedAt: 1 },
+        ],
+      }),
+    ).toThrow(InterviewAnswerBudgetError);
+  });
+
   it('keeps the serialized context valid and within its size limit', () => {
     const questions = Array.from({ length: 10 }, (_, index) =>
-      makeQuestion(`q-${index}`, 'Question?'),
+      makeQuestion(`q-${index}`, `Question ${index}: ${'q'.repeat(240)}?`),
     );
     const answers: InterviewAnswer[] = questions.map((question, index) => ({
       questionId: question.id,
-      text: `${String.raw`\"`.repeat(800)}${index}`,
+      text: `${index}${'x'.repeat(MAX_INTERVIEW_ANSWER_CODE_UNITS - 1)}`,
       skipped: false,
       createdAt: index,
       updatedAt: index,
@@ -80,14 +118,21 @@ describe('buildInterviewPrompt', () => {
       phase: 'work',
       locale: 'zh-CN',
       targetRole: 'Backend engineer',
-      currentQuestion: makeQuestion('current', '你具体负责什么？'),
+      currentQuestion: questions.at(-1)!,
       questions,
       answers,
     });
     const contextText = messages[1]?.content ?? '';
+    const context = JSON.parse(contextText) as { recentAnswers: { answer: string }[] };
+    const sentAnswers = context.recentAnswers.map(({ answer }) => answer);
 
-    expect(contextText.length).toBeLessThanOrEqual(6000);
+    expect(contextText.length).toBeLessThanOrEqual(MAX_INTERVIEW_CONTEXT_CODE_UNITS);
     expect(() => JSON.parse(contextText)).not.toThrow();
+    expect(context.recentAnswers.length).toBeLessThanOrEqual(8);
+    expect(sentAnswers).toContain(answers.at(-1)?.text);
+    for (const sentAnswer of sentAnswers) {
+      expect(answers.some(({ text }) => text === sentAnswer)).toBe(true);
+    }
     expect(messages[0]?.content).toContain('Simplified Chinese');
   });
 });

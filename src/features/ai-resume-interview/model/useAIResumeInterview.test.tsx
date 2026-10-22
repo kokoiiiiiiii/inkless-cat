@@ -144,19 +144,226 @@ describe('useAIResumeInterview', () => {
     act(() => {
       result.current.setAnswerDraft('Backend engineer');
       result.current.submitAnswer();
-      result.current.setAnswerDraft('I build APIs.');
+      result.current.setAnswerDraft('I independently built the API.');
       result.current.submitAnswer();
     });
-    expect(result.current.session?.currentPhase).toBe('basics');
-    expect(result.current.session?.answers).toHaveLength(2);
+    const originalQuestions = result.current.session?.questions.map((question) => ({
+      ...question,
+    }));
+    const originalAnswers = result.current.session?.answers.map((answer) => ({ ...answer }));
+    const originalGeneration = result.current.session?.generation;
 
-    act(() => result.current.editAnswer(firstQuestionId ?? ''));
+    act(() => expect(result.current.editAnswer(firstQuestionId ?? '')).toBe(true));
+    expect(result.current.session?.questions).toEqual(originalQuestions);
+    expect(result.current.session?.answers).toEqual(originalAnswers);
+    expect(result.current.session?.generation).toBe(originalGeneration);
+    expect(result.current.pendingEdit?.affectedAnswerCount).toBe(1);
+
+    act(() => result.current.confirmEditAnswer());
 
     expect(result.current.session?.currentPhase).toBe('targetRole');
     expect(result.current.session?.questions).toHaveLength(1);
     expect(result.current.session?.answers).toHaveLength(0);
     expect(result.current.answerDraft).toBe('Backend engineer');
-    expect(result.current.session?.generation).toBe(2);
+    expect(result.current.session?.generation).toBe((originalGeneration ?? 0) + 1);
+    expect(result.current.pendingEdit).toBeNull();
+    expect(result.current.canUndoEdit).toBe(true);
+  });
+
+  it('edits normally when no later user answer can be affected', () => {
+    const { result } = renderHook(() => useAIResumeInterview(createProvider()), { wrapper });
+    act(() => result.current.start('template'));
+    const firstQuestionId = result.current.session?.currentQuestion?.id;
+
+    act(() => {
+      result.current.setAnswerDraft('Backend engineer');
+      result.current.submitAnswer();
+    });
+    const generation = result.current.session?.generation;
+
+    act(() => expect(result.current.editAnswer(firstQuestionId ?? '')).toBe(false));
+
+    expect(result.current.session?.currentPhase).toBe('targetRole');
+    expect(result.current.session?.questions).toHaveLength(1);
+    expect(result.current.session?.answers).toHaveLength(0);
+    expect(result.current.answerDraft).toBe('Backend engineer');
+    expect(result.current.session?.generation).toBe((generation ?? 0) + 1);
+    expect(result.current.pendingEdit).toBeNull();
+    expect(result.current.canUndoEdit).toBe(false);
+  });
+
+  it('keeps the full session unchanged until the user confirms an affected branch edit', () => {
+    const { result } = renderHook(() => useAIResumeInterview(createProvider()), { wrapper });
+    act(() => result.current.start('template'));
+    const firstQuestionId = result.current.session?.currentQuestion?.id;
+
+    act(() => {
+      result.current.setAnswerDraft('Backend engineer');
+      result.current.submitAnswer();
+      result.current.setAnswerDraft('I independently built the API.');
+      result.current.submitAnswer();
+    });
+    const original = result.current.session;
+    const originalQuestions = original?.questions.map((question) => ({ ...question }));
+    const originalAnswers = original?.answers.map((answer) => ({ ...answer }));
+    const originalGeneration = original?.generation;
+
+    act(() => expect(result.current.editAnswer(firstQuestionId ?? '')).toBe(true));
+
+    expect(result.current.session?.questions).toEqual(originalQuestions);
+    expect(result.current.session?.answers).toEqual(originalAnswers);
+    expect(result.current.session?.generation).toBe(originalGeneration);
+    expect(result.current.pendingEdit).toEqual({
+      questionId: firstQuestionId,
+      affectedQuestionCount: 2,
+      affectedAnswerCount: 1,
+    });
+
+    act(() => result.current.cancelEditAnswer());
+
+    expect(result.current.session?.questions).toEqual(originalQuestions);
+    expect(result.current.session?.answers).toEqual(originalAnswers);
+    expect(result.current.session?.generation).toBe(originalGeneration);
+    expect(result.current.pendingEdit).toBeNull();
+  });
+
+  it('restores the original session once without writing branch recovery to the Resume Store', () => {
+    const beforeResume = JSON.stringify(useResumeStore.getState().resume);
+    const beforeStorage = localStorage.getItem(RESUME_STORE_PERSIST_KEY);
+    const { result } = renderHook(() => useAIResumeInterview(createProvider()), { wrapper });
+    act(() => result.current.start('template'));
+    const firstQuestionId = result.current.session?.currentQuestion?.id;
+    act(() => {
+      result.current.setAnswerDraft('Backend engineer');
+      result.current.submitAnswer();
+      result.current.setAnswerDraft('I independently built the API.');
+      result.current.submitAnswer();
+    });
+    const originalQuestions = result.current.session?.questions.map((question) => ({
+      ...question,
+    }));
+    const originalAnswers = result.current.session?.answers.map((answer) => ({ ...answer }));
+    const originalGeneration = result.current.session?.generation ?? 0;
+
+    act(() => {
+      result.current.editAnswer(firstQuestionId ?? '');
+      result.current.confirmEditAnswer();
+    });
+
+    expect(result.current.session?.questions).toHaveLength(1);
+    expect(result.current.session?.answers).toHaveLength(0);
+    expect(result.current.session?.generation).toBe(originalGeneration + 1);
+    expect(result.current.answerDraft).toBe('Backend engineer');
+    expect(result.current.canUndoEdit).toBe(true);
+
+    act(() => result.current.undoEditAnswer());
+
+    expect(result.current.session?.questions).toEqual(originalQuestions);
+    expect(result.current.session?.answers).toEqual(originalAnswers);
+    expect(result.current.session?.generation).toBe(originalGeneration + 2);
+    expect(result.current.canUndoEdit).toBe(false);
+    expect(JSON.stringify(useResumeStore.getState().resume)).toBe(beforeResume);
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toBe(beforeStorage);
+  });
+
+  it('invalidates local branch recovery when a new session replaces it', () => {
+    const { result } = renderHook(() => useAIResumeInterview(createProvider()), { wrapper });
+    act(() => result.current.start('template'));
+    const questionId = result.current.session?.currentQuestion?.id;
+    act(() => {
+      result.current.setAnswerDraft('Backend engineer');
+      result.current.submitAnswer();
+      result.current.setAnswerDraft('I built the API.');
+      result.current.submitAnswer();
+      result.current.editAnswer(questionId ?? '');
+      result.current.confirmEditAnswer();
+    });
+    expect(result.current.canUndoEdit).toBe(true);
+
+    act(() => result.current.start('template'));
+    const newSessionId = result.current.session?.id;
+    act(() => result.current.undoEditAnswer());
+
+    expect(result.current.session?.id).toBe(newSessionId);
+    expect(result.current.session?.answers).toHaveLength(0);
+    expect(result.current.canUndoEdit).toBe(false);
+  });
+
+  it('invalidates branch recovery when the provider changes', async () => {
+    let activeProvider = createProvider();
+    const { result, rerender } = renderHook(() => useAIResumeInterview(activeProvider), {
+      wrapper,
+    });
+    act(() => result.current.start('template'));
+    const questionId = result.current.session?.currentQuestion?.id;
+    act(() => {
+      result.current.setAnswerDraft('Backend engineer');
+      result.current.submitAnswer();
+      result.current.setAnswerDraft('I built the API.');
+      result.current.submitAnswer();
+      result.current.editAnswer(questionId ?? '');
+      result.current.confirmEditAnswer();
+    });
+    expect(result.current.canUndoEdit).toBe(true);
+
+    activeProvider = createProvider(vi.fn(), {
+      baseUrl: 'https://other.example/v1',
+      model: 'new-model',
+    });
+    rerender();
+    await waitFor(() => expect(result.current.session?.error?.code).toBe('provider_changed'));
+    act(() => result.current.undoEditAnswer());
+
+    expect(result.current.session?.questions).toHaveLength(1);
+    expect(result.current.session?.answers).toHaveLength(0);
+    expect(result.current.session?.error?.code).toBe('provider_changed');
+    expect(result.current.canUndoEdit).toBe(false);
+  });
+
+  it('restores answer history without reviving a request from the recovered branch', async () => {
+    const staleRequest = makeDeferred();
+    let staleSignal: AbortSignal | undefined;
+    const streamComplete = vi
+      .fn<AIInterviewProviderClient['streamComplete']>()
+      .mockResolvedValueOnce({ content: 'Which part did you personally own?' })
+      .mockImplementationOnce((_messages, options) => {
+        staleSignal = options.signal;
+        return staleRequest.promise;
+      });
+    const { result } = renderHook(() => useAIResumeInterview(createProvider(streamComplete)), {
+      wrapper,
+    });
+    startWithDraft(result, 'ai', 'Backend engineer');
+    const questionId = result.current.session?.currentQuestion?.id;
+    await approveAndFlush(result);
+    await waitFor(() => expect(result.current.session?.questions).toHaveLength(2));
+    act(() => {
+      result.current.setAnswerDraft('I worked with the MES team.');
+      result.current.submitAnswer();
+    });
+    await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(2));
+    const oldQuestions = result.current.session?.questions.map((question) => ({ ...question }));
+    const oldAnswers = result.current.session?.answers.map((answer) => ({ ...answer }));
+
+    act(() => {
+      result.current.editAnswer(questionId ?? '');
+      result.current.confirmEditAnswer();
+    });
+    expect(staleSignal?.aborted).toBe(true);
+    act(() => result.current.undoEditAnswer());
+
+    expect(result.current.session?.questions).toEqual(oldQuestions);
+    expect(result.current.session?.answers).toEqual(oldAnswers);
+    expect(result.current.session?.requestId).toBeNull();
+    expect(result.current.session?.requestStatus).toBe('cancelled');
+    expect(result.current.session?.status).toBe('asking');
+
+    await act(async () => {
+      staleRequest.resolve({ content: 'Stale request must not return?' });
+      await Promise.resolve();
+    });
+    expect(result.current.session?.questions).toEqual(oldQuestions);
+    expect(result.current.session?.currentQuestion?.content).not.toContain('Stale request');
   });
 
   it('ends in a review stage before marking the interview complete', () => {
@@ -252,14 +459,85 @@ describe('useAIResumeInterview', () => {
     await approveAndFlush(result);
     await waitFor(() => expect(result.current.session?.error?.code).toBe('provider_error'));
     expect(result.current.session?.answers[0]?.text).toBe('Backend engineer');
-    expect(result.current.session?.followUpCounts.targetRole).toBe(1);
+    expect(result.current.session?.followUpCounts.targetRole ?? 0).toBe(0);
+    expect(result.current.session?.followUpRequestCounts.targetRole).toBe(1);
+    expect(streamComplete).toHaveBeenCalledTimes(1);
 
+    for (let attempt = 2; attempt <= 4; attempt += 1) {
+      act(() => result.current.retryQuestion());
+      await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(attempt));
+      await waitFor(() => expect(result.current.session?.error?.code).toBe('provider_error'));
+      expect(result.current.session?.followUpRequestCounts.targetRole).toBe(attempt);
+      expect(result.current.session?.followUpCounts.targetRole ?? 0).toBe(0);
+    }
     act(() => result.current.retryQuestion());
+    expect(streamComplete).toHaveBeenCalledTimes(4);
+  });
+
+  it('waits for a branch-edit confirmation before aborting AI and excludes stale answers from the new prompt', async () => {
+    const lateRequest = makeDeferred();
+    const replacementRequest = makeDeferred();
+    let requestIndex = 0;
+    let lateSignal: AbortSignal | undefined;
+    const streamComplete = vi.fn<AIInterviewProviderClient['streamComplete']>(
+      (messages, options) => {
+        const index = requestIndex++;
+        if (index === 0) return Promise.resolve({ content: 'Which part did you personally own?' });
+        if (index === 1) {
+          lateSignal = options.signal;
+          return lateRequest.promise;
+        }
+        if (index === 2) return replacementRequest.promise;
+        return Promise.resolve({ content: 'Which result can you describe?' });
+      },
+    );
+    const { result } = renderHook(() => useAIResumeInterview(createProvider(streamComplete)), {
+      wrapper,
+    });
+    startWithDraft(result, 'ai', 'Backend engineer');
+    const targetRoleQuestionId = result.current.session?.currentQuestion?.id;
+    await approveAndFlush(result);
+    await waitFor(() => expect(result.current.session?.questions).toHaveLength(2));
+
+    act(() => {
+      result.current.setAnswerDraft('I worked with the MES team on integration.');
+      result.current.submitAnswer();
+    });
     await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current.session?.error?.code).toBe('provider_error'));
-    act(() => result.current.retryQuestion());
-    expect(streamComplete).toHaveBeenCalledTimes(2);
-    expect(result.current.session?.followUpCounts.targetRole).toBe(2);
+    const originalQuestions = result.current.session?.questions.map((question) => ({
+      ...question,
+    }));
+    const originalAnswers = result.current.session?.answers.map((answer) => ({ ...answer }));
+    const originalGeneration = result.current.session?.generation;
+
+    act(() => expect(result.current.editAnswer(targetRoleQuestionId ?? '')).toBe(true));
+
+    expect(lateSignal?.aborted).toBe(false);
+    expect(result.current.session?.questions).toEqual(originalQuestions);
+    expect(result.current.session?.answers).toEqual(originalAnswers);
+    expect(result.current.session?.generation).toBe(originalGeneration);
+
+    act(() => result.current.confirmEditAnswer());
+    expect(lateSignal?.aborted).toBe(true);
+    expect(result.current.session?.questions).toHaveLength(1);
+    expect(result.current.session?.answers).toHaveLength(0);
+
+    act(() => {
+      result.current.setAnswerDraft('Site reliability engineer');
+      result.current.submitAnswer();
+    });
+    await waitFor(() => expect(streamComplete).toHaveBeenCalledTimes(3));
+    const newPrompt = streamComplete.mock.calls[2]?.[0]?.[1]?.content ?? '';
+    expect(newPrompt).toContain('Site reliability engineer');
+    expect(newPrompt).not.toContain('MES team on integration');
+
+    await act(async () => {
+      lateRequest.resolve({ content: 'Stale question from the removed branch?' });
+      await Promise.resolve();
+    });
+    expect(result.current.session?.questions).toHaveLength(1);
+    expect(result.current.session?.questions.at(-1)?.content).not.toContain('Stale question');
+    act(() => result.current.cancelGeneration());
   });
 
   it('rejects invalid model questions without losing the answer and permits guide questions', async () => {

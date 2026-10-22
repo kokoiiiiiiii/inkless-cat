@@ -79,6 +79,7 @@ export type InterviewSession = {
   mode: InterviewMode;
   privacyAcknowledged: boolean;
   followUpCounts: Partial<Record<InterviewPhase, number>>;
+  followUpRequestCounts: Partial<Record<InterviewPhase, number>>;
   fallbackUsed: Partial<Record<InterviewPhase, boolean>>;
   skippedPhases: InterviewPhase[];
   questionSequence: number;

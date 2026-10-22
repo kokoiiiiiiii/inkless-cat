@@ -1,6 +1,7 @@
 import { INTERVIEW_PHASES, type InterviewPhase, type InterviewQuestion } from '../model/types';
 
 export const MAX_AI_FOLLOW_UPS_PER_PHASE = 2;
+export const MAX_AI_REQUEST_ATTEMPTS_PER_PHASE = 4;
 
 const questionKeys: Record<InterviewPhase, { initial: string; fallback: string }> = {
   targetRole: {

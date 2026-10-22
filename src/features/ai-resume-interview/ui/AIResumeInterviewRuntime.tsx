@@ -3,7 +3,15 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from '
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { localizeInterviewQuestion, MAX_AI_FOLLOW_UPS_PER_PHASE } from '../lib/interviewRules';
+import {
+  MAX_INTERVIEW_ANSWER_CODE_UNITS,
+  MAX_INTERVIEW_ANSWER_DRAFT_CODE_UNITS,
+} from '../lib/buildInterviewPrompt';
+import {
+  localizeInterviewQuestion,
+  MAX_AI_FOLLOW_UPS_PER_PHASE,
+  MAX_AI_REQUEST_ATTEMPTS_PER_PHASE,
+} from '../lib/interviewRules';
 import type { AIInterviewProviderClient, InterviewPhase, InterviewQuestion } from '../model/types';
 import { useAIResumeInterview } from '../model/useAIResumeInterview';
 
@@ -44,20 +52,27 @@ const AIResumeInterviewRuntime = ({
   const { t } = useI18n();
   const controller = useAIResumeInterview(provider);
   const { session, progress } = controller;
+  const cancelPendingEdit = controller.cancelEditAnswer;
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const confirmationDialogRef = useRef<HTMLElement | null>(null);
   const interviewPaneRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeOnlyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const answerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const currentQuestionRef = useRef<HTMLHeadingElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
   const [mobileTab, setMobileTab] = useState<'interview' | 'summary'>('interview');
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [activeConfirmation, setActiveConfirmation] = useState<'cancel' | 'edit' | null>(null);
   const cancelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const keepInterviewRef = useRef<HTMLButtonElement | null>(null);
-  const previousConfirmCancelRef = useRef(false);
-  const confirmCancelRef = useRef(confirmCancel);
+  const keepCurrentInterviewRef = useRef<HTMLButtonElement | null>(null);
+  const confirmationTriggerRef = useRef<HTMLElement | null>(null);
+  const confirmationReturnTargetRef = useRef<'trigger' | 'answer' | 'closeOnly'>('trigger');
+  const previousConfirmationRef = useRef<'cancel' | 'edit' | null>(null);
+  const [answerDraftLimitExceeded, setAnswerDraftLimitExceeded] = useState(false);
+  const [focusAnswerAfterEdit, setFocusAnswerAfterEdit] = useState(false);
   const isAnswerComposingRef = useRef(false);
-  confirmCancelRef.current = confirmCancel;
 
   const isGenerating =
     session?.status === 'generating_question' ||
@@ -83,7 +98,7 @@ const AIResumeInterviewRuntime = ({
 
   const closeAndPause = useCallback(() => {
     pauseInterview();
-    setConfirmCancel(false);
+    setActiveConfirmation(null);
     onPause();
   }, [onPause, pauseInterview]);
   const openProviderSettings = useCallback(() => {
@@ -100,11 +115,16 @@ const AIResumeInterviewRuntime = ({
     const previousBodyOverflow = document.body.style.overflow;
     const focusableSelector =
       'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
-    const getFocusable = () =>
-      [...dialog.querySelectorAll<HTMLElement>(focusableSelector)].filter(
-        (element) =>
-          element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null,
-      );
+    const getFocusable = (scope: HTMLElement) =>
+      [...scope.querySelectorAll<HTMLElement>(focusableSelector)].filter((element) => {
+        const style = globalThis.getComputedStyle(element);
+        return (
+          element.getAttribute('aria-hidden') !== 'true' &&
+          !element.closest('[inert], [hidden], .hidden') &&
+          style.display !== 'none' &&
+          style.visibility !== 'hidden'
+        );
+      });
 
     closeButtonRef.current?.focus();
     document.body.style.overflow = 'hidden';
@@ -119,20 +139,26 @@ const AIResumeInterviewRuntime = ({
       if (event.key === 'Escape') {
         if (event.isComposing || event.keyCode === 229 || composing) return;
         event.preventDefault();
-        if (confirmCancelRef.current) {
-          setConfirmCancel(false);
+        event.stopPropagation();
+        if (activeConfirmationRef.current) {
+          if (activeConfirmationRef.current === 'edit') cancelPendingEdit();
+          confirmationReturnTargetRef.current = 'trigger';
+          setActiveConfirmation(null);
           return;
         }
         closeAndPause();
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusable = getFocusable();
+      if (event.isComposing || event.keyCode === 229 || composing) return;
+      const scope = activeConfirmationRef.current === null ? dialog : confirmationDialogRef.current;
+      if (!scope) return;
+      const focusable = getFocusable(scope);
       const first = focusable[0];
       const last = focusable.at(-1);
       if (!first || !last) {
         event.preventDefault();
-      } else if (!dialog.contains(document.activeElement)) {
+      } else if (!scope.contains(document.activeElement)) {
         event.preventDefault();
         (event.shiftKey ? last : first).focus();
       } else if (event.shiftKey && document.activeElement === first) {
@@ -146,31 +172,60 @@ const AIResumeInterviewRuntime = ({
 
     document.addEventListener('compositionstart', handleCompositionStart, true);
     document.addEventListener('compositionend', handleCompositionEnd, true);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
     return () => {
       document.removeEventListener('compositionstart', handleCompositionStart, true);
       document.removeEventListener('compositionend', handleCompositionEnd, true);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
       document.body.style.overflow = previousBodyOverflow;
       opener?.focus();
     };
-  }, [closeAndPause, open, openerRef]);
+  }, [cancelPendingEdit, closeAndPause, open, openerRef]);
 
   useEffect(() => {
-    if (confirmCancel) {
-      keepInterviewRef.current?.focus();
-    } else if (previousConfirmCancelRef.current) {
-      cancelTriggerRef.current?.focus();
+    if (activeConfirmation) {
+      (activeConfirmation === 'cancel'
+        ? keepInterviewRef.current
+        : keepCurrentInterviewRef.current
+      )?.focus();
+    } else if (previousConfirmationRef.current) {
+      if (confirmationReturnTargetRef.current === 'answer') {
+        answerInputRef.current?.focus();
+      } else if (confirmationReturnTargetRef.current === 'closeOnly') {
+        closeOnlyButtonRef.current?.focus();
+      } else {
+        confirmationTriggerRef.current?.focus();
+      }
+      confirmationTriggerRef.current = null;
+      confirmationReturnTargetRef.current = 'trigger';
     }
-    previousConfirmCancelRef.current = confirmCancel;
-  }, [confirmCancel]);
+    previousConfirmationRef.current = activeConfirmation;
+  }, [activeConfirmation]);
+
+  const activeConfirmationRef = useRef(activeConfirmation);
+  activeConfirmationRef.current = activeConfirmation;
+
+  useEffect(() => {
+    if (activeConfirmation === 'edit' && !controller.pendingEdit) {
+      confirmationReturnTargetRef.current = 'trigger';
+      setActiveConfirmation(null);
+    }
+  }, [activeConfirmation, controller.pendingEdit]);
 
   useEffect(() => {
     if (session?.status === 'asking' && currentQuestion && mobileTab === 'interview') {
       currentQuestionRef.current?.focus({ preventScroll: true });
-      interviewPaneRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      if (typeof interviewPaneRef.current?.scrollTo === 'function') {
+        interviewPaneRef.current.scrollTo({ top: 0, behavior: 'auto' });
+      }
     }
   }, [currentQuestion, mobileTab, session?.status]);
+
+  useEffect(() => {
+    if (!focusAnswerAfterEdit || mobileTab !== 'interview') return;
+    answerInputRef.current?.focus();
+    setFocusAnswerAfterEdit(false);
+  }, [currentQuestion, focusAnswerAfterEdit, mobileTab]);
 
   const allTurns = useMemo(() => {
     if (!session) return [];
@@ -182,9 +237,33 @@ const AIResumeInterviewRuntime = ({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canAnswer) return;
+    if (!canAnswer || controller.answerDraft.length > MAX_INTERVIEW_ANSWER_CODE_UNITS) return;
     controller.submitAnswer();
   };
+
+  const requestEditAnswer = (questionId: string, trigger: HTMLButtonElement) => {
+    const needsConfirmation = controller.editAnswer(questionId);
+    setAnswerDraftLimitExceeded(false);
+    if (needsConfirmation) {
+      confirmationTriggerRef.current = trigger;
+      confirmationReturnTargetRef.current = 'trigger';
+      setActiveConfirmation('edit');
+    } else {
+      setMobileTab('interview');
+      setFocusAnswerAfterEdit(true);
+    }
+  };
+
+  const handleAnswerChange = (value: string) => {
+    if (value.length > MAX_INTERVIEW_ANSWER_DRAFT_CODE_UNITS) {
+      setAnswerDraftLimitExceeded(true);
+      return;
+    }
+    setAnswerDraftLimitExceeded(false);
+    controller.setAnswerDraft(value);
+  };
+
+  const answerDraftOverBudget = controller.answerDraft.length > MAX_INTERVIEW_ANSWER_CODE_UNITS;
 
   const handleAnswerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (
@@ -287,10 +366,7 @@ const AIResumeInterviewRuntime = ({
                 <button
                   type="button"
                   className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-brand-800 underline decoration-brand-300 underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-brand-200"
-                  onClick={() => {
-                    controller.editAnswer(question.id);
-                    setMobileTab('interview');
-                  }}
+                  onClick={(event) => requestEditAnswer(question.id, event.currentTarget)}
                 >
                   {t('aiInterview.editAnswer')}
                 </button>
@@ -376,7 +452,8 @@ const AIResumeInterviewRuntime = ({
         session &&
         session.mode !== 'template' &&
         currentAnswer &&
-        (session.followUpCounts[question.phase] ?? 0) < MAX_AI_FOLLOW_UPS_PER_PHASE,
+        (session.followUpCounts[question.phase] ?? 0) < MAX_AI_FOLLOW_UPS_PER_PHASE &&
+        (session.followUpRequestCounts[question.phase] ?? 0) < MAX_AI_REQUEST_ATTEMPTS_PER_PHASE,
     );
     const showError = Boolean(
       session?.error || (session?.requestStatus === 'cancelled' && isAnswered),
@@ -483,6 +560,21 @@ const AIResumeInterviewRuntime = ({
           </div>
         )}
         <div className="mt-auto pt-5">
+          {controller.canUndoEdit && (
+            <div
+              className="dark:bg-brand-950/40 mb-4 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50/70 p-3 text-sm leading-6 text-slate-700 dark:border-brand-900 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between"
+              role="status"
+            >
+              <p>{t('aiInterview.restoreInterviewNotice')}</p>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={controller.undoEditAnswer}
+              >
+                {t('aiInterview.restorePreviousInterview')}
+              </button>
+            </div>
+          )}
           {canAnswer && (
             <form onSubmit={submit}>
               <label
@@ -492,12 +584,13 @@ const AIResumeInterviewRuntime = ({
                 {t('aiInterview.answerLabel')}
               </label>
               <textarea
+                ref={answerInputRef}
                 id={`${titleId}-answer`}
                 className={`${fieldClass} mt-2`}
                 rows={4}
                 value={controller.answerDraft}
                 placeholder={t('aiInterview.answerPlaceholder')}
-                onChange={(event) => controller.setAnswerDraft(event.currentTarget.value)}
+                onChange={(event) => handleAnswerChange(event.currentTarget.value)}
                 onKeyDown={handleAnswerKeyDown}
                 onCompositionStart={() => {
                   isAnswerComposingRef.current = true;
@@ -505,8 +598,34 @@ const AIResumeInterviewRuntime = ({
                 onCompositionEnd={() => {
                   isAnswerComposingRef.current = false;
                 }}
-                aria-describedby={`${titleId}-enter-hint`}
+                aria-describedby={`${titleId}-enter-hint ${titleId}-answer-budget ${titleId}-answer-counter`}
               />
+              <p
+                id={`${titleId}-answer-budget`}
+                className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400"
+              >
+                {t('aiInterview.answerBudget')}
+              </p>
+              <p
+                id={`${titleId}-answer-counter`}
+                className={`mt-1 text-xs ${answerDraftOverBudget ? 'font-medium text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                {t('aiInterview.answerCounter', { count: controller.answerDraft.length })}
+              </p>
+              {answerDraftOverBudget && (
+                <p
+                  className="mt-1 text-sm leading-5 text-rose-700 dark:text-rose-300"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {t('aiInterview.answerOverBudget')}
+                </p>
+              )}
+              {answerDraftLimitExceeded && (
+                <p className="mt-1 text-sm leading-5 text-rose-700 dark:text-rose-300" role="alert">
+                  {t('aiInterview.answerDraftTooLong')}
+                </p>
+              )}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                 <p
                   id={`${titleId}-enter-hint`}
@@ -517,7 +636,11 @@ const AIResumeInterviewRuntime = ({
                 <button
                   type="submit"
                   className={primaryButtonClass}
-                  disabled={!controller.answerDraft.trim()}
+                  disabled={
+                    !controller.answerDraft.trim() ||
+                    answerDraftOverBudget ||
+                    answerDraftLimitExceeded
+                  }
                 >
                   {t('aiInterview.send')}
                 </button>
@@ -637,6 +760,8 @@ const AIResumeInterviewRuntime = ({
         className="my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-h-[calc(100dvh-2rem)]"
         role="dialog"
         aria-modal="true"
+        aria-hidden={activeConfirmation ? true : undefined}
+        inert={activeConfirmation !== null}
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
       >
@@ -749,7 +874,11 @@ const AIResumeInterviewRuntime = ({
                 ref={cancelTriggerRef}
                 type="button"
                 className="ml-auto min-h-11 rounded-full px-4 text-sm font-medium text-rose-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 dark:text-rose-300"
-                onClick={() => setConfirmCancel(true)}
+                onClick={(event) => {
+                  confirmationTriggerRef.current = event.currentTarget;
+                  confirmationReturnTargetRef.current = 'trigger';
+                  setActiveConfirmation('cancel');
+                }}
               >
                 {t('aiInterview.cancelInterview')}
               </button>
@@ -757,6 +886,7 @@ const AIResumeInterviewRuntime = ({
           )}
           {(!session || session.status === 'completed' || session.status === 'cancelled') && (
             <button
+              ref={closeOnlyButtonRef}
               type="button"
               className="ml-auto min-h-11 rounded-full px-4 text-sm font-medium text-slate-600 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-300"
               onClick={closeAndPause}
@@ -766,48 +896,75 @@ const AIResumeInterviewRuntime = ({
           )}
         </footer>
       </div>
-      {confirmCancel && (
+      {activeConfirmation && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 px-4 py-6"
           role="presentation"
         >
           <section
+            ref={confirmationDialogRef}
             className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             role="alertdialog"
             aria-modal="true"
-            aria-labelledby={`${titleId}-cancel-heading`}
-            aria-describedby={`${titleId}-cancel-description`}
+            aria-labelledby={`${titleId}-confirmation-heading`}
+            aria-describedby={`${titleId}-confirmation-description`}
           >
             <h3
-              id={`${titleId}-cancel-heading`}
+              id={`${titleId}-confirmation-heading`}
               className="text-lg font-semibold text-slate-900 dark:text-white"
             >
-              {t('aiInterview.cancelConfirmTitle')}
+              {activeConfirmation === 'cancel'
+                ? t('aiInterview.cancelConfirmTitle')
+                : t('aiInterview.editConfirmTitle')}
             </h3>
             <p
-              id={`${titleId}-cancel-description`}
+              id={`${titleId}-confirmation-description`}
               className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300"
             >
-              {t('aiInterview.cancelConfirmBody')}
+              {activeConfirmation === 'cancel'
+                ? t('aiInterview.cancelConfirmBody')
+                : t('aiInterview.editConfirmBody', {
+                    questionCount: controller.pendingEdit?.affectedQuestionCount ?? 0,
+                    answerCount: controller.pendingEdit?.affectedAnswerCount ?? 0,
+                  })}
             </p>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
-                ref={keepInterviewRef}
+                ref={activeConfirmation === 'cancel' ? keepInterviewRef : keepCurrentInterviewRef}
                 type="button"
                 className={secondaryButtonClass}
-                onClick={() => setConfirmCancel(false)}
+                onClick={() => {
+                  if (activeConfirmation === 'edit') cancelPendingEdit();
+                  confirmationReturnTargetRef.current = 'trigger';
+                  setActiveConfirmation(null);
+                }}
               >
-                {t('aiInterview.keepInterview')}
+                {activeConfirmation === 'cancel'
+                  ? t('aiInterview.keepInterview')
+                  : t('aiInterview.keepCurrentInterview')}
               </button>
               <button
                 type="button"
-                className={`${primaryButtonClass} !bg-rose-700 hover:!bg-rose-800`}
+                className={
+                  activeConfirmation === 'cancel'
+                    ? `${primaryButtonClass} !bg-rose-700 hover:!bg-rose-800`
+                    : primaryButtonClass
+                }
                 onClick={() => {
-                  controller.cancelInterview();
-                  setConfirmCancel(false);
+                  if (activeConfirmation === 'cancel') {
+                    controller.cancelInterview();
+                    confirmationReturnTargetRef.current = 'closeOnly';
+                  } else {
+                    controller.confirmEditAnswer();
+                    setMobileTab('interview');
+                    confirmationReturnTargetRef.current = 'answer';
+                  }
+                  setActiveConfirmation(null);
                 }}
               >
-                {t('aiInterview.confirmCancel')}
+                {activeConfirmation === 'cancel'
+                  ? t('aiInterview.confirmCancel')
+                  : t('aiInterview.confirmEditAnswer')}
               </button>
             </div>
           </section>

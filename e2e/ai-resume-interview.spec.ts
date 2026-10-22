@@ -219,14 +219,39 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
     dialog.getByRole('heading', { name: 'MES 团队协作中，你个人负责了哪部分？' }),
   ).toBeVisible();
   const summary = dialog.getByRole('complementary');
-  await summary.getByRole('button', { name: '修改回答' }).first().click();
+  const firstEditButton = summary.getByRole('button', { name: '修改回答' }).first();
+  await firstEditButton.click();
+  const editConfirmation = page.getByRole('alertdialog', {
+    name: '返回修改并重新开始后续访谈？',
+  });
+  await expect(editConfirmation).toContainText('2 个问题和 1 条已回答内容');
+  await editConfirmation.getByRole('button', { name: '保留当前访谈' }).click();
+  await expect(summary.getByText('Backend engineer')).toBeVisible();
+  await expect(summary.getByText('我独立实现了工业物联网后端，MES 是参与团队开发。')).toBeVisible();
+
+  await firstEditButton.click();
+  await page
+    .getByRole('alertdialog', { name: '返回修改并重新开始后续访谈？' })
+    .getByRole('button', { name: '确认返回修改' })
+    .click();
   const answerBox = dialog.getByRole('textbox', { name: '你的回答' });
+  await expect(answerBox).toHaveValue('Backend engineer');
+  await dialog.getByRole('button', { name: '恢复修改前的访谈' }).click();
+  await expect(summary.getByText('Backend engineer')).toBeVisible();
+  await expect(summary.getByText('我独立实现了工业物联网后端，MES 是参与团队开发。')).toBeVisible();
+
+  await firstEditButton.click();
+  await page
+    .getByRole('alertdialog', { name: '返回修改并重新开始后续访谈？' })
+    .getByRole('button', { name: '确认返回修改' })
+    .click();
   await expect(answerBox).toHaveValue('Backend engineer');
   await answerBox.fill('Senior backend engineer');
   await dialog.getByRole('button', { name: '发送回答' }).click();
   await expect(dialog.getByRole('button', { name: '跳过当前问题' })).toBeVisible();
   expect(requests).toHaveLength(3);
   expect(JSON.stringify(requests[2]?.messages)).toContain('Senior backend engineer');
+  expect(JSON.stringify(requests[2]?.messages)).not.toContain('MES 是参与团队开发');
 
   await dialog.getByRole('button', { name: '跳过当前问题' }).click();
   await dialog.getByRole('button', { name: '跳过本阶段' }).click();
@@ -298,6 +323,91 @@ test('shows a request failure and waits for a user-initiated retry', async ({ pa
     dialog.getByRole('heading', { name: 'Which project result can you describe?' }),
   ).toBeVisible();
   expect(requests).toHaveLength(2);
+  await dialog.getByRole('button', { name: '取消访谈' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
+});
+
+test('keeps keyboard focus inside the cancel confirmation and restores the right target', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await dialog.getByRole('button', { name: '取消访谈' }).click();
+
+  const alertdialog = page.getByRole('alertdialog', { name: '要丢弃本次访谈吗？' });
+  const keepInterview = alertdialog.getByRole('button', { name: '继续访谈' });
+  const discardAnswers = alertdialog.getByRole('button', { name: '丢弃回答' });
+  await expect(alertdialog).toHaveAttribute('aria-modal', 'true');
+  await expect(keepInterview).toBeFocused();
+  await expect(keepInterview).toHaveCSS('transition-duration', '0s');
+  await page.keyboard.press('Tab');
+  await expect(discardAnswers).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(keepInterview).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(discardAnswers).toBeFocused();
+  await page.keyboard.press('Escape');
+
+  await expect(alertdialog).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '取消访谈' })).toBeFocused();
+  await expect(dialog.getByRole('button', { name: '跳过当前问题' })).toBeVisible();
+
+  await dialog.getByRole('button', { name: '取消访谈' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
+  await expect(dialog.getByRole('heading', { name: '访谈已取消' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '关闭', exact: true })).toBeFocused();
+});
+
+test('shows and enforces the answer context budget without changing the draft', async ({
+  page,
+}) => {
+  const { requests, baseUrl } = await startSSEMock(async (_body, response, requestIndex) => {
+    const content =
+      requestIndex === 0
+        ? 'Which part did you personally own?'
+        : 'How did you coordinate the shared work?';
+    await writeSSEContent(response, content);
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '夜间模式' }).click();
+  await configureProvider(page, baseUrl);
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用 AI 动态追问' }).click();
+  await answer(dialog, 'Backend engineer');
+  await dialog.getByRole('button', { name: '发送这条回答并使用 AI' }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'Which part did you personally own?' }),
+  ).toBeVisible();
+
+  const answerBox = dialog.getByRole('textbox', { name: '你的回答' });
+  const overBudgetDraft = `${'x'.repeat(490)}；我负责数据库迁移和发布回滚。`;
+  await answerBox.fill(overBudgetDraft);
+  await expect(answerBox).toHaveValue(overBudgetDraft);
+  await expect(
+    dialog.getByText('这条回答超过 AI 的 500 字符上限。草稿仍完整保留，请自行精简后再发送。'),
+  ).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '发送回答' })).toBeDisabled();
+  expect(requests).toHaveLength(1);
+
+  const approvedAnswer = '我独立负责 API 稳定性；MES 集成由团队共同完成。';
+  await answerBox.fill(approvedAnswer);
+  await expect(dialog.getByRole('button', { name: '发送回答' })).toBeEnabled();
+  await dialog.getByRole('button', { name: '发送回答' }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'How did you coordinate the shared work?' }),
+  ).toBeVisible();
+  expect(requests).toHaveLength(2);
+  const context = JSON.parse(
+    requests[1]?.messages.find(({ role }) => role === 'user')?.content ?? '{}',
+  ) as { recentAnswers: Array<{ answer: string }> };
+  expect(context.recentAnswers.at(-1)?.answer).toBe(approvedAnswer);
+  expect(JSON.stringify(requests[1]?.messages)).not.toContain(overBudgetDraft);
+
   await dialog.getByRole('button', { name: '取消访谈' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: '丢弃回答' }).click();
 });

@@ -33,6 +33,7 @@ const session: InterviewSession = {
   mode: 'template',
   privacyAcknowledged: false,
   followUpCounts: {},
+  followUpRequestCounts: {},
   fallbackUsed: {},
   skippedPhases: ['basics'],
   questionSequence: 2,
