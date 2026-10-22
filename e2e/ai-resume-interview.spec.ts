@@ -168,7 +168,9 @@ const addAndConfirmManualFact = async (
   await panel.getByRole('button', { name: '手动整理事实' }).click();
   await panel.getByLabel('事实类型').selectOption({ label: kindLabel });
   await panel.getByLabel('来源回答').first().selectOption({ label: sourceLabel });
-  for (const [label, value] of fields) await panel.getByLabel(label).fill(value);
+  for (const [label, value] of fields) {
+    await panel.getByRole('textbox', { name: label, exact: true }).fill(value);
+  }
   await panel.getByRole('button', { name: '添加待核实事实' }).click();
   const factCard = panel.locator('article').filter({ hasText: uniqueMarker });
   await expect(factCard).toHaveCount(1);
@@ -176,12 +178,11 @@ const addAndConfirmManualFact = async (
   await expect(factCard.getByText('字段含义已由你确认', { exact: true })).toBeVisible();
 };
 
-const cancelAndStartNewInterview = async (dialog: Locator) => {
+const cancelAndStartNewInterview = async (page: Page, dialog: Locator) => {
   await dialog.getByRole('button', { name: '取消访谈' }).click();
-  await dialog
-    .getByRole('alertdialog', { name: '要丢弃本次访谈吗？' })
-    .getByRole('button', { name: '丢弃回答' })
-    .click();
+  const confirmation = page.getByRole('alertdialog', { name: '要丢弃本次访谈吗？' });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: '丢弃回答' }).click();
   await dialog.getByRole('button', { name: '重新开始访谈' }).click();
 };
 
@@ -323,7 +324,7 @@ test('hides the previous draft and pending replacement after cancelling and star
   await summary.getByRole('button', { name: '检查并替换当前简历' }).click();
   await summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }).check();
 
-  await cancelAndStartNewInterview(dialog);
+  await cancelAndStartNewInterview(page, dialog);
 
   await expect(summary.getByTestId('generated-resume-draft')).toHaveCount(0);
   await expect(summary.getByRole('button', { name: '确认替换正式简历' })).toHaveCount(0);
@@ -400,7 +401,7 @@ test('clears old association selections and links only new-session facts', async
   await selectionGroup.getByRole('checkbox').nth(1).check();
   await expect(facts.getByText('已选择 2 条')).toBeVisible();
 
-  await cancelAndStartNewInterview(dialog);
+  await cancelAndStartNewInterview(page, dialog);
   await answer(dialog, 'Second session answer');
   const nextSource = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
   await addAndConfirmManualFact(
