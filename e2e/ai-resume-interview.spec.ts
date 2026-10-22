@@ -325,7 +325,7 @@ test('refuses draft undo after a Workspace edit returns to the applied value (AB
   await summary.getByRole('button', { name: '确认替换正式简历' }).click();
 
   await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
-  const formalTitle = page.getByLabel('头衔');
+  const formalTitle = page.getByLabel('头衔', { exact: true });
   await formalTitle.fill('Temporary Workspace edit');
   await formalTitle.fill('Applied title');
 
