@@ -170,11 +170,11 @@ describe('ResumeGenerationPanel', () => {
       content: JSON.stringify({
         suggestions: [
           {
-            id: 'experience:generated-experience-1-fact-work:highlight:0',
+            id: 'experience:generated-experience-0-fact-work:highlight:0',
             text: 'I authored the import tool',
           },
           {
-            id: 'experience:generated-experience-1-fact-work:highlight:1',
+            id: 'experience:generated-experience-0-fact-work:highlight:1',
             text: 'the team launched the migration',
           },
         ],
@@ -207,6 +207,7 @@ describe('ResumeGenerationPanel', () => {
     await waitFor(() =>
       expect(screen.getByText('个人负责：I authored the import tool')).toBeTruthy(),
     );
+    expect(screen.getByText(/需要人工核对：措辞内容变化/u)).toBeTruthy();
     expect(streamComplete).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(streamComplete.mock.calls[0]?.[0])).not.toContain('lin@example.com');
     expect(JSON.stringify(streamComplete.mock.calls[0]?.[0])).not.toContain('BrightWorks');
@@ -219,6 +220,280 @@ describe('ResumeGenerationPanel', () => {
     expect(highlights.value).toContain('个人负责：I authored the import tool');
     expect(highlights.value).toContain('与团队协作：the team launched the migration');
     expect(useResumeStore.getState().resume).toBe(previous);
+  });
+
+  it('clears replacement consent when the candidate name changes and requires a new check', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Changed candidate' } });
+
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByText(/旧确认和勾选已清除/u)).toBeTruthy();
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    expect(
+      screen.getByRole<HTMLInputElement>('checkbox', {
+        name: /理解这会替换当前正式简历/u,
+      }).checked,
+    ).toBe(false);
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Changed candidate');
+  });
+
+  it('clears replacement consent when work responsibilities change', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.change(screen.getByLabelText(/职责与成果/u), {
+      target: { value: '个人负责：Updated responsibility' },
+    });
+
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByText(/旧确认和勾选已清除/u)).toBeTruthy();
+    expect(useResumeStore.getState().resume.experience[0]?.company).toBe('Existing Company');
+  });
+
+  it('clears replacement consent after accepting an AI suggestion', async () => {
+    const configuredProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
+          suggestions: [
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:0',
+              text: 'I authored the import tool',
+            },
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:1',
+              text: 'the team launched the migration',
+            },
+          ],
+        }),
+      }),
+    };
+    render(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={session}
+          facts={confirmedFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '检查即将发送的文字' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送叙述文字并获取建议' }));
+    await screen.findByText('个人负责：I authored the import tool');
+    fireEvent.click(screen.getAllByRole('button', { name: '在草稿中采用' })[0]!);
+
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByText(/旧确认和勾选已清除/u)).toBeTruthy();
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
+  it('clears replacement consent when the candidate is rebuilt', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '按最新事实重建' }));
+
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByText(/旧确认和勾选已清除/u)).toBeTruthy();
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
+  it('invalidates replacement consent when facts or provider context changes', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+
+    const changedFacts = confirmedFacts.map((fact, index) =>
+      index === 0 ? { ...fact, status: 'pending' as const } : fact,
+    );
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={changedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain('草稿已失效');
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+
+    const changedProvider: AIInterviewProviderClient = {
+      ...provider,
+      configuration: { baseUrl: 'https://other-provider.example/v1', model: 'other-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete: vi.fn(),
+    };
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={session}
+          facts={confirmedFacts}
+          provider={changedProvider}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '按最新事实重建' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    const nextProvider = {
+      ...changedProvider,
+      configuration: { ...changedProvider.configuration!, model: 'new-model' },
+    };
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={nextProvider} />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain('草稿已失效');
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
+  it('invalidates replacement consent when the interview session changes', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel session={session} facts={confirmedFacts} provider={provider} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    const changedSession = { ...session, updatedAt: session.updatedAt + 1 };
+    rerender(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={changedSession}
+          facts={confirmedFacts}
+          provider={provider}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: '确认替换正式简历' })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain('草稿已失效');
+    expect(screen.getByText(/旧确认和勾选已清除/u)).toBeTruthy();
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
+  it('keeps the one-step undo after rebuilding or editing the candidate', () => {
+    const before = useResumeStore.getState();
+    const beforeResume = before.resume;
+    const beforeSections = before.activeSections;
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Applied candidate' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '按最新事实重建' }));
+    fireEvent.change(screen.getByLabelText('姓名'), {
+      target: { value: 'Another candidate edit' },
+    });
+    expect(screen.getByRole('button', { name: '撤销并恢复原简历' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
+
+    expect(useResumeStore.getState().resume).toEqual(beforeResume);
+    expect(useResumeStore.getState().activeSections).toEqual(beforeSections);
+  });
+
+  it('keeps undo available after an AI wording request', async () => {
+    const configuredProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
+          suggestions: [
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:0',
+              text: 'I authored the import tool',
+            },
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:1',
+              text: 'the team launched the migration',
+            },
+          ],
+        }),
+      }),
+    };
+    render(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={session}
+          facts={confirmedFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Applied candidate' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '检查即将发送的文字' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送叙述文字并获取建议' }));
+    await screen.findByText('个人负责：I authored the import tool');
+    expect(screen.getByRole('button', { name: '撤销并恢复原简历' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
+  it('rejects undo over a newer Workspace edit', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Applied candidate' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+    useResumeStore.getState().updateResume((resume) => {
+      resume.personal.fullName = 'Newer Workspace edit';
+    });
+    fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Newer Workspace edit');
+    expect(screen.getByText(/正式简历已再次变化/u)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '撤销并恢复原简历' })).toBeNull();
+  });
+
+  it('uses a clear single-step undo rule after multiple controlled replacements', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'First replacement' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Second replacement' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('Second replacement');
+
+    fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
+    expect(useResumeStore.getState().resume.personal.fullName).toBe('First replacement');
+    expect(screen.queryByRole('button', { name: '撤销并恢复原简历' })).toBeNull();
   });
 
   it('discards a delayed wording response after the interview facts change', async () => {
@@ -265,11 +540,11 @@ describe('ResumeGenerationPanel', () => {
         content: JSON.stringify({
           suggestions: [
             {
-              id: 'experience:generated-experience-1-fact-work:highlight:0',
+              id: 'experience:generated-experience-0-fact-work:highlight:0',
               text: 'I authored the import tool',
             },
             {
-              id: 'experience:generated-experience-1-fact-work:highlight:1',
+              id: 'experience:generated-experience-0-fact-work:highlight:1',
               text: 'the team launched the migration',
             },
           ],
@@ -280,6 +555,86 @@ describe('ResumeGenerationPanel', () => {
 
     expect(screen.queryByText('I authored the import tool')).toBeNull();
     expect(useResumeStore.getState().resume.personal.fullName).toBe('Existing resume');
+  });
+
+  it('rejects Chinese ownership escalation from AI and keeps the active resume unchanged', async () => {
+    const previous = useResumeStore.getState().resume;
+    const configuredProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
+          suggestions: [
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:0',
+              text: '独立负责整个系统架构设计',
+            },
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:1',
+              text: 'the team launched the migration',
+            },
+          ],
+        }),
+      }),
+    };
+    render(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={session}
+          facts={confirmedFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查即将发送的文字' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送叙述文字并获取建议' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('建议改变了职责归属或工作范围');
+    expect(screen.queryByRole('button', { name: '在草稿中采用' })).toBeNull();
+    expect(useResumeStore.getState().resume).toBe(previous);
+  });
+
+  it('renders hostile model text literally without creating HTML or applying it', async () => {
+    const previous = useResumeStore.getState().resume;
+    const hostileText = '<img src=x onerror=alert(x)>';
+    const configuredProvider: AIInterviewProviderClient = {
+      configuration: { baseUrl: 'https://provider.example/v1', model: 'test-model' },
+      isConfigured: true,
+      connectionStatus: 'ready',
+      streamComplete: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
+          suggestions: [
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:0',
+              text: hostileText,
+            },
+            {
+              id: 'experience:generated-experience-0-fact-work:highlight:1',
+              text: 'the team launched the migration',
+            },
+          ],
+        }),
+      }),
+    };
+    const { container } = render(
+      <I18nProvider>
+        <ResumeGenerationPanel
+          session={session}
+          facts={confirmedFacts}
+          provider={configuredProvider}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查即将发送的文字' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送叙述文字并获取建议' }));
+
+    await waitFor(() => expect(container.textContent).toContain(hostileText));
+    expect(container.querySelector('img')).toBeNull();
+    expect(useResumeStore.getState().resume).toBe(previous);
   });
 
   it('invalidates the old candidate when the interview session changes', () => {

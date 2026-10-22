@@ -228,6 +228,11 @@ export const aiInterview = {
       '仅从本次访谈中来源仍有效且已由你确认的事实构建独立草稿。可选表达优化需要你主动发送；AI 不能推断事实。',
     deterministicNotice:
       '当前纳入 {count} 条已确认且来源有效的事实。字段使用固定映射；不会读取或混入示例简历。',
+    entityWarningsTitle: '有 {count} 组事实保持为独立记录',
+    entityWarningsDescription:
+      '这些事实的实体身份不明确或字段相互矛盾，因此没有自动合并。请核对来源后再编辑候选简历。',
+    entityIdentityAmbiguous: '身份不明确',
+    entityFieldConflict: '字段值冲突',
     build: '构建草稿',
     rebuild: '按最新事实重建',
     noConfirmedFacts: '先在上方逐项核对并确认事实，待确认、冲突和失效内容不会用于草稿。',
@@ -261,11 +266,16 @@ export const aiInterview = {
     polishInvalidOutput: '模型回复不符合预期结构，草稿未改变。',
     polishProtectedContentChanged:
       '建议改动了受保护的名称、日期、指标、技术名词或业绩描述，已丢弃；草稿未改变。',
+    polishResponsibilityChanged: '建议改变了职责归属或工作范围，已拒绝；草稿未改变。',
+    polishUnsupportedClaimAdded:
+      '建议新增或改变量化成果、管理权限、项目规模或奖项，已拒绝；草稿未改变。',
     polishSuggestionsTitle: '检查表达建议（{count}）',
     polishSuggestionsNotice:
-      'AI 建议尚未核实。请对照已确认来源逐项检查；每次采纳只会改变这份草稿。',
+      'AI 建议均未经核实。标签会区分格式调整和需要人工核对的内容；请对照已确认来源检查后再决定是否采纳。每次采纳只会改变这份草稿。',
     polishOriginal: '当前表达',
     polishSuggestion: 'AI 建议',
+    polishRiskFormatting: '格式调整：去除标点和空白后，字词顺序一致。',
+    polishRiskNeedsReview: '需要人工核对：措辞内容变化，系统无法验证语义等价。',
     polishUseSuggestion: '在草稿中采用',
     polishKeepOriginal: '保留当前表达',
     polishFields: {
@@ -284,8 +294,11 @@ export const aiInterview = {
     confirmReplace: '确认替换正式简历',
     cancel: '返回检查',
     resumeChanged: '确认期间正式简历发生了变化。没有写入候选，请重新检查并发起确认。',
+    replacementNeedsReview:
+      '候选草稿、事实、访谈或 AI 服务已变化。旧确认和勾选已清除；请重新检查并确认。正式简历未修改。',
     applied: '候选简历已写入。原简历快照仍可在本页撤销。',
     undo: '撤销并恢复原简历',
+    undoNotice: '此单步撤销快照只保存在当前面板内存中；关闭面板或页面后无法恢复。',
     undoUnavailable: '正式简历已再次变化，已停用旧快照以避免覆盖后续编辑。',
     undone: '已恢复替换前的正式简历。',
     missing: {

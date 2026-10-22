@@ -8,13 +8,14 @@ import {
 import { ResumePreview } from '@features/resume-preview';
 import { type TranslationKey, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ResumeFact } from '../model/facts';
 import {
   buildResumeDraftFromFacts,
   getCurrentConfirmedFacts,
   getResumeDraftBasisKey,
+  type ResumeGenerationResult,
 } from '../model/resumeGeneration';
 import {
   applyResumePolishSuggestion,
@@ -38,12 +39,23 @@ type GeneratedDraft = {
   providerStreamComplete: AIInterviewProviderClient['streamComplete'];
   resume: ResumeData;
   includedFactIds: string[];
+  recordFactIds: ResumeGenerationResult['recordFactIds'];
+  entityWarnings: ResumeGenerationResult['entityWarnings'];
+  generationError: string | null;
 };
 
 type ResumeSnapshot = {
   resume: ResumeData;
   activeSections: ActiveSectionKey[];
   workspaceGeneration: number;
+};
+
+type ReplacementConfirmation = {
+  workspaceSnapshot: ResumeSnapshot;
+  draftFingerprint: string;
+  basisKey: string;
+  providerStreamComplete: AIInterviewProviderClient['streamComplete'];
+  draftVersion: number;
 };
 
 type ResumePolishState = 'idle' | 'requesting' | 'suggested' | 'failed' | 'cancelled';
@@ -82,7 +94,9 @@ const getCurrentStoreSnapshot = (): ResumeSnapshot => {
 const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPanelProps) => {
   const { t, locale } = useI18n();
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
-  const [replacementSnapshot, setReplacementSnapshot] = useState<ResumeSnapshot | null>(null);
+  const [replacementSnapshot, setReplacementSnapshot] = useState<ReplacementConfirmation | null>(
+    null,
+  );
   const [replacementAcknowledged, setReplacementAcknowledged] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [undoSnapshot, setUndoSnapshot] = useState<ResumeSnapshot | null>(null);
@@ -93,6 +107,9 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   const [polishSuggestions, setPolishSuggestions] = useState<ResumePolishSuggestion[]>([]);
   const activePolishRequestRef = useRef<ActivePolishRequest | null>(null);
   const polishRequestSequenceRef = useRef(0);
+  const replacementSnapshotRef = useRef<ReplacementConfirmation | null>(null);
+  const replacementAcknowledgedRef = useRef(false);
+  const draftVersionRef = useRef(0);
 
   const currentFacts = useMemo(() => getCurrentConfirmedFacts(session, facts), [facts, session]);
   const basisKey = getResumeDraftBasisKey(session, facts, {
@@ -120,6 +137,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     providerStreamComplete: provider.streamComplete,
   };
   const validation = draft ? resumeSchema.safeParse(draft.resume) : null;
+  const draftIsValid = Boolean(validation?.success && !draft?.generationError);
   const missingFields = draft
     ? getMissingFields(draft.resume, (key) =>
         t(`aiInterview.generation.missing.${key}` as TranslationKey),
@@ -127,6 +145,36 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     : [];
   const unresolvedConflicts = facts.filter(
     (fact) => fact.status === 'conflict' && fact.conflictFields && fact.conflictFields.length > 0,
+  );
+
+  const isConfirmationForCurrentDraft = useCallback(
+    (confirmation: ReplacementConfirmation | null) => {
+      if (!confirmation) return false;
+      const current = currentPolishContextRef.current;
+      return (
+        confirmation.draftVersion === draftVersionRef.current &&
+        confirmation.draftFingerprint === current.draftFingerprint &&
+        confirmation.basisKey === current.basisKey &&
+        confirmation.providerStreamComplete === current.providerStreamComplete
+      );
+    },
+    [],
+  );
+  const hasCurrentReplacementConfirmation =
+    Boolean(replacementSnapshot) && isConfirmationForCurrentDraft(replacementSnapshot);
+
+  const clearReplacementConfirmation = useCallback(
+    (announce = false) => {
+      const hadConfirmation = replacementSnapshotRef.current !== null;
+      replacementSnapshotRef.current = null;
+      replacementAcknowledgedRef.current = false;
+      setReplacementSnapshot(null);
+      setReplacementAcknowledged(false);
+      if (announce && hadConfirmation) {
+        setMessage(t('aiInterview.generation.replacementNeedsReview'));
+      }
+    },
+    [t],
   );
 
   useEffect(() => {
@@ -149,6 +197,20 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   }, [basisKey, draftFingerprint, provider.configuration, provider.streamComplete, t]);
 
   useEffect(() => {
+    const confirmation = replacementSnapshotRef.current;
+    if (confirmation && !isConfirmationForCurrentDraft(confirmation)) {
+      clearReplacementConfirmation(true);
+    }
+  }, [
+    basisKey,
+    clearReplacementConfirmation,
+    draftFingerprint,
+    isConfirmationForCurrentDraft,
+    provider.configuration,
+    provider.streamComplete,
+  ]);
+
+  useEffect(() => {
     setShowPolishReview(false);
     setPolishSuggestions([]);
     setPolishState('idle');
@@ -164,6 +226,10 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   );
 
   const buildDraft = () => {
+    const hadConfirmation = replacementSnapshotRef.current !== null;
+    draftVersionRef.current += 1;
+    clearReplacementConfirmation();
+    if (hadConfirmation) setMessage(t('aiInterview.generation.replacementNeedsReview'));
     activePolishRequestRef.current?.controller.abort();
     activePolishRequestRef.current = null;
     setShowPolishReview(false);
@@ -176,15 +242,24 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
       providerStreamComplete: provider.streamComplete,
       resume: result.resume,
       includedFactIds: result.includedFactIds,
+      recordFactIds: result.recordFactIds,
+      entityWarnings: result.entityWarnings,
+      generationError: result.validationError,
     });
-    setReplacementSnapshot(null);
-    setReplacementAcknowledged(false);
-    setUndoSnapshot(null);
-    setAppliedSnapshot(null);
-    setMessage(result.validationError ? t('aiInterview.generation.schemaError') : null);
+    setMessage(
+      result.validationError
+        ? t('aiInterview.generation.schemaError')
+        : hadConfirmation
+          ? t('aiInterview.generation.replacementNeedsReview')
+          : null,
+    );
   };
 
   const updateDraft = (updater: (resume: ResumeData) => ResumeData) => {
+    const hadConfirmation = replacementSnapshotRef.current !== null;
+    draftVersionRef.current += 1;
+    clearReplacementConfirmation();
+    if (hadConfirmation) setMessage(t('aiInterview.generation.replacementNeedsReview'));
     const active = activePolishRequestRef.current;
     if (active) {
       active.controller.abort();
@@ -210,7 +285,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     if (
       !draft ||
       !isDraftCurrent ||
-      !validation?.success ||
+      !draftIsValid ||
       !provider.isConfigured ||
       !provider.configuration ||
       polishState === 'requesting'
@@ -272,7 +347,11 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
         setPolishError(
           parsed.error === 'protected_content_changed'
             ? t('aiInterview.generation.polishProtectedContentChanged')
-            : t('aiInterview.generation.polishInvalidOutput'),
+            : parsed.error === 'responsibility_scope_changed'
+              ? t('aiInterview.generation.polishResponsibilityChanged')
+              : parsed.error === 'unsupported_claim_added'
+                ? t('aiInterview.generation.polishUnsupportedClaimAdded')
+                : t('aiInterview.generation.polishInvalidOutput'),
         );
         return;
       }
@@ -295,6 +374,10 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
 
   const acceptPolishSuggestion = (suggestion: ResumePolishSuggestion) => {
     if (!isDraftCurrent) return;
+    const hadConfirmation = replacementSnapshotRef.current !== null;
+    draftVersionRef.current += 1;
+    clearReplacementConfirmation();
+    if (hadConfirmation) setMessage(t('aiInterview.generation.replacementNeedsReview'));
     setDraft((current) =>
       current
         ? {
@@ -378,31 +461,53 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     }));
 
   const openReplacementConfirmation = () => {
-    if (!draft || !isDraftCurrent || !validation?.success) return;
-    setReplacementSnapshot(getCurrentStoreSnapshot());
+    if (!draft || !isDraftCurrent || !draftIsValid) return;
+    const confirmation: ReplacementConfirmation = {
+      workspaceSnapshot: getCurrentStoreSnapshot(),
+      draftFingerprint,
+      basisKey,
+      providerStreamComplete: provider.streamComplete,
+      draftVersion: draftVersionRef.current,
+    };
+    replacementSnapshotRef.current = confirmation;
+    replacementAcknowledgedRef.current = false;
+    setReplacementSnapshot(confirmation);
     setReplacementAcknowledged(false);
     setMessage(null);
   };
 
   const applyDraft = () => {
-    if (!draft || !replacementSnapshot || !isDraftCurrent || !validation?.success) return;
+    const confirmation = replacementSnapshotRef.current;
+    if (!confirmation) return;
+    if (
+      !draft ||
+      !isConfirmationForCurrentDraft(confirmation) ||
+      confirmation.draftFingerprint !== draftFingerprint ||
+      confirmation.basisKey !== basisKey ||
+      confirmation.providerStreamComplete !== provider.streamComplete ||
+      !replacementAcknowledgedRef.current ||
+      !isDraftCurrent ||
+      !draftIsValid
+    ) {
+      clearReplacementConfirmation(true);
+      return;
+    }
     const current = getCurrentStoreSnapshot();
-    if (!snapshotMatches(current, replacementSnapshot)) {
-      setReplacementSnapshot(null);
-      setReplacementAcknowledged(false);
+    if (!snapshotMatches(current, confirmation.workspaceSnapshot)) {
+      clearReplacementConfirmation();
       setMessage(t('aiInterview.generation.resumeChanged'));
       return;
     }
     const parsed = resumeSchema.safeParse(draft.resume);
     if (!parsed.success) {
+      clearReplacementConfirmation();
       setMessage(t('aiInterview.generation.schemaError'));
       return;
     }
     setUndoSnapshot(current);
     useResumeStore.getState().replaceState(parsed.data, deriveSectionsFromResume(parsed.data));
     setAppliedSnapshot(getCurrentStoreSnapshot());
-    setReplacementSnapshot(null);
-    setReplacementAcknowledged(false);
+    clearReplacementConfirmation();
     setMessage(t('aiInterview.generation.applied'));
   };
 
@@ -422,8 +527,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   };
 
   const cancelReplacement = () => {
-    setReplacementSnapshot(null);
-    setReplacementAcknowledged(false);
+    clearReplacementConfirmation();
   };
 
   const editField = (
@@ -527,7 +631,11 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
       )}
 
       {draft && (
-        <div className="mt-4 space-y-4" data-testid="generated-resume-draft">
+        <div
+          className="mt-4 space-y-4"
+          data-testid="generated-resume-draft"
+          data-source-fact-ids={JSON.stringify(draft.recordFactIds)}
+        >
           {!isDraftCurrent && (
             <p
               role="alert"
@@ -535,6 +643,33 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
             >
               {t('aiInterview.generation.staleDraft')}
             </p>
+          )}
+
+          {draft.entityWarnings.length > 0 && (
+            <div
+              role="status"
+              className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+            >
+              <p className="font-semibold">
+                {t('aiInterview.generation.entityWarningsTitle', {
+                  count: draft.entityWarnings.length,
+                })}
+              </p>
+              <p className="mt-1">{t('aiInterview.generation.entityWarningsDescription')}</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {draft.entityWarnings.map((warning, index) => (
+                  <li
+                    key={`${warning.kind}-${warning.reason}-${warning.factIds.join('-')}-${index}`}
+                  >
+                    {t(`aiInterview.facts.kinds.${warning.kind}` as TranslationKey)} —{' '}
+                    {warning.reason === 'field-conflict'
+                      ? t('aiInterview.generation.entityFieldConflict')
+                      : t('aiInterview.generation.entityIdentityAmbiguous')}{' '}
+                    ({warning.factIds.join(', ')})
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/50">
@@ -586,7 +721,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
                 className={buttonClass}
                 disabled={
                   !isDraftCurrent ||
-                  !validation?.success ||
+                  !draftIsValid ||
                   !provider.isConfigured ||
                   !provider.configuration ||
                   polishFields.length === 0 ||
@@ -634,9 +769,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
                   <button
                     type="button"
                     className={primaryButtonClass}
-                    disabled={
-                      !isDraftCurrent || !validation?.success || polishState === 'requesting'
-                    }
+                    disabled={!isDraftCurrent || !draftIsValid || polishState === 'requesting'}
                     onClick={() => void requestPolishSuggestions()}
                   >
                     {t('aiInterview.generation.polishSend')}
@@ -705,6 +838,17 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
                     <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-slate-800 dark:text-slate-100">
                       {suggestion.suggestedText}
                     </p>
+                    <p
+                      className={
+                        suggestion.risk === 'safe_formatting'
+                          ? 'mt-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300'
+                          : 'mt-2 rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-950 dark:bg-amber-950/60 dark:text-amber-100'
+                      }
+                    >
+                      {suggestion.risk === 'safe_formatting'
+                        ? t('aiInterview.generation.polishRiskFormatting')
+                        : t('aiInterview.generation.polishRiskNeedsReview')}
+                    </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -728,7 +872,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
             )}
           </section>
 
-          {!validation?.success && (
+          {(!validation?.success || draft.generationError) && (
             <p
               role="alert"
               className="rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
@@ -887,7 +1031,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
             )}
           </details>
 
-          {replacementSnapshot ? (
+          {hasCurrentReplacementConfirmation ? (
             <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950/30">
               <h5 className="text-sm font-semibold text-rose-950 dark:text-rose-100">
                 {t('aiInterview.generation.replaceTitle')}
@@ -900,7 +1044,10 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
                   type="checkbox"
                   className="mt-1 size-4 rounded border-rose-400 accent-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                   checked={replacementAcknowledged}
-                  onChange={(event) => setReplacementAcknowledged(event.target.checked)}
+                  onChange={(event) => {
+                    replacementAcknowledgedRef.current = event.target.checked;
+                    setReplacementAcknowledged(event.target.checked);
+                  }}
                 />
                 <span>{t('aiInterview.generation.replaceAcknowledgement')}</span>
               </label>
@@ -911,7 +1058,7 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
                 <button
                   type="button"
                   className={primaryButtonClass}
-                  disabled={!replacementAcknowledged || !isDraftCurrent || !validation?.success}
+                  disabled={!replacementAcknowledged || !isDraftCurrent || !draftIsValid}
                   onClick={applyDraft}
                 >
                   {t('aiInterview.generation.confirmReplace')}
@@ -923,15 +1070,20 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
               <button
                 type="button"
                 className={primaryButtonClass}
-                disabled={!isDraftCurrent || !validation?.success}
+                disabled={!isDraftCurrent || !draftIsValid}
                 onClick={openReplacementConfirmation}
               >
                 {t('aiInterview.generation.prepareReplace')}
               </button>
-              {undoSnapshot && (
-                <button type="button" className={buttonClass} onClick={undoApply}>
-                  {t('aiInterview.generation.undo')}
-                </button>
+              {undoSnapshot && appliedSnapshot && (
+                <div className="basis-full">
+                  <button type="button" className={buttonClass} onClick={undoApply}>
+                    {t('aiInterview.generation.undo')}
+                  </button>
+                  <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    {t('aiInterview.generation.undoNotice')}
+                  </p>
+                </div>
               )}
             </div>
           )}

@@ -253,6 +253,11 @@ export const aiInterview = {
       'Build a separate draft only from facts you confirmed whose source answers are still current. Optional AI wording suggestions require your explicit request; AI cannot infer facts.',
     deterministicNotice:
       'Using {count} confirmed facts with current sources. Fields use fixed mappings; no sample resume is read or mixed in.',
+    entityWarningsTitle: '{count} fact groups were kept as separate records',
+    entityWarningsDescription:
+      'Their identity is unclear or fields conflict, so they were not merged automatically. Check the sources before editing the candidate resume.',
+    entityIdentityAmbiguous: 'identity is unclear',
+    entityFieldConflict: 'field values conflict',
     build: 'Build draft',
     rebuild: 'Rebuild from current facts',
     noConfirmedFacts:
@@ -295,11 +300,19 @@ export const aiInterview = {
       'The model response did not match the expected structure. The draft is unchanged.',
     polishProtectedContentChanged:
       'The suggestion changed a protected name, date, metric, technical term, achievement claim, or link. It was discarded; the draft is unchanged.',
+    polishResponsibilityChanged:
+      'The suggestion changed responsibility ownership or work scope. It was rejected; the draft is unchanged.',
+    polishUnsupportedClaimAdded:
+      'The suggestion added or changed a metric, outcome, management authority, project scale, or award. It was rejected; the draft is unchanged.',
     polishSuggestionsTitle: 'Review wording suggestions ({count})',
     polishSuggestionsNotice:
-      'AI suggestions are unverified. Check every line against the confirmed source before using it. Each choice changes this draft only.',
+      'AI suggestions are unverified. Labels distinguish formatting changes from wording that needs human review; compare each item with its confirmed source before deciding. Each choice changes this draft only.',
     polishOriginal: 'Current wording',
     polishSuggestion: 'AI suggestion',
+    polishRiskFormatting:
+      'Formatting only: word order is unchanged after removing punctuation and spaces.',
+    polishRiskNeedsReview:
+      'Needs human review: wording changed and semantic equivalence cannot be verified automatically.',
     polishUseSuggestion: 'Use suggestion in draft',
     polishKeepOriginal: 'Keep current wording',
     polishFields: {
@@ -321,9 +334,13 @@ export const aiInterview = {
     cancel: 'Back to review',
     resumeChanged:
       'The active resume changed while you were confirming. Nothing was written; review it again before confirming.',
+    replacementNeedsReview:
+      'The draft, facts, interview, or AI service changed. The old confirmation and checkbox were cleared; review and confirm again. The active resume was not changed.',
     applied:
       'The candidate resume was applied. You can restore the previous resume from its in-memory snapshot on this page.',
     undo: 'Undo and restore previous resume',
+    undoNotice:
+      'This single-step undo snapshot stays in this panel’s memory. It cannot be restored after closing the panel or page.',
     undoUnavailable:
       'The active resume changed again. The old snapshot is disabled to avoid overwriting later edits.',
     undone: 'The active resume has been restored to its previous version.',
