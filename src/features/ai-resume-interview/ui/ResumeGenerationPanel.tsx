@@ -53,6 +53,7 @@ type ResumeSnapshot = {
   resume: ResumeData;
   activeSections: ActiveSectionKey[];
   workspaceGeneration: number;
+  workspaceRevision: number;
 };
 
 type ReplacementConfirmation = {
@@ -84,6 +85,7 @@ const primaryButtonClass =
 
 const snapshotMatches = (current: ResumeSnapshot, snapshot: ResumeSnapshot) =>
   current.workspaceGeneration === snapshot.workspaceGeneration &&
+  current.workspaceRevision === snapshot.workspaceRevision &&
   JSON.stringify(current.resume) === JSON.stringify(snapshot.resume) &&
   JSON.stringify(current.activeSections) === JSON.stringify(snapshot.activeSections);
 
@@ -93,6 +95,7 @@ const getCurrentStoreSnapshot = (): ResumeSnapshot => {
     resume: clone(state.resume),
     activeSections: clone(state.activeSections),
     workspaceGeneration: state.workspaceGeneration,
+    workspaceRevision: state.workspaceRevision,
   };
 };
 

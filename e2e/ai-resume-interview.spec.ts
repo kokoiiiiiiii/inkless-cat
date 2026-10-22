@@ -298,6 +298,45 @@ test('requires current-draft confirmation and keeps undo after rebuilding withou
   expect(requests).toBe(0);
 });
 
+test('refuses draft undo after a Workspace edit returns to the applied value (ABA)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('头衔').fill('Original title');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend engineer');
+
+  const summary = dialog.getByRole('complementary');
+  const facts = summary.getByRole('region', { name: '事实核实' });
+  await addAndConfirmManualFact(
+    facts,
+    '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+    '目标岗位',
+    [['目标岗位', 'Backend engineer']],
+    'Backend engineer',
+  );
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  await draft.getByLabel('目标岗位/头衔').fill('Applied title');
+  await summary.getByRole('button', { name: '检查并替换当前简历' }).click();
+  await summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }).check();
+  await summary.getByRole('button', { name: '确认替换正式简历' }).click();
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  const formalTitle = page.getByLabel('头衔');
+  await formalTitle.fill('Temporary Workspace edit');
+  await formalTitle.fill('Applied title');
+
+  const resumedDialog = await openInterview(page);
+  await resumedDialog.getByRole('button', { name: '撤销并恢复原简历' }).click();
+  await expect(resumedDialog.getByText(/正式简历已再次变化/u)).toBeVisible();
+  await expect(resumedDialog.getByRole('button', { name: '撤销并恢复原简历' })).toHaveCount(0);
+  await resumedDialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  await expect(formalTitle).toHaveValue('Applied title');
+});
+
 test('hides the previous draft and pending replacement after cancelling and starting a new session', async ({
   page,
 }) => {

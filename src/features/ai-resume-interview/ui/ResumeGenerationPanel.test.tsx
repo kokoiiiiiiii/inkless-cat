@@ -124,6 +124,7 @@ const resetStore = () => {
     activeSections: deriveSectionsFromResume(existing),
     hasResumeChanges: false,
     workspaceGeneration: 0,
+    workspaceRevision: 0,
   });
   useResumeStore.persist?.clearStorage();
 };
@@ -473,6 +474,30 @@ describe('ResumeGenerationPanel', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
     expect(useResumeStore.getState().resume.personal.fullName).toBe('Newer Workspace edit');
+    expect(screen.getByText(/正式简历已再次变化/u)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '撤销并恢复原简历' })).toBeNull();
+  });
+
+  it('rejects undo after a newer Workspace edit returns to the applied snapshot (ABA)', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '构建草稿' }));
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Applied candidate' } });
+    fireEvent.click(screen.getByRole('button', { name: '检查并替换当前简历' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }));
+    fireEvent.click(screen.getByRole('button', { name: '确认替换正式简历' }));
+
+    const appliedResume = useResumeStore.getState().resume;
+    useResumeStore.getState().updateResume((resume) => {
+      resume.personal.fullName = 'Temporary Workspace edit';
+    });
+    useResumeStore.getState().updateResume((resume) => {
+      resume.personal.fullName = appliedResume.personal.fullName;
+    });
+
+    expect(useResumeStore.getState().resume).toEqual(appliedResume);
+    fireEvent.click(screen.getByRole('button', { name: '撤销并恢复原简历' }));
+
+    expect(useResumeStore.getState().resume).toEqual(appliedResume);
     expect(screen.getByText(/正式简历已再次变化/u)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '撤销并恢复原简历' })).toBeNull();
   });
