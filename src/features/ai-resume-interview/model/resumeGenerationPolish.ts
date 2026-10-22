@@ -33,7 +33,10 @@ export type ResumePolishField = {
 
 export type ResumePolishSuggestion = ResumePolishField & {
   suggestedText: string;
+  risk: 'safe_formatting' | 'needs_review';
 };
+
+export type ResumePolishRisk = 'safe_formatting' | 'needs_review';
 
 export type ResumePolishBuildResult =
   | {
@@ -255,7 +258,9 @@ export const buildResumePolishRequest = (
 };
 
 const extractProtectedTokens = (text: string): string[] => {
-  const protectedTerms = (text.match(/[A-Za-z0-9.+#/-]+/gu) ?? []).flatMap((token) => {
+  const protectedTerms = (text.match(/[A-Za-z0-9.+#/-]+/gu) ?? []).flatMap((rawToken) => {
+    const token = rawToken.replace(/[./-]+$/u, '');
+    if (!token) return [];
     const normalized = token.toLowerCase();
     const isNamedTerm =
       token.length > 1 &&
@@ -271,11 +276,164 @@ const extractProtectedTokens = (text: string): string[] => {
       : [];
   });
   const urls = text.match(/(?:https?:\/\/|www\.)[^\s]+/giu) ?? [];
-  return [...protectedTerms, ...urls].sort();
+  const chineseQuantities =
+    text.match(
+      /(?:百分之[零〇一二两三四五六七八九十百千万亿点]+|[零〇一二两三四五六七八九十百千万亿点]+(?:%|％|成|倍|万人|人|名|个|项|家|套|次|年|月|周|天|级|元|万|亿))/gu,
+    ) ?? [];
+  return [...protectedTerms, ...urls, ...chineseQuantities].sort();
 };
 
+const normalizeForFormattingCheck = (text: string): string =>
+  text
+    .normalize('NFKC')
+    .toLocaleLowerCase('en-US')
+    .replaceAll(/[\s\p{P}\p{S}]/gu, '');
+
+const normalizeForRiskCheck = (text: string): string =>
+  text
+    .normalize('NFKC')
+    .toLocaleLowerCase('en-US')
+    .replaceAll(/[\s\p{P}\p{S}]/gu, '');
+
+const responsibilityMarkerGroups = [
+  ['参与', '协助', '支持', '配合', 'contributed', 'assisted', 'supported', 'helped'],
+  ['团队', '团队协作', '共同', '协作', 'team', 'collaborated', 'sharedwiththeteam', 'weworked'],
+  [
+    '个人负责',
+    '独立',
+    '独自',
+    '全权',
+    '主导',
+    '牵头',
+    'independently',
+    'single-handedly',
+    'solely',
+    'spearheaded',
+  ],
+  ['负责整体', '负责整个', '主导', '牵头', 'led', 'owned', 'managed', 'architected', 'headed'],
+] as const;
+
+const scopeMarkerGroups = [
+  ['部分', '部分模块', '某些模块', 'partof', 'somemodules', 'selectedmodules'],
+  [
+    '整个',
+    '全部',
+    '全系统',
+    '整体',
+    '端到端',
+    '从零到一',
+    'entire',
+    'whole',
+    'fullsystem',
+    'endtoend',
+  ],
+] as const;
+
+const achievementAndAuthorityMarkers = [
+  '获奖',
+  '奖项',
+  '荣获',
+  '认证',
+  '晋升',
+  '提升',
+  '提高',
+  '增长',
+  '降低',
+  '减少',
+  '优化',
+  '改善',
+  '显著',
+  '大幅',
+  '翻倍',
+  '倍增',
+  '管理团队',
+  '管理',
+  '预算',
+  '团队负责人',
+  'improved',
+  'increased',
+  'reduced',
+  'award',
+  'certified',
+  'promoted',
+  'managed',
+  'supervised',
+  'budget',
+  'teamlead',
+] as const;
+
+const unsupportedClaimMarkers = [
+  '奖',
+  '专利',
+  '证书',
+  '管理权限',
+  '决策权',
+  '统筹团队',
+  '百万级',
+  '千万级',
+  '亿级',
+  '十万级',
+  '大规模',
+  '大型项目',
+  '超大型',
+  '全国范围',
+  '全国用户',
+  '全球规模',
+  '全集团',
+  '跨国',
+  'enterprise-wide',
+  'global-scale',
+  'large-scale',
+  'million-user',
+  'multi-million',
+  'worldwide',
+] as const;
+
+const hasAnyMarker = (text: string, markers: readonly string[]): boolean =>
+  markers.some((marker) => text.includes(normalizeForRiskCheck(marker)));
+
+type ResumePolishRejection = 'responsibility_scope_changed' | 'unsupported_claim_added';
+
+const getHighRiskChange = (original: string, suggested: string): ResumePolishRejection | null => {
+  const before = normalizeForRiskCheck(original);
+  const after = normalizeForRiskCheck(suggested);
+  if (
+    responsibilityMarkerGroups.some(
+      (markers) => hasAnyMarker(before, markers) !== hasAnyMarker(after, markers),
+    ) ||
+    scopeMarkerGroups.some(
+      (markers) => hasAnyMarker(before, markers) !== hasAnyMarker(after, markers),
+    )
+  ) {
+    return 'responsibility_scope_changed';
+  }
+  if (
+    achievementAndAuthorityMarkers.some(
+      (marker) =>
+        before.includes(normalizeForRiskCheck(marker)) !==
+        after.includes(normalizeForRiskCheck(marker)),
+    )
+  ) {
+    return 'unsupported_claim_added';
+  }
+  if (
+    unsupportedClaimMarkers.some((marker) => {
+      const normalizedMarker = normalizeForRiskCheck(marker);
+      return !before.includes(normalizedMarker) && after.includes(normalizedMarker);
+    })
+  ) {
+    return 'unsupported_claim_added';
+  }
+  return null;
+};
+
+const classifyResumePolishRisk = (original: string, suggested: string): ResumePolishRisk =>
+  normalizeForFormattingCheck(original) === normalizeForFormattingCheck(suggested)
+    ? 'safe_formatting'
+    : 'needs_review';
+
 export type ResumePolishParseResult =
-  | { ok: true; suggestions: { id: string; text: string }[] }
+  | { ok: true; suggestions: { id: string; text: string; risk: ResumePolishRisk }[] }
   | {
       ok: false;
       error:
@@ -283,7 +441,8 @@ export type ResumePolishParseResult =
         | 'invalid_schema'
         | 'item_mismatch'
         | 'invalid_text'
-        | 'protected_content_changed';
+        | 'protected_content_changed'
+        | ResumePolishRejection;
     };
 
 export const parseResumePolishResponse = (
@@ -320,9 +479,17 @@ export const parseResumePolishResponse = (
     ) {
       return { ok: false, error: 'protected_content_changed' };
     }
+    const highRiskChange = getHighRiskChange(field.requestText, suggestion.text);
+    if (highRiskChange) return { ok: false, error: highRiskChange };
   }
 
-  return { ok: true, suggestions: parsed.data.suggestions };
+  return {
+    ok: true,
+    suggestions: parsed.data.suggestions.map((suggestion, index) => ({
+      ...suggestion,
+      risk: classifyResumePolishRisk(fields[index]?.requestText ?? '', suggestion.text),
+    })),
+  };
 };
 
 export const createResumePolishSuggestions = (
@@ -332,6 +499,7 @@ export const createResumePolishSuggestions = (
   fields.map((field, index) => ({
     ...field,
     suggestedText: `${field.fixedPrefix}${parsed.suggestions[index]?.text ?? field.requestText}`,
+    risk: parsed.suggestions[index]?.risk ?? 'needs_review',
   }));
 
 export const applyResumePolishSuggestion = (
