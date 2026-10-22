@@ -354,7 +354,7 @@ test('keeps similar facts separate until the user links them and preserves respo
   await associationGroup.getByRole('checkbox').nth(1).check();
   await associationGroup.getByRole('checkbox').nth(2).check();
   await facts.getByRole('button', { name: '确认属于同一条记录' }).click();
-  await expect(facts.getByRole('status')).toContainText('已关联所选事实');
+  await expect(facts.getByRole('status').filter({ hasText: '已关联所选事实' })).toBeVisible();
   await summary.getByRole('button', { name: '按最新事实重建' }).click();
 
   const draft = summary.getByTestId('generated-resume-draft');
