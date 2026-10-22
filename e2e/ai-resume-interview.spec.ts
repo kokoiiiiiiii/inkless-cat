@@ -249,6 +249,7 @@ test('uses mocked SSE for contextual follow-ups, editing, and skip controls', as
   await answerBox.fill('Senior backend engineer');
   await dialog.getByRole('button', { name: '发送回答' }).click();
   await expect(dialog.getByRole('button', { name: '跳过当前问题' })).toBeVisible();
+  await expect.poll(() => requests.length).toBe(3);
   expect(requests).toHaveLength(3);
   expect(JSON.stringify(requests[2]?.messages)).toContain('Senior backend engineer');
   expect(JSON.stringify(requests[2]?.messages)).not.toContain('MES 是参与团队开发');
@@ -342,7 +343,7 @@ test('keeps keyboard focus inside the cancel confirmation and restores the right
   const discardAnswers = alertdialog.getByRole('button', { name: '丢弃回答' });
   await expect(alertdialog).toHaveAttribute('aria-modal', 'true');
   await expect(keepInterview).toBeFocused();
-  await expect(keepInterview).toHaveCSS('transition-duration', '0s');
+  await expect(keepInterview).toHaveCSS('transition-property', 'none');
   await page.keyboard.press('Tab');
   await expect(discardAnswers).toBeFocused();
   await page.keyboard.press('Tab');
