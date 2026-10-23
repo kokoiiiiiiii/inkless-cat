@@ -1,4 +1,5 @@
 import { aiEnhancement } from './aiEnhancement';
+import { aiInterview } from './aiInterview';
 import { aiProvider } from './aiProvider';
 import { common } from './common';
 import { editor } from './editor';
@@ -11,6 +12,7 @@ import { topbar } from './topbar';
 const en = {
   aiProvider,
   aiEnhancement,
+  aiInterview,
   common,
   topbar,
   editor,
