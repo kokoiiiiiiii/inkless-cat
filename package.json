@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:visual-diff": "node e2e/compare-visual-regression.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.e2e.json",
     "test:watch": "vitest",
     "test:bench": "vitest bench",

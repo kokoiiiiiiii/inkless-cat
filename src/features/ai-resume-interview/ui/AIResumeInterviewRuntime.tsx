@@ -420,7 +420,7 @@ const AIResumeInterviewRuntime = ({
         <p className="mt-1">{t('aiInterview.sessionOnlyNotice')}</p>
       </div>
       {provider.isConfigured ? (
-        <div className="dark:bg-brand-950/40 mt-4 rounded-xl border border-brand-200 bg-brand-50/70 px-4 py-3 text-sm leading-6 text-slate-700 dark:border-brand-900 dark:text-slate-200">
+        <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50/70 px-4 py-3 text-sm leading-6 text-slate-700 dark:border-brand-900 dark:text-slate-200">
           <strong className="font-semibold">{t('aiInterview.privacyTitle')}</strong>
           <p className="mt-1">{t('aiInterview.privacyNotice')}</p>
         </div>
@@ -494,7 +494,7 @@ const AIResumeInterviewRuntime = ({
             })}
           </p>
         </div>
-        <div className="dark:bg-brand-950/40 rounded-2xl border border-brand-200 bg-brand-50/70 px-4 py-4 dark:border-brand-900 sm:px-5 sm:py-5">
+        <div className="rounded-2xl border border-brand-200 bg-brand-50/70 px-4 py-4 dark:border-brand-900 sm:px-5 sm:py-5">
           <h3
             ref={currentQuestionRef}
             tabIndex={-1}
@@ -580,7 +580,7 @@ const AIResumeInterviewRuntime = ({
         <div className="mt-auto pt-5">
           {controller.canUndoEdit && (
             <div
-              className="dark:bg-brand-950/40 mb-4 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50/70 p-3 text-sm leading-6 text-slate-700 dark:border-brand-900 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between"
+              className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50/70 p-3 text-sm leading-6 text-slate-700 dark:border-brand-900 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between"
               role="status"
             >
               <p>{t('aiInterview.restoreInterviewNotice')}</p>

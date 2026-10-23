@@ -62,7 +62,7 @@ const sharedRules = {
   'simple-import-sort/imports': 'warn',
   'simple-import-sort/exports': 'warn',
   'tailwindcss/classnames-order': 'warn',
-  'tailwindcss/no-custom-classname': 'off',
+  'tailwindcss/no-custom-classname': ['warn', { whitelist: ['resume-preview'] }],
   'unicorn/filename-case': 'off',
   'unicorn/prevent-abbreviations': 'off',
   'unicorn/no-null': 'off',

@@ -295,7 +295,7 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${fact.status === 'confirmed' ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200' : fact.status === 'conflict' || fact.status === 'stale' ? 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100' : fact.status === 'rejected' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'dark:bg-brand-950 bg-brand-50 text-brand-900 dark:text-brand-200'}`}
+          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${fact.status === 'confirmed' ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200' : fact.status === 'conflict' || fact.status === 'stale' ? 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100' : fact.status === 'rejected' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-brand-50 text-brand-900 dark:text-brand-200'}`}
         >
           {statusLabel(fact.status, t)}
         </span>
@@ -550,7 +550,7 @@ const FactVerificationPanel = ({
 
   return (
     <section
-      className="dark:bg-brand-950/20 min-w-0 rounded-2xl border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-900 sm:p-4"
+      className="min-w-0 rounded-2xl border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-900 sm:p-4"
       aria-labelledby="resume-fact-verification-heading"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
