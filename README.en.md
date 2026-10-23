@@ -38,7 +38,7 @@ Live Demo: <https://inkless-cat.pages.dev>
 
 ## Quickstart
 
-Requirements: Node.js `^20.19.0` or `>=22.12.0`, npm 10+ (or an equivalent package manager)
+Requirements: Node.js `24.x` (version pinned in `.nvmrc`) and npm `>=11.19.1 <12`. Quality CI pins npm `11.20.0`.
 
 ```bash
 npm install           # install dependencies
