@@ -192,7 +192,16 @@ test('mobile switcher hides while the visual viewport is occupied by an onscreen
   await page.goto(studioPath);
 
   const mobileNavigation = page.locator('.studio-mobile-nav');
-  await page.getByRole('textbox', { name: '姓名' }).focus();
+  const biography = page.getByRole('textbox', { name: '个人简介' });
+  await biography.scrollIntoViewIfNeeded();
+  const biographyBounds = await biography.boundingBox();
+  const navigationBounds = await mobileNavigation.boundingBox();
+  expect(biographyBounds).not.toBeNull();
+  expect(navigationBounds).not.toBeNull();
+  if (!biographyBounds || !navigationBounds) throw new Error('Mobile controls must be measurable');
+  expect(biographyBounds.y + biographyBounds.height).toBeLessThanOrEqual(navigationBounds.y);
+
+  await biography.focus();
   await page.evaluate(() => {
     (
       globalThis.visualViewport as VisualViewport & { setTestHeight: (height: number) => void }

@@ -599,6 +599,13 @@
 }
 
 @media (max-width: 768px) {
+  .studio-root {
+    display: grid;
+    height: 100dvh;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
   .studio-app-header {
     width: calc(100% - 20px);
     min-height: 64px;
@@ -652,8 +659,10 @@
   }
 
   .studio-layout {
-    min-height: calc(100dvh - 72px);
-    padding: 13px 14px calc(116px + env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 13px 14px 16px;
   }
 
   .studio-compact-nav {
@@ -706,11 +715,10 @@
   }
 
   .studio-mobile-nav {
-    position: fixed;
+    position: relative;
     z-index: var(--studio-z-header);
-    right: 10px;
-    bottom: max(8px, env(safe-area-inset-bottom, 0px));
-    left: 10px;
+    width: calc(100% - 20px);
+    margin: 0 10px max(8px, env(safe-area-inset-bottom, 0px));
     display: grid;
     min-height: 66px;
     grid-template-columns: repeat(4, minmax(0, 1fr));
