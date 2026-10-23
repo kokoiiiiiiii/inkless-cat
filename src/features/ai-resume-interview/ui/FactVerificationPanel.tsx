@@ -17,6 +17,7 @@ type FactField = {
   key: string;
   label: TranslationKey;
   multiline?: boolean;
+  list?: boolean;
 };
 
 const factFields: Record<FactKind, FactField[]> = {
@@ -38,18 +39,26 @@ const factFields: Record<FactKind, FactField[]> = {
       key: 'responsibilities',
       label: 'aiInterview.facts.fields.responsibilities',
       multiline: true,
+      list: true,
     },
     {
       key: 'individualResponsibilities',
       label: 'aiInterview.facts.fields.individualResponsibilities',
       multiline: true,
+      list: true,
     },
     {
       key: 'teamResponsibilities',
       label: 'aiInterview.facts.fields.teamResponsibilities',
       multiline: true,
+      list: true,
     },
-    { key: 'achievements', label: 'aiInterview.facts.fields.achievements', multiline: true },
+    {
+      key: 'achievements',
+      label: 'aiInterview.facts.fields.achievements',
+      multiline: true,
+      list: true,
+    },
   ],
   project: [
     { key: 'name', label: 'aiInterview.facts.fields.projectName' },
@@ -60,18 +69,26 @@ const factFields: Record<FactKind, FactField[]> = {
       key: 'responsibilities',
       label: 'aiInterview.facts.fields.responsibilities',
       multiline: true,
+      list: true,
     },
     {
       key: 'individualResponsibilities',
       label: 'aiInterview.facts.fields.individualResponsibilities',
       multiline: true,
+      list: true,
     },
     {
       key: 'teamResponsibilities',
       label: 'aiInterview.facts.fields.teamResponsibilities',
       multiline: true,
+      list: true,
     },
-    { key: 'achievements', label: 'aiInterview.facts.fields.achievements', multiline: true },
+    {
+      key: 'achievements',
+      label: 'aiInterview.facts.fields.achievements',
+      multiline: true,
+      list: true,
+    },
   ],
   education: [
     { key: 'school', label: 'aiInterview.facts.fields.school' },
@@ -117,10 +134,10 @@ const getFieldText = (value: unknown, key: string): string => {
   return typeof fieldValue === 'string' ? fieldValue : '';
 };
 
-const setFieldText = (value: unknown, key: string, text: string, multiline = false): unknown => {
+const setFieldText = (value: unknown, key: string, text: string, list = false): unknown => {
   if (key === 'value') return text;
   const next = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
-  if (multiline) {
+  if (list) {
     const lines = text
       .split('\n')
       .map((line) => line.trim())
@@ -192,7 +209,7 @@ const FactValueEditor = ({ kind, value, onChange, idPrefix }: FactEditorProps) =
                 className="mt-1 min-h-20 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 value={fieldText}
                 onChange={(event) =>
-                  onChange(setFieldText(value, field.key, event.currentTarget.value, true))
+                  onChange(setFieldText(value, field.key, event.currentTarget.value, field.list))
                 }
               />
             ) : (

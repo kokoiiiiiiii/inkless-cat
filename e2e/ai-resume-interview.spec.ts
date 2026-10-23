@@ -1,6 +1,6 @@
 import { createServer, type Server, type ServerResponse } from 'node:http';
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 const apiKey = 'test_only_interview_key_never_persist';
 const activeServers = new Set<Server>();
@@ -121,6 +121,24 @@ const answer = async (dialog: import('@playwright/test').Locator, text: string) 
   await dialog.getByRole('button', { name: '发送回答' }).click();
 };
 
+const addAndConfirmManualFact = async (
+  panel: Locator,
+  sourceLabel: string,
+  kindLabel: string,
+  fields: Array<[label: string, value: string]>,
+  uniqueMarker: string,
+) => {
+  await panel.getByRole('button', { name: '手动整理事实' }).click();
+  await panel.getByLabel('事实类型').selectOption({ label: kindLabel });
+  await panel.getByLabel('来源回答').selectOption({ label: sourceLabel });
+  for (const [label, value] of fields) await panel.getByLabel(label).fill(value);
+  await panel.getByRole('button', { name: '添加待核实事实' }).click();
+  const factCard = panel.locator('article').filter({ hasText: uniqueMarker });
+  await expect(factCard).toHaveCount(1);
+  await factCard.getByRole('button', { name: '我已核对这些字段' }).click();
+  await expect(factCard.getByText('字段含义已由你确认', { exact: true })).toBeVisible();
+};
+
 test.afterEach(async () => {
   const servers = [...activeServers];
   activeServers.clear();
@@ -172,6 +190,262 @@ test('opens from the editor, supports guide questions without AI, and never chan
   await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
   const after = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
   expect(after).toBe(before);
+});
+
+test('requires current-draft confirmation and keeps undo after rebuilding without AI', async ({
+  page,
+}) => {
+  let requests = 0;
+  await page.route('**/chat/completions', async (route) => {
+    requests += 1;
+    await route.abort();
+  });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('/');
+  await page.getByLabel('姓名').fill('Synthetic baseline');
+  const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  expect(before).not.toBeNull();
+  const dialog = await openInterview(page);
+
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend engineer');
+  const summary = dialog.getByRole('complementary');
+  await expect(summary.getByTestId('resume-generation-panel')).toBeVisible();
+  await summary.getByRole('button', { name: '手动整理事实' }).click();
+  await summary.getByLabel('来源回答').selectOption({
+    label: '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+  });
+  await summary.getByRole('textbox', { name: '目标岗位' }).fill('Backend engineer');
+  await summary.getByRole('button', { name: '添加待核实事实' }).click();
+  await summary.getByRole('button', { name: '我已核对这些字段' }).click();
+
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  await expect(summary.getByText('独立草稿预览')).toBeVisible();
+  await expect(summary.getByText('Backend engineer').last()).toBeVisible();
+  await expect(summary.getByText(/缺失字段/u)).toBeVisible();
+  await summary.getByText('编辑候选简历', { exact: true }).click();
+  await summary.getByLabel('目标岗位/头衔').fill('Senior backend engineer');
+
+  await summary.getByRole('button', { name: '检查并替换当前简历' }).click();
+  const acknowledgement = summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u });
+  await acknowledgement.check();
+  await summary.getByLabel('目标岗位/头衔').fill('Principal backend engineer');
+  await expect(summary.getByRole('button', { name: '确认替换正式简历' })).toHaveCount(0);
+  await expect(summary.getByText(/旧确认和勾选已清除/u)).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
+
+  await summary.getByRole('button', { name: '检查并替换当前简历' }).click();
+  await expect(
+    summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }),
+  ).not.toBeChecked();
+  await summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }).check();
+  await summary.getByRole('button', { name: '确认替换正式简历' }).click();
+  const afterApply = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  expect(afterApply).not.toBe(before);
+
+  await summary.getByRole('button', { name: '按最新事实重建' }).click();
+  await expect(summary.getByRole('button', { name: '撤销并恢复原简历' })).toBeVisible();
+  await summary.getByRole('button', { name: '撤销并恢复原简历' }).click();
+  const afterUndo = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  expect(afterUndo).toBe(before);
+  expect(requests).toBe(0);
+});
+
+test('aggregates confirmed facts for one experience while keeping responsibility ownership and provenance', async ({
+  page,
+}) => {
+  let requests = 0;
+  await page.route('**/chat/completions', async (route) => {
+    requests += 1;
+    await route.abort();
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend Engineer');
+  const summary = dialog.getByRole('complementary');
+  const facts = summary.getByRole('region', { name: '事实核实' });
+  const source = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'BrightWorks'],
+      ['岗位名称', 'Backend Engineer'],
+      ['开始时间', '2022'],
+    ],
+    '2022',
+  );
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'BrightWorks'],
+      ['岗位名称', 'Backend Engineer'],
+      ['个人独立负责', '独立设计并开发设备采集服务'],
+    ],
+    '独立设计并开发设备采集服务',
+  );
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'BrightWorks'],
+      ['岗位名称', 'Backend Engineer'],
+      ['与团队协作', '与团队协作完成 MES 集成'],
+    ],
+    '与团队协作完成 MES 集成',
+  );
+
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+  await expect(draft.locator('fieldset')).toHaveCount(1);
+  const sources = JSON.parse((await draft.getAttribute('data-source-fact-ids')) ?? '[]') as Array<{
+    factIds: string[];
+  }>;
+  expect(sources).toHaveLength(1);
+  expect(sources[0]?.factIds).toHaveLength(3);
+
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  const highlights = await draft.getByLabel('职责与成果').inputValue();
+  expect(highlights).toContain('个人负责：独立设计并开发设备采集服务');
+  expect(highlights).toContain('与团队协作：与团队协作完成 MES 集成');
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
+  expect(requests).toBe(0);
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
+test('rejects high-risk Chinese polish and labels accepted semantic changes for human review', async ({
+  page,
+}) => {
+  const { requests, baseUrl } = await startSSEMock(async (body, response, requestIndex) => {
+    const userMessage = body.messages.find((message) => message.role === 'user');
+    const payload = JSON.parse(userMessage?.content ?? '{}') as {
+      items: Array<{ id: string; text: string }>;
+    };
+    await writeSSEContent(
+      response,
+      JSON.stringify({
+        suggestions: payload.items.map(({ id }) => ({
+          id,
+          text:
+            requestIndex === 0 ? '独立负责整个系统架构设计' : '参与系统后端开发，完成服务开发。',
+        })),
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await configureProvider(page, baseUrl);
+  const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend engineer');
+  const summary = dialog.getByRole('complementary');
+  const facts = summary.getByRole('region', { name: '事实核实' });
+  const source = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '个人信息',
+    [['简介', '参与系统后端开发']],
+    '参与系统后端开发',
+  );
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+
+  await draft.getByRole('button', { name: '检查即将发送的文字' }).click();
+  await draft.getByRole('button', { name: '发送叙述文字并获取建议' }).click();
+  await expect(draft.getByRole('alert')).toContainText('建议改变了职责归属或工作范围');
+  await expect(draft.getByRole('button', { name: '在草稿中采用' })).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+
+  await draft.getByRole('button', { name: '检查即将发送的文字' }).click();
+  await draft.getByRole('button', { name: '发送叙述文字并获取建议' }).click();
+  await expect(draft.getByText(/需要人工核对：措辞内容变化/u)).toBeVisible();
+  await expect(draft.getByText('参与系统后端开发，完成服务开发。', { exact: true })).toBeVisible();
+  expect(requests).toHaveLength(2);
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
+test('sends only reviewed prose for optional wording suggestions and keeps them separate until accepted', async ({
+  page,
+}) => {
+  const { requests, baseUrl } = await startSSEMock(async (body, response) => {
+    const userMessage = body.messages.find((message) => message.role === 'user');
+    const payload = JSON.parse(userMessage?.content ?? '{}') as {
+      items: Array<{ id: string; text: string }>;
+    };
+    await writeSSEContent(
+      response,
+      JSON.stringify({
+        suggestions: payload.items.map(({ id, text }) => ({
+          id,
+          text: text.replace('I built reliable services', 'I developed reliable services'),
+        })),
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('/');
+  await configureProvider(page, baseUrl);
+  const before = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'I built reliable services using TypeScript.');
+  const summary = dialog.getByRole('complementary');
+  await summary.getByRole('button', { name: '手动整理事实' }).click();
+  await summary.getByLabel('事实类型').selectOption({ label: '个人信息' });
+  await summary.getByLabel('来源回答').selectOption({
+    label: '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+  });
+  await summary.getByLabel('简介').fill('I built reliable services using TypeScript.');
+  await summary.getByRole('button', { name: '添加待核实事实' }).click();
+  await summary.getByRole('button', { name: '我已核对这些字段' }).click();
+
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+  const summaryText = 'I built reliable services using TypeScript.';
+  const previewSummary = draft.getByRole('paragraph').filter({ hasText: summaryText });
+  await expect(previewSummary).toHaveText(summaryText);
+  expect(requests).toHaveLength(0);
+  await draft.getByRole('button', { name: '检查即将发送的文字' }).click();
+  await expect(draft.getByText(/以下 1 项叙述文字会直接发送/u)).toBeVisible();
+  await expect(draft.getByRole('listitem').filter({ hasText: summaryText })).toBeVisible();
+  expect(requests).toHaveLength(0);
+
+  await draft.getByRole('button', { name: '发送叙述文字并获取建议' }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  const payload = JSON.parse(
+    requests[0]?.messages.find(({ role }) => role === 'user')?.content ?? '{}',
+  ) as { items: Array<{ id: string; text: string }> };
+  expect(Object.keys(payload).sort()).toEqual(['items']);
+  expect(payload.items).toEqual([
+    { id: 'personal-summary', text: 'I built reliable services using TypeScript.' },
+  ]);
+  await expect(
+    draft.getByText('I developed reliable services using TypeScript.', { exact: true }),
+  ).toBeVisible();
+
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  const candidateSummary = draft.getByLabel('简介');
+  await expect(candidateSummary).toHaveValue('I built reliable services using TypeScript.');
+  await draft.getByRole('button', { name: '在草稿中采用' }).click();
+  await expect(candidateSummary).toHaveValue('I developed reliable services using TypeScript.');
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
+  expect(requests).toHaveLength(1);
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(before);
 });
 
 test('uses mocked SSE for contextual follow-ups, editing, and skip controls', async ({ page }) => {

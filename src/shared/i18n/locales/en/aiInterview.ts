@@ -247,6 +247,139 @@ export const aiInterview = {
         'The model output failed structure or source validation. No candidate facts were saved.',
     },
   },
+  generation: {
+    title: 'Build a resume draft',
+    description:
+      'Build a separate draft only from facts you confirmed whose source answers are still current. Optional AI wording suggestions require your explicit request; AI cannot infer facts.',
+    deterministicNotice:
+      'Using {count} confirmed facts with current sources. Fields use fixed mappings; no sample resume is read or mixed in.',
+    entityWarningsTitle: '{count} fact groups were kept as separate records',
+    entityWarningsDescription:
+      'Their identity is unclear or fields conflict, so they were not merged automatically. Check the sources before editing the candidate resume.',
+    entityIdentityAmbiguous: 'identity is unclear',
+    entityFieldConflict: 'field values conflict',
+    build: 'Build draft',
+    rebuild: 'Rebuild from current facts',
+    noConfirmedFacts:
+      'Review and confirm facts above first. Pending, conflicted, and invalidated facts are excluded.',
+    conflictsTitle: 'Unresolved conflicts ({count})',
+    conflictsExcluded:
+      'Conflicted candidate facts are excluded. Resolve them and rebuild from the current facts.',
+    staleDraft:
+      'The facts, interview, or AI service changed. This older draft is invalid and cannot be written; rebuild it.',
+    missingTitle: 'Missing fields ({count})',
+    noMissing:
+      'These common fields have content. Review each fact and resume wording before applying.',
+    schemaError: 'The draft failed ResumeData Schema validation. Fix the fields before continuing.',
+    editTitle: 'Edit candidate resume',
+    experience: 'Experience {index}',
+    project: 'Project {index}',
+    education: 'Education {index}',
+    responsibilityBoundary:
+      'Keep each responsibility prefix: personally owned, shared with the team, or ownership unspecified.',
+    previewTitle: 'Separate draft preview',
+    polishTitle: 'Optional wording suggestions',
+    polishDescription:
+      'The draft is built without AI. If you choose, AI can suggest edits to existing prose only; it cannot add sections or facts. Suggestions stay separate until you review and use them.',
+    polishProviderMissing: 'Configure an AI service to request optional wording suggestions.',
+    polishReviewText: 'Review text to send',
+    polishCloseReview: 'Close text review',
+    polishConsent:
+      'Only the prose fields listed below ({count}) will be sent directly to {model} ({endpoint}) after you click Send. No request is made by building or editing the draft.',
+    polishSend: 'Send prose for suggestions',
+    polishCancel: 'Cancel request',
+    polishRequesting: 'Requesting wording suggestions. This request will not retry automatically.',
+    polishNoText: 'There are no existing prose fields to polish.',
+    polishInputTooLong:
+      'The selected prose exceeds the request size limit. Shorten the draft and review it again.',
+    polishCancelled:
+      'The wording request was cancelled or became outdated; its response was discarded.',
+    polishRequestFailed:
+      'The wording request failed. The current draft is unchanged; review the text before retrying.',
+    polishInvalidOutput:
+      'The model response did not match the expected structure. The draft is unchanged.',
+    polishProtectedContentChanged:
+      'The suggestion changed a protected name, date, metric, technical term, achievement claim, or link. It was discarded; the draft is unchanged.',
+    polishResponsibilityChanged:
+      'The suggestion changed responsibility ownership or work scope. It was rejected; the draft is unchanged.',
+    polishUnsupportedClaimAdded:
+      'The suggestion added or changed a metric, outcome, management authority, project scale, or award. It was rejected; the draft is unchanged.',
+    polishSuggestionsTitle: 'Review wording suggestions ({count})',
+    polishSuggestionsNotice:
+      'AI suggestions are unverified. Labels distinguish formatting changes from wording that needs human review; compare each item with its confirmed source before deciding. Each choice changes this draft only.',
+    polishOriginal: 'Current wording',
+    polishSuggestion: 'AI suggestion',
+    polishRiskFormatting:
+      'Formatting only: word order is unchanged after removing punctuation and spaces.',
+    polishRiskNeedsReview:
+      'Needs human review: wording changed and semantic equivalence cannot be verified automatically.',
+    polishUseSuggestion: 'Use suggestion in draft',
+    polishKeepOriginal: 'Keep current wording',
+    polishFields: {
+      personalSummary: 'Personal summary',
+      experienceHighlight: 'Experience {index}, bullet {item}',
+      projectSummary: 'Project {index}, summary',
+      projectHighlight: 'Project {index}, bullet {item}',
+      educationDetails: 'Education {index}, details',
+    },
+    includedFacts:
+      'This draft uses {count} confirmed facts. Interview answers and candidate facts remain in this page’s memory.',
+    prepareReplace: 'Review and replace current resume',
+    replaceTitle: 'Confirm resume replacement',
+    replaceNotice:
+      'This replaces the single active Workspace resume. The app checks for changes before writing and keeps an in-memory snapshot that you can undo on this page.',
+    replaceAcknowledgement:
+      'I reviewed the candidate preview and understand it will replace the current resume.',
+    confirmReplace: 'Confirm resume replacement',
+    cancel: 'Back to review',
+    resumeChanged:
+      'The active resume changed while you were confirming. Nothing was written; review it again before confirming.',
+    replacementNeedsReview:
+      'The draft, facts, interview, or AI service changed. The old confirmation and checkbox were cleared; review and confirm again. The active resume was not changed.',
+    applied:
+      'The candidate resume was applied. You can restore the previous resume from its in-memory snapshot on this page.',
+    undo: 'Undo and restore previous resume',
+    undoNotice:
+      'This single-step undo snapshot stays in this panel’s memory. It cannot be restored after closing the panel or page.',
+    undoUnavailable:
+      'The active resume changed again. The old snapshot is disabled to avoid overwriting later edits.',
+    undone: 'The active resume has been restored to its previous version.',
+    missing: {
+      name: 'Name',
+      title: 'Target role/title',
+      contact: 'Email or phone',
+      summary: 'Summary',
+      experience: 'Work experience',
+      experienceCompany: 'Employer/company in experience',
+      experienceRole: 'Role in experience',
+      experienceDates: 'Dates in experience',
+      projects: 'Projects',
+      projectName: 'Project name',
+      education: 'Education',
+      educationSchool: 'School',
+      educationDegree: 'Degree or field',
+      skills: 'Skills',
+    },
+    fields: {
+      name: 'Name',
+      title: 'Target role/title',
+      email: 'Email',
+      phone: 'Phone',
+      location: 'Location',
+      summary: 'Summary',
+      company: 'Employer/company',
+      role: 'Role or responsibility',
+      startDate: 'Start date',
+      endDate: 'End date',
+      highlights: 'Responsibilities and outcomes',
+      project: 'Project name',
+      link: 'Project link',
+      school: 'School',
+      degree: 'Degree or field',
+      details: 'Details',
+      skills: 'Skills (one per line)',
+    },
+  },
   finish: 'Finish interview',
   completedTitle: 'Interview complete',
   completedBody:
