@@ -666,6 +666,7 @@ export const useAIResumeInterview = (
     clearEditRecovery();
     const now = Date.now();
     const answer: InterviewAnswer = {
+      id: `${question.id}:answer`,
       questionId: question.id,
       text,
       skipped: false,
@@ -793,6 +794,7 @@ export const useAIResumeInterview = (
           answers: [
             ...current.answers,
             {
+              id: `${question.id}:answer`,
               questionId: question.id,
               text: '',
               skipped: true,
@@ -833,6 +835,7 @@ export const useAIResumeInterview = (
             answers: [
               ...current.answers,
               {
+                id: `${question.id}:answer`,
                 questionId: question.id,
                 text: '',
                 skipped: true,
@@ -883,6 +886,7 @@ export const useAIResumeInterview = (
             answers: [
               ...current.answers,
               {
+                id: `${question.id}:answer`,
                 questionId: question.id,
                 text: '',
                 skipped: true,

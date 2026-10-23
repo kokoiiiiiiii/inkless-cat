@@ -13,7 +13,6 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     baseURL,
-    ...(isCI ? {} : { channel: 'chrome' as const }),
     trace: 'retain-on-failure',
   },
   webServer: {

@@ -23,6 +23,7 @@ export type InterviewQuestion = {
 };
 
 export type InterviewAnswer = {
+  id?: string;
   questionId: string;
   text: string;
   skipped: boolean;
@@ -102,6 +103,7 @@ export type AIInterviewProviderClient = {
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     options: {
       signal?: AbortSignal;
+      timeoutMs?: number;
       maxOutputCodeUnits?: number;
       onDelta: (delta: string) => void;
     },
