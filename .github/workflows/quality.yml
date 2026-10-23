@@ -61,12 +61,12 @@ jobs:
           MODERNIZATION_BASELINE_DIR: ${{ github.workspace }}/.visual-baseline
           MODERNIZATION_BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
           MODERNIZATION_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          MODERNIZATION_VISUAL_RESULTS: ${{ github.workspace }}/.visual-regression-results
+          MODERNIZATION_VISUAL_RESULTS: ${{ github.workspace }}/visual-regression-results
       - name: Run Firefox acceptance paths
         run: npm run test:e2e -- --config playwright.firefox.config.ts --workers=1 --retries=0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: frontend-visual-regression
-          path: .visual-regression-results
+          path: visual-regression-results
           if-no-files-found: ignore
