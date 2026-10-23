@@ -52,9 +52,9 @@ test('visual: editor and preview stay responsive at fixed viewports in both them
       await expect(page.getByRole('heading', { name: '编辑器' })).toBeVisible();
       await capture(page, 'editor/' + viewport.name + '-' + theme);
 
-      const previewTab = page.getByRole('checkbox', { name: '实时预览' });
+      const previewTab = page.getByRole('button', { name: '实时预览' });
       if (viewport.width <= 390 && (await previewTab.count()) > 0) {
-        await previewTab.check();
+        await previewTab.click();
         await expect(page.getByRole('heading', { name: '实时预览' })).toBeVisible();
         await capture(page, 'preview/' + viewport.name + '-' + theme);
       }

@@ -124,7 +124,7 @@ const scenarios = [
     viewport: viewports.mobile,
     prepare: async (page) => {
       await page.getByRole('textbox', { name: '姓名' }).waitFor({ state: 'visible' });
-      await page.getByRole('checkbox', { name: '实时预览' }).check();
+      await page.getByRole('button', { name: '实时预览' }).click();
       await page.getByRole('heading', { name: '实时预览' }).waitFor({ state: 'visible' });
     },
   },

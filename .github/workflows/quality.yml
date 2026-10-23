@@ -44,7 +44,8 @@ jobs:
       - run: node --version
       - run: npm --version
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install firefox
       - run: npm run build
       - uses: actions/checkout@v5
         with:

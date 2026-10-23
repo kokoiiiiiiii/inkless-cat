@@ -16,9 +16,10 @@ test('Firefox supports editor startup, basic editing, dark mode, and mobile swit
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(2, 6, 23)');
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const previewToggle = page.getByRole('checkbox', { name: '实时预览' });
+  const previewToggle = page.getByRole('button', { name: '实时预览' });
   await expect(previewToggle).toBeVisible();
-  await previewToggle.check();
+  await previewToggle.click();
+  await expect(previewToggle).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: '实时预览' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
