@@ -32,8 +32,10 @@ type ResumeStoreState = {
   resume: ResumeData;
   activeSections: ActiveSectionKey[];
   hasResumeChanges: boolean;
-  /** In-memory marker for workspace replacement; intentionally excluded from persistence. */
+  /** In-memory epoch for whole-workspace replacements; intentionally excluded from persistence. */
   workspaceGeneration: number;
+  /** In-memory revision for resume and section edits; intentionally excluded from persistence. */
+  workspaceRevision: number;
 };
 
 type ActiveSectionsInput = ActiveSectionKey[] | ((prev: ActiveSectionKey[]) => ActiveSectionKey[]);
@@ -74,6 +76,7 @@ const createInitialState = (): ResumeStoreState => {
     }),
     hasResumeChanges: false,
     workspaceGeneration: 0,
+    workspaceRevision: 0,
   };
 };
 
@@ -97,10 +100,16 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                 const nextSections = syncSections
                   ? sanitizeSections(state.activeSections, nextResume)
                   : state.activeSections;
+                const sectionsChanged =
+                  nextSections.length !== state.activeSections.length ||
+                  nextSections.some((section, index) => section !== state.activeSections[index]);
                 return {
                   resume: nextResume,
                   activeSections: nextSections,
                   hasResumeChanges: markDirty ? true : state.hasResumeChanges,
+                  workspaceRevision:
+                    state.workspaceRevision +
+                    Number(nextResume !== state.resume || sectionsChanged),
                 };
               },
               false,
@@ -112,11 +121,18 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
             set(
               (state) => {
                 const next = typeof input === 'function' ? input(state.activeSections) : input;
-                return {
-                  activeSections: sanitizeSections(next, state.resume, {
-                    fallbackToDefaults: !options?.allowEmpty,
-                  }),
-                };
+                const activeSections = sanitizeSections(next, state.resume, {
+                  fallbackToDefaults: !options?.allowEmpty,
+                });
+                const changed =
+                  activeSections.length !== state.activeSections.length ||
+                  activeSections.some((section, index) => section !== state.activeSections[index]);
+                return changed
+                  ? {
+                      activeSections,
+                      workspaceRevision: state.workspaceRevision + 1,
+                    }
+                  : state;
               },
               false,
               'resume/updateActiveSections',
@@ -138,6 +154,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                   }),
                   hasResumeChanges: false,
                   workspaceGeneration: state.workspaceGeneration + 1,
+                  workspaceRevision: state.workspaceRevision + 1,
                 };
               },
               false,
@@ -154,6 +171,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                   activeSections: deriveSectionsFromResume(normalized),
                   hasResumeChanges: false,
                   workspaceGeneration: state.workspaceGeneration + 1,
+                  workspaceRevision: state.workspaceRevision + 1,
                 };
               },
               false,

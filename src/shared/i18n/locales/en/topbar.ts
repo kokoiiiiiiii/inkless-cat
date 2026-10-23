@@ -1,4 +1,6 @@
 export const topbar = {
+  aiResume: 'Create resume with AI',
+  aiProviderSettings: 'AI settings',
   loadSample: 'Load Sample',
   clear: 'Clear',
   import: 'Import',

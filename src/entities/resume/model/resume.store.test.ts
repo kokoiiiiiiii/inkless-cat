@@ -14,6 +14,7 @@ const resetResumeStoreState = () => {
     activeSections: deriveSectionsFromResume(baseResume),
     hasResumeChanges: false,
     workspaceGeneration: 0,
+    workspaceRevision: 0,
   });
   useResumeStore.persist?.clearStorage();
 };
@@ -82,21 +83,33 @@ describe('resume store', () => {
     expect(state.hasResumeChanges).toBe(false);
   });
 
-  it('tracks workspace replacement in memory without adding the marker to persisted resume data', () => {
+  it('tracks resume edits separately from workspace replacements without persisting either marker', () => {
     const initialGeneration = useResumeStore.getState().workspaceGeneration;
+    const initialRevision = useResumeStore.getState().workspaceRevision;
     useResumeStore.getState().updateResume((draft) => {
       draft.personal.summary = 'A regular edit';
     });
     expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration);
+    expect(useResumeStore.getState().workspaceRevision).toBe(initialRevision + 1);
 
-    useResumeStore.getState().replaceState(createEmptyResume());
-    expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration + 1);
+    useResumeStore.getState().updateActiveSections((sections) => sections);
+    expect(useResumeStore.getState().workspaceRevision).toBe(initialRevision + 1);
+
+    useResumeStore.getState().updateActiveSections([], { allowEmpty: true });
+    expect(useResumeStore.getState().workspaceRevision).toBe(initialRevision + 2);
+
     const stored = localStorage.getItem(RESUME_STORE_PERSIST_KEY);
     expect(stored).not.toBeNull();
     expect(stored).not.toContain('workspaceGeneration');
+    expect(stored).not.toContain('workspaceRevision');
+
+    useResumeStore.getState().replaceState(createEmptyResume());
+    expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration + 1);
+    expect(useResumeStore.getState().workspaceRevision).toBe(initialRevision + 3);
 
     useResumeStore.getState().resetState(createEmptyResume());
     expect(useResumeStore.getState().workspaceGeneration).toBe(initialGeneration + 2);
+    expect(useResumeStore.getState().workspaceRevision).toBe(initialRevision + 4);
   });
 
   it('sanitizes active sections when updating', () => {

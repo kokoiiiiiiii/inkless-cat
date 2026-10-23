@@ -252,7 +252,7 @@ describe('resume facts and interview provenance', () => {
     expect(result.map((fact) => fact.conflictKey)).toEqual(['targetRole', 'targetRole']);
   });
 
-  it('detects conflicts across personal fields and matching work history records', () => {
+  it('detects personal field conflicts without treating shared work labels as entity identity', () => {
     const secondAnswer: InterviewAnswer = {
       id: 'answer-work-follow-up',
       questionId: 'question-work-follow-up',
@@ -339,12 +339,14 @@ describe('resume facts and interview provenance', () => {
       'conflict',
     ]);
     expect(markConflicts(experienceFacts).map((fact) => fact.status)).toEqual([
-      'conflict',
-      'conflict',
+      'pending',
+      'pending',
     ]);
     expect(markConflicts(personalFacts)[0]?.conflictKeys).toContain('personal.email');
-    expect(markConflicts(experienceFacts)[0]?.conflictFields).toEqual(['location']);
-    expect(markConflicts(experienceFacts)[1]?.conflictFields).toEqual(['location']);
+    expect(markConflicts(experienceFacts).map((fact) => fact.conflictFields)).toEqual([
+      undefined,
+      undefined,
+    ]);
     expect(markConflicts(experienceFacts)[0]?.value).toMatchObject({
       individualResponsibilities: ['built the reporting API'],
     });
@@ -353,19 +355,17 @@ describe('resume facts and interview provenance', () => {
     });
   });
 
-  it('removes only the disputed location and retains the other candidate under its source', () => {
+  it('removes only a disputed personal field and retains other values under their source', () => {
     const session = makeSession();
     const candidates = [
       createResumeFact(
         {
-          kind: 'experience',
+          kind: 'personal',
           sourceQuestionId: 'question-role',
           sourceAnswerId: 'answer-role',
           value: {
-            company: 'Acme',
-            role: 'Engineer',
-            location: 'Seattle',
-            individualResponsibilities: ['built the reporting API'],
+            fullName: 'Chen Qing',
+            email: 'first@example.com',
           },
         } as never,
         session,
@@ -374,14 +374,13 @@ describe('resume facts and interview provenance', () => {
       ),
       createResumeFact(
         {
-          kind: 'experience',
+          kind: 'personal',
           sourceQuestionId: 'question-role',
           sourceAnswerId: 'answer-role',
           value: {
-            company: 'Acme',
-            role: 'Engineer',
-            location: 'Vancouver',
-            teamResponsibilities: ['collaborated on the rollout'],
+            fullName: 'Chen Qing',
+            email: 'second@example.com',
+            summary: 'A separate confirmed summary.',
           },
         } as never,
         session,
@@ -394,18 +393,17 @@ describe('resume facts and interview provenance', () => {
 
     expect(resolved[0]).toMatchObject({
       status: 'confirmed',
-      value: { location: 'Seattle', individualResponsibilities: ['built the reporting API'] },
+      value: { fullName: 'Chen Qing', email: 'first@example.com' },
     });
     expect(resolved[1]).toMatchObject({
       status: 'pending',
       sourceAnswerId: 'answer-role',
       value: {
-        company: 'Acme',
-        role: 'Engineer',
-        teamResponsibilities: ['collaborated on the rollout'],
+        fullName: 'Chen Qing',
+        summary: 'A separate confirmed summary.',
       },
     });
-    expect((resolved[1]?.value as Record<string, unknown>).location).toBeUndefined();
+    expect((resolved[1]?.value as Record<string, unknown>).email).toBeUndefined();
     expect(resolved[1]?.conflictFields).toBeUndefined();
   });
 

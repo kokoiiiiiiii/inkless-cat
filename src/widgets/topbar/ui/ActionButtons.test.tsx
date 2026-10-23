@@ -1,6 +1,6 @@
 import { AIProviderProvider } from '@features/ai-provider-settings';
 import { I18nProvider } from '@shared/i18n';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +13,29 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe('ActionButtons locale dialog accessibility', () => {
+  it('uses a base-dictionary label for the lazy AI interview launcher', () => {
+    render(
+      <ActionButtons
+        onResetSample={vi.fn()}
+        onClear={vi.fn()}
+        onImportClick={vi.fn()}
+        onExport={vi.fn()}
+        onExportWorkspace={vi.fn()}
+        onExportMarkdown={vi.fn()}
+        onPrint={vi.fn()}
+        theme="light"
+        onToggleTheme={vi.fn()}
+        inputRef={createRef<HTMLInputElement>()}
+        onFileChange={vi.fn()}
+        onLocaleChange={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByRole('button', { name: 'AI 创建简历' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'aiInterview.trigger' })).toBeNull();
+  });
+
   it('focuses the dialog, traps keyboard focus, closes with Escape, and restores focus', () => {
     render(
       <ActionButtons
@@ -51,7 +74,7 @@ describe('ActionButtons locale dialog accessibility', () => {
 });
 
 describe('AI provider settings dialog accessibility', () => {
-  it('portals the dialog, protects Chinese IME input from Escape, and restores focus', () => {
+  it('portals the dialog, protects Chinese IME input from Escape, and restores focus', async () => {
     render(
       <ActionButtons
         onResetSample={vi.fn()}
@@ -73,8 +96,8 @@ describe('AI provider settings dialog accessibility', () => {
     const trigger = screen.getByRole('button', { name: 'AI 设置' });
     fireEvent.click(trigger);
 
-    const dialog = screen.getByRole('dialog', { name: 'AI 服务设置' });
-    const baseUrl = screen.getByRole('textbox', { name: 'API Base URL' });
+    const dialog = await screen.findByRole('dialog', { name: 'AI 服务设置' });
+    const baseUrl = await screen.findByRole('textbox', { name: 'API Base URL' });
     const model = screen.getByRole('textbox', { name: '模型 ID' });
     expect(dialog.parentElement?.parentElement).toBe(document.body);
     expect(document.activeElement).toBe(baseUrl);
@@ -108,17 +131,16 @@ describe('AI provider settings dialog accessibility', () => {
     expect(document.body.style.overflow).toBe('');
 
     fireEvent.click(trigger);
-    expect(screen.getByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
-      'value',
-      'https://provider.example/v1/模型',
-    );
+    const reopenedBaseUrl = await screen.findByRole('textbox', { name: 'API Base URL' });
+    expect(reopenedBaseUrl).toHaveProperty('value', 'https://provider.example/v1/模型');
     expect(screen.getByRole('textbox', { name: '模型 ID' })).toHaveProperty('value', '混合模型');
+    await waitFor(() => expect(document.activeElement).toBe(reopenedBaseUrl));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('retains the saved session configuration after the settings dialog closes', () => {
+  it('retains the saved session configuration after the settings dialog closes', async () => {
     render(
       <ActionButtons
         onResetSample={vi.fn()}
@@ -139,7 +161,7 @@ describe('AI provider settings dialog accessibility', () => {
 
     const trigger = screen.getByRole('button', { name: 'AI 设置' });
     fireEvent.click(trigger);
-    fireEvent.change(screen.getByRole('textbox', { name: 'API Base URL' }), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'API Base URL' }), {
       target: { value: 'https://provider.example/v1' },
     });
     fireEvent.change(screen.getByLabelText('API Key'), {
@@ -153,7 +175,7 @@ describe('AI provider settings dialog accessibility', () => {
 
     expect(screen.queryByRole('dialog', { name: 'AI 服务设置' })).toBeNull();
     fireEvent.click(trigger);
-    expect(screen.getByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
+    expect(await screen.findByRole('textbox', { name: 'API Base URL' })).toHaveProperty(
       'value',
       'https://provider.example/v1',
     );

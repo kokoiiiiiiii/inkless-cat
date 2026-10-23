@@ -2,6 +2,16 @@ export const common = {
   ok: '确定',
   cancel: '取消',
   dismiss: '关闭提示',
+  loadingFeature: '正在加载此功能…',
+  featureFailedLoad: '功能加载失败。请重新加载页面后重试。',
+  reloadPage: '重新加载页面',
+  aiEnhance: 'AI 润色',
+  aiEnhanceWithField: '为{field}打开 AI 润色',
+  aiFields: {
+    personalSummary: '个人简介',
+    experienceHighlights: '工作经历 · 重点成果',
+    projectSummary: '项目简介',
+  },
   confirmations: {
     clearResume: '确定清空当前简历的全部内容吗？可在 12 秒内撤销。',
     importResume: '导入将替换当前简历；若文件是工作区，还会替换工作区设置。是否继续？',

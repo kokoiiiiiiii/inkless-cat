@@ -282,7 +282,7 @@ const AIResumeInterviewRuntime = ({
     }
   };
 
-  if (!open || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   const getStateAnnouncement = () => {
     if (!session) return '';
@@ -395,7 +395,10 @@ const AIResumeInterviewRuntime = ({
         <ResumeGenerationPanel
           session={session}
           facts={factsController.facts}
+          entityLinks={factsController.entityLinks}
+          entitySeparations={factsController.entitySeparations}
           provider={provider}
+          active={open}
         />
       </div>
     </section>
@@ -770,6 +773,9 @@ const AIResumeInterviewRuntime = ({
     <div
       ref={dialogRef}
       className="fixed inset-0 z-[75] flex min-h-dvh items-center justify-center overflow-y-auto bg-slate-950/55 px-2 py-2 dark:bg-black/75 sm:px-5 sm:py-4"
+      style={open ? undefined : { display: 'none' }}
+      aria-hidden={!open || undefined}
+      inert={!open}
     >
       <div
         className="my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-h-[calc(100dvh-2rem)]"
@@ -817,7 +823,7 @@ const AIResumeInterviewRuntime = ({
         <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {stateAnnouncement}
         </p>
-        <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950/50 md:hidden">
+        <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950/50 lg:hidden">
           <button
             type="button"
             className={`min-h-10 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ${mobileTab === 'interview' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
@@ -835,15 +841,15 @@ const AIResumeInterviewRuntime = ({
             {t('aiInterview.tabSummary')}
           </button>
         </div>
-        <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1.55fr)_minmax(17rem,0.9fr)]">
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(17rem,0.9fr)]">
           <main
             ref={interviewPaneRef}
-            className={`${mobileTab === 'summary' ? 'hidden' : 'flex'} min-h-0 flex-col overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:flex md:border-r md:border-slate-200 md:px-6 md:py-5 dark:md:border-slate-700`}
+            className={`${mobileTab === 'summary' ? 'hidden' : 'flex'} min-h-0 flex-col overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:flex lg:border-r lg:border-slate-200 lg:px-6 lg:py-5 dark:lg:border-slate-700`}
           >
             {renderInterview()}
           </main>
           <aside
-            className={`${mobileTab === 'interview' ? 'hidden' : 'flex'} min-h-0 flex-col overflow-hidden px-4 py-4 md:flex md:px-5 md:py-5`}
+            className={`${mobileTab === 'interview' ? 'hidden' : 'flex'} min-h-0 flex-col overflow-hidden px-4 py-4 lg:flex lg:px-5 lg:py-5`}
           >
             {renderSummary()}
           </aside>

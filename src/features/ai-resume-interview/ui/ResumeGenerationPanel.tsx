@@ -10,6 +10,7 @@ import { type TranslationKey, useI18n } from '@shared/i18n';
 import { clone } from '@shared/lib';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { FactEntityLink, FactEntitySeparation } from '../model/factEntityLinks';
 import type { ResumeFact } from '../model/facts';
 import {
   buildResumeDraftFromFacts,
@@ -31,10 +32,14 @@ import type { AIInterviewProviderClient, InterviewSession } from '../model/types
 type ResumeGenerationPanelProps = {
   session: InterviewSession | null;
   facts: ResumeFact[];
+  entityLinks?: FactEntityLink[];
+  entitySeparations?: FactEntitySeparation[];
   provider: AIInterviewProviderClient;
+  active?: boolean;
 };
 
 type GeneratedDraft = {
+  sessionId: string | null;
   basisKey: string;
   providerStreamComplete: AIInterviewProviderClient['streamComplete'];
   resume: ResumeData;
@@ -48,6 +53,7 @@ type ResumeSnapshot = {
   resume: ResumeData;
   activeSections: ActiveSectionKey[];
   workspaceGeneration: number;
+  workspaceRevision: number;
 };
 
 type ReplacementConfirmation = {
@@ -79,6 +85,7 @@ const primaryButtonClass =
 
 const snapshotMatches = (current: ResumeSnapshot, snapshot: ResumeSnapshot) =>
   current.workspaceGeneration === snapshot.workspaceGeneration &&
+  current.workspaceRevision === snapshot.workspaceRevision &&
   JSON.stringify(current.resume) === JSON.stringify(snapshot.resume) &&
   JSON.stringify(current.activeSections) === JSON.stringify(snapshot.activeSections);
 
@@ -88,17 +95,27 @@ const getCurrentStoreSnapshot = (): ResumeSnapshot => {
     resume: clone(state.resume),
     activeSections: clone(state.activeSections),
     workspaceGeneration: state.workspaceGeneration,
+    workspaceRevision: state.workspaceRevision,
   };
 };
 
-const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPanelProps) => {
+const ResumeGenerationPanel = ({
+  session,
+  facts,
+  entityLinks = [],
+  entitySeparations = [],
+  provider,
+  active = true,
+}: ResumeGenerationPanelProps) => {
   const { t, locale } = useI18n();
+  const sessionId = session?.id ?? null;
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
   const [replacementSnapshot, setReplacementSnapshot] = useState<ReplacementConfirmation | null>(
     null,
   );
   const [replacementAcknowledged, setReplacementAcknowledged] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessageState] = useState<string | null>(null);
+  const [messageSessionId, setMessageSessionId] = useState(sessionId);
   const [undoSnapshot, setUndoSnapshot] = useState<ResumeSnapshot | null>(null);
   const [appliedSnapshot, setAppliedSnapshot] = useState<ResumeSnapshot | null>(null);
   const [showPolishReview, setShowPolishReview] = useState(false);
@@ -110,18 +127,35 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
   const replacementSnapshotRef = useRef<ReplacementConfirmation | null>(null);
   const replacementAcknowledgedRef = useRef(false);
   const draftVersionRef = useRef(0);
+  const previousSessionIdRef = useRef(sessionId);
+
+  const setMessage = useCallback(
+    (nextMessage: string | null) => {
+      setMessageState(nextMessage);
+      setMessageSessionId(sessionId);
+    },
+    [sessionId],
+  );
+  const visibleMessage = messageSessionId === sessionId ? message : null;
 
   const currentFacts = useMemo(() => getCurrentConfirmedFacts(session, facts), [facts, session]);
-  const basisKey = getResumeDraftBasisKey(session, facts, {
-    configuration: provider.configuration,
-    isConfigured: provider.isConfigured,
-    connectionStatus: provider.connectionStatus,
-  });
+  const basisKey = getResumeDraftBasisKey(
+    session,
+    facts,
+    {
+      configuration: provider.configuration,
+      isConfigured: provider.isConfigured,
+      connectionStatus: provider.connectionStatus,
+    },
+    { links: entityLinks, separations: entitySeparations },
+  );
   const isDraftCurrent = Boolean(
     draft &&
+      draft.sessionId === sessionId &&
       draft.basisKey === basisKey &&
       draft.providerStreamComplete === provider.streamComplete,
   );
+  const hasDraftForCurrentSession = draft?.sessionId === sessionId;
   const draftFingerprint = draft ? JSON.stringify(draft.resume) : '';
   const polishFields = useMemo(() => (draft ? buildResumePolishFields(draft.resume) : []), [draft]);
   const currentPolishContextRef = useRef({
@@ -174,8 +208,27 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
         setMessage(t('aiInterview.generation.replacementNeedsReview'));
       }
     },
-    [t],
+    [setMessage, t],
   );
+
+  useEffect(() => {
+    if (sessionId === null || previousSessionIdRef.current === sessionId) return;
+    previousSessionIdRef.current = sessionId;
+    activePolishRequestRef.current?.controller.abort();
+    activePolishRequestRef.current = null;
+    polishRequestSequenceRef.current += 1;
+    draftVersionRef.current += 1;
+    replacementSnapshotRef.current = null;
+    replacementAcknowledgedRef.current = false;
+    setDraft(null);
+    setReplacementSnapshot(null);
+    setReplacementAcknowledged(false);
+    setMessage(null);
+    setShowPolishReview(false);
+    setPolishState('idle');
+    setPolishError(null);
+    setPolishSuggestions([]);
+  }, [sessionId, setMessage]);
 
   useEffect(() => {
     const active = activePolishRequestRef.current;
@@ -217,6 +270,16 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     setPolishError(null);
   }, [basisKey, provider.configuration, provider.streamComplete]);
 
+  useEffect(() => {
+    if (active) return;
+    const request = activePolishRequestRef.current;
+    if (!request) return;
+    request.controller.abort();
+    activePolishRequestRef.current = null;
+    setPolishState('cancelled');
+    setPolishError(t('aiInterview.generation.polishCancelled'));
+  }, [active, t]);
+
   useEffect(
     () => () => {
       activePolishRequestRef.current?.controller.abort();
@@ -236,8 +299,15 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
     setPolishSuggestions([]);
     setPolishState('idle');
     setPolishError(null);
-    const result = buildResumeDraftFromFacts(session, facts, locale);
+    const result = buildResumeDraftFromFacts(
+      session,
+      facts,
+      locale,
+      entityLinks,
+      entitySeparations,
+    );
     setDraft({
+      sessionId,
       basisKey,
       providerStreamComplete: provider.streamComplete,
       resume: result.resume,
@@ -580,7 +650,9 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
           disabled={currentFacts.length === 0}
           onClick={buildDraft}
         >
-          {draft ? t('aiInterview.generation.rebuild') : t('aiInterview.generation.build')}
+          {hasDraftForCurrentSession
+            ? t('aiInterview.generation.rebuild')
+            : t('aiInterview.generation.build')}
         </button>
       </div>
 
@@ -615,22 +687,33 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
         </div>
       )}
 
-      {!draft && currentFacts.length === 0 && (
+      {!hasDraftForCurrentSession && currentFacts.length === 0 && (
         <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
           {t('aiInterview.generation.noConfirmedFacts')}
         </p>
       )}
 
-      {message && (
+      {visibleMessage && (
         <p
           role="status"
           className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
         >
-          {message}
+          {visibleMessage}
         </p>
       )}
 
-      {draft && (
+      {undoSnapshot && appliedSnapshot && (
+        <div className="mt-3">
+          <button type="button" className={buttonClass} onClick={undoApply}>
+            {t('aiInterview.generation.undo')}
+          </button>
+          <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {t('aiInterview.generation.undoNotice')}
+          </p>
+        </div>
+      )}
+
+      {draft && draft.sessionId === sessionId && (
         <div
           className="mt-4 space-y-4"
           data-testid="generated-resume-draft"
@@ -1075,16 +1158,6 @@ const ResumeGenerationPanel = ({ session, facts, provider }: ResumeGenerationPan
               >
                 {t('aiInterview.generation.prepareReplace')}
               </button>
-              {undoSnapshot && appliedSnapshot && (
-                <div className="basis-full">
-                  <button type="button" className={buttonClass} onClick={undoApply}>
-                    {t('aiInterview.generation.undo')}
-                  </button>
-                  <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    {t('aiInterview.generation.undoNotice')}
-                  </p>
-                </div>
-              )}
             </div>
           )}
           <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">

@@ -1,7 +1,8 @@
 import type { TranslationKey } from '@shared/i18n';
 import { useI18n } from '@shared/i18n';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { localizeInterviewQuestion } from '../lib/interviewRules';
 import type { FactKind, ResumeFact } from '../model/facts';
 import {
   factCandidateSchema,
@@ -12,12 +13,22 @@ import {
 } from '../model/facts';
 import type { AIInterviewProviderClient, InterviewSession } from '../model/types';
 import type { ResumeFactsController } from '../model/useResumeFacts';
+import FactEntityAssociationPanel from './FactEntityAssociationPanel';
 
 type FactField = {
   key: string;
   label: TranslationKey;
   multiline?: boolean;
   list?: boolean;
+};
+
+const getQuestionDisplay = (
+  session: InterviewSession,
+  questionId: string,
+  translate: (key: string) => string,
+) => {
+  const question = session.questions.find((item) => item.id === questionId);
+  return question ? localizeInterviewQuestion(question, translate).content : questionId;
 };
 
 const factFields: Record<FactKind, FactField[]> = {
@@ -339,7 +350,10 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
         {source ? (
           <div className="mt-2 space-y-2 break-words text-slate-600 dark:text-slate-300">
             <p>
-              <strong>{t('aiInterview.facts.sourceQuestion')}:</strong> {source.question.content}
+              <strong>{t('aiInterview.facts.sourceQuestion')}:</strong>{' '}
+              {getQuestionDisplay(session, fact.sourceQuestionId, (key) =>
+                t(key as TranslationKey),
+              )}
             </p>
             <p>
               <strong>{t('aiInterview.facts.sourceAnswer')}:</strong> {source.answer.text}
@@ -447,12 +461,28 @@ const FactVerificationPanel = ({
   onOpenProviderSettings,
 }: FactVerificationPanelProps) => {
   const { t } = useI18n();
+  const sessionId = session?.id ?? null;
   const [showConsent, setShowConsent] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualKind, setManualKind] = useState<FactKind>('targetRole');
   const [manualValue, setManualValue] = useState<unknown>(() => blankFactValue('targetRole'));
   const [manualSourceId, setManualSourceId] = useState('');
   const [manualError, setManualError] = useState(false);
+  const [formSessionId, setFormSessionId] = useState(sessionId);
+  const isFormSessionCurrent = formSessionId === sessionId;
+  const previousSessionIdRef = useRef(sessionId);
+
+  useEffect(() => {
+    if (sessionId === null || previousSessionIdRef.current === sessionId) return;
+    previousSessionIdRef.current = sessionId;
+    setFormSessionId(sessionId);
+    setShowConsent(false);
+    setShowManualForm(false);
+    setManualKind('targetRole');
+    setManualValue(blankFactValue('targetRole'));
+    setManualSourceId('');
+    setManualError(false);
+  }, [sessionId]);
 
   const extractionInput = useMemo(() => {
     if (!session) return null;
@@ -463,9 +493,9 @@ const FactVerificationPanel = ({
     }
   }, [session]);
 
-  const canManualAdd = Boolean(session && manualSourceId);
+  const canManualAdd = Boolean(session && isFormSessionCurrent && manualSourceId);
   const addManualFact = () => {
-    if (!session || !manualSourceId) {
+    if (!session || !isFormSessionCurrent || !manualSourceId) {
       setManualError(true);
       return;
     }
@@ -581,7 +611,9 @@ const FactVerificationPanel = ({
           className={smallSecondaryClass}
           onClick={() => setShowManualForm((visible) => !visible)}
         >
-          {showManualForm ? t('aiInterview.facts.closeManual') : t('aiInterview.facts.addManually')}
+          {isFormSessionCurrent && showManualForm
+            ? t('aiInterview.facts.closeManual')
+            : t('aiInterview.facts.addManually')}
         </button>
         {!provider.isConfigured && (
           <button type="button" className={smallSecondaryClass} onClick={onOpenProviderSettings}>
@@ -596,7 +628,7 @@ const FactVerificationPanel = ({
         </p>
       )}
 
-      {showConsent && extractionInput && provider.configuration && (
+      {isFormSessionCurrent && showConsent && extractionInput && provider.configuration && (
         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
           <h5 className="font-semibold">{t('aiInterview.facts.consentTitle')}</h5>
           <p className="mt-1">
@@ -609,11 +641,16 @@ const FactVerificationPanel = ({
           </p>
           <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-lg bg-white/70 p-2 dark:bg-black/20">
             {extractionInput.includedAnswers.map((answer) => {
-              const question = session?.questions.find((item) => item.id === answer.questionId);
               return (
                 <li key={getAnswerId(answer)} className="break-words">
                   <p>
-                    <strong>{question?.content ?? answer.questionId}</strong>
+                    <strong>
+                      {session
+                        ? getQuestionDisplay(session, answer.questionId, (key) =>
+                            t(key as TranslationKey),
+                          )
+                        : answer.questionId}
+                    </strong>
                   </p>
                   <p>{answer.text}</p>
                 </li>
@@ -679,7 +716,7 @@ const FactVerificationPanel = ({
         </div>
       )}
 
-      {showManualForm && session && (
+      {isFormSessionCurrent && showManualForm && session && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
           <h5 className="text-sm font-semibold text-slate-900 dark:text-white">
             {t('aiInterview.facts.manualTitle')}
@@ -715,12 +752,11 @@ const FactVerificationPanel = ({
                 {session.answers
                   .filter((answer) => !answer.skipped && answer.text.trim())
                   .map((answer) => {
-                    const question = session.questions.find(
-                      (item) => item.id === answer.questionId,
-                    );
                     return (
                       <option key={getAnswerId(answer)} value={getAnswerId(answer)}>
-                        {question?.content ?? answer.questionId}
+                        {getQuestionDisplay(session, answer.questionId, (key) =>
+                          t(key as TranslationKey),
+                        )}
                       </option>
                     );
                   })}
@@ -764,6 +800,8 @@ const FactVerificationPanel = ({
           ))
         )}
       </div>
+
+      <FactEntityAssociationPanel session={session} controller={controller} />
 
       {controller.confirmedCount > 0 && (
         <details className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">

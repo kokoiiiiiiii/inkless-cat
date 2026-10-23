@@ -2,6 +2,16 @@ export const common = {
   ok: 'OK',
   cancel: 'Cancel',
   dismiss: 'Dismiss notification',
+  loadingFeature: 'Loading this feature…',
+  featureFailedLoad: 'This feature could not be loaded. Reload the page to try again.',
+  reloadPage: 'Reload page',
+  aiEnhance: 'AI polish',
+  aiEnhanceWithField: 'Polish {field} with AI',
+  aiFields: {
+    personalSummary: 'Personal summary',
+    experienceHighlights: 'Experience · Highlights',
+    projectSummary: 'Project summary',
+  },
   confirmations: {
     clearResume: 'Clear all current resume content? You can undo this for 12 seconds.',
     importResume:

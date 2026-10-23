@@ -11,7 +11,13 @@ import {
 } from 'react';
 
 import { DEFAULT_LOCALE, type Locale, LOCALE_KEY, resolveStoredLocale } from './config';
+import { aiEnhancement as enAIEnhancement } from './locales/en/aiEnhancement';
+import { aiInterview as enAIInterview } from './locales/en/aiInterview';
+import { aiProvider as enAIProvider } from './locales/en/aiProvider';
 import en from './locales/en/index';
+import { aiEnhancement as zhCNAIEnhancement } from './locales/zh-CN/aiEnhancement';
+import { aiInterview as zhCNInterview } from './locales/zh-CN/aiInterview';
+import { aiProvider as zhCNAIProvider } from './locales/zh-CN/aiProvider';
 import zhCN from './locales/zh-CN/index';
 
 const DEV = import.meta?.env?.DEV ?? false;
@@ -24,6 +30,26 @@ type Dict = Record<string, unknown> | unknown[];
 type DictMap = Record<Locale, Dict>;
 
 type Interpolations = Record<string, string | number | boolean>;
+
+const createInitialDictionary = (): DictMap => {
+  if (import.meta.env.MODE === 'test') {
+    return {
+      'zh-CN': {
+        ...baseDict['zh-CN'],
+        aiInterview: zhCNInterview,
+        aiEnhancement: zhCNAIEnhancement,
+        aiProvider: zhCNAIProvider,
+      },
+      en: {
+        ...baseDict.en,
+        aiInterview: enAIInterview,
+        aiEnhancement: enAIEnhancement,
+        aiProvider: enAIProvider,
+      },
+    };
+  }
+  return { 'zh-CN': baseDict['zh-CN'], en: baseDict.en };
+};
 
 const interpolate = (tpl: string, vars?: Interpolations) =>
   typeof vars === 'object'
@@ -69,18 +95,25 @@ export type Paths<T, D extends number = 6> = [D] extends [never]
       }[keyof T & (string | number)]
     : never;
 
-export type TranslationKey = Paths<typeof zhCN>;
+export type TranslationKey = Paths<
+  typeof zhCN & {
+    aiInterview: typeof import('./locales/zh-CN/aiInterview').aiInterview;
+    aiEnhancement: typeof import('./locales/zh-CN/aiEnhancement').aiEnhancement;
+    aiProvider: typeof import('./locales/zh-CN/aiProvider').aiProvider;
+  }
+>;
 
-const dynamicLoaders: Record<Locale, (() => Promise<{ default: Dict }>) | undefined> = {
-  'zh-CN': undefined,
-  en: undefined,
-};
+type LazyNamespace = 'aiInterview' | 'aiEnhancement' | 'aiProvider';
 
 type I18nContextValue = {
   locale: Locale;
+  dictionaryRevision: number;
   setLocale: (next: Locale) => void;
   t: <K extends string>(key: TranslationKey | K, vars?: Interpolations) => string;
   register: (ns: string, resources: Partial<Record<Locale, Dict>>) => void;
+  loadAIInterviewTranslations: () => Promise<void>;
+  loadAIEnhancementTranslations: () => Promise<void>;
+  loadAIProviderTranslations: () => Promise<void>;
   format: {
     date: (value: Date | number | string, opts?: Intl.DateTimeFormatOptions) => string;
     number: (value: number, opts?: Intl.NumberFormatOptions) => string;
@@ -101,7 +134,9 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     }
   });
 
-  const dictRef = useRef<DictMap>({ 'zh-CN': baseDict['zh-CN'], en: baseDict.en });
+  const dictRef = useRef<DictMap>(createInitialDictionary());
+  const namespaceLoadsRef = useRef(new Map<string, Promise<void>>());
+  const [dictionaryRevision, setDictionaryRevision] = useState(0);
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -110,20 +145,57 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [locale]);
 
-  useEffect(() => {
-    const loader = dynamicLoaders[locale];
-    if (!loader) return;
-    let mounted = true;
-    loader()
-      .then((mod) => {
-        if (!mounted) return;
-        dictRef.current[locale] = deepMerge(dictRef.current[locale], mod.default || {});
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [locale]);
+  const loadNamespace = useCallback(
+    (namespace: LazyNamespace) => {
+      const key = `${locale}:${namespace}`;
+      const existing = namespaceLoadsRef.current.get(key);
+      if (existing) return existing;
+      const promise = (async () => {
+        let namespaceDict: Dict;
+        if (namespace === 'aiInterview') {
+          const module =
+            locale === 'en'
+              ? await import('./locales/en/aiInterview')
+              : await import('./locales/zh-CN/aiInterview');
+          namespaceDict = module.aiInterview;
+        } else if (namespace === 'aiEnhancement') {
+          const module =
+            locale === 'en'
+              ? await import('./locales/en/aiEnhancement')
+              : await import('./locales/zh-CN/aiEnhancement');
+          namespaceDict = module.aiEnhancement;
+        } else {
+          const module =
+            locale === 'en'
+              ? await import('./locales/en/aiProvider')
+              : await import('./locales/zh-CN/aiProvider');
+          namespaceDict = module.aiProvider;
+        }
+        dictRef.current[locale] = deepMerge(dictRef.current[locale], {
+          [namespace]: namespaceDict,
+        });
+        setDictionaryRevision((revision) => revision + 1);
+      })().catch((error: unknown) => {
+        namespaceLoadsRef.current.delete(key);
+        throw error;
+      });
+      namespaceLoadsRef.current.set(key, promise);
+      return promise;
+    },
+    [locale],
+  );
+  const loadAIInterviewTranslations = useCallback(
+    () => loadNamespace('aiInterview'),
+    [loadNamespace],
+  );
+  const loadAIEnhancementTranslations = useCallback(
+    () => loadNamespace('aiEnhancement'),
+    [loadNamespace],
+  );
+  const loadAIProviderTranslations = useCallback(
+    () => loadNamespace('aiProvider'),
+    [loadNamespace],
+  );
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
@@ -178,8 +250,28 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const value = useMemo<I18nContextValue>(
-    () => ({ locale, setLocale, t, register, format }),
-    [locale, setLocale, t, register, format],
+    () => ({
+      locale,
+      dictionaryRevision,
+      setLocale,
+      t,
+      register,
+      loadAIInterviewTranslations,
+      loadAIEnhancementTranslations,
+      loadAIProviderTranslations,
+      format,
+    }),
+    [
+      locale,
+      dictionaryRevision,
+      setLocale,
+      t,
+      register,
+      loadAIInterviewTranslations,
+      loadAIEnhancementTranslations,
+      loadAIProviderTranslations,
+      format,
+    ],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

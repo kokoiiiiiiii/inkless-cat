@@ -1,5 +1,15 @@
 import { createEmptyResume, type ResumeData, resumeSchema } from '@entities/resume';
 
+import {
+  type FactEntityKind,
+  type FactEntityLink,
+  type FactEntitySeparation,
+  type FactEntityWarning,
+  getFactEntityAmbiguities,
+  mergeCompatibleFactValues,
+  resolveFactEntityIdentity,
+  validateFactEntityLinks,
+} from './factEntityLinks';
 import { isFactCurrent, type ResumeFact } from './facts';
 import type { InterviewSession } from './types';
 
@@ -14,25 +24,13 @@ export type ResumeGenerationResult = {
     kind: 'experience' | 'project' | 'education';
     factIds: string[];
   }>;
-  entityWarnings: Array<{
-    kind: 'experience' | 'project' | 'education';
-    factIds: string[];
-    reason: 'identity-ambiguous' | 'field-conflict';
-  }>;
+  entityWarnings: FactEntityWarning[];
   missingFields: string[];
   validationError: string | null;
 };
 
-type EntityFactKind = 'experience' | 'project' | 'education';
-
-type FactEntityIdentity = {
-  kind: EntityFactKind;
-  key: string | null;
-  weakKey: string | null;
-};
-
-type FactEntityGroup = {
-  kind: EntityFactKind;
+export type FactEntityGroup = {
+  kind: FactEntityKind;
   key: string | null;
   facts: ResumeFact[];
   value: Record<string, unknown>;
@@ -60,216 +58,50 @@ const getTextList = (record: Record<string, unknown>, key: string): string[] => 
     : [];
 };
 
-const normalizeIdentityPart = (value: string): string =>
-  value.normalize('NFKC').replaceAll(/\s+/gu, ' ').trim().toLocaleLowerCase('en-US');
-
-const normalizeProjectLink = (value: string): string | null => {
-  try {
-    const url = new URL(value.trim());
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
-};
-
-/** Resolve identity only from exact, user-confirmed anchors. Similar names are never compared. */
-export const resolveFactEntityIdentity = (fact: ResumeFact): FactEntityIdentity | null => {
-  if (fact.kind !== 'experience' && fact.kind !== 'project' && fact.kind !== 'education') {
-    return null;
-  }
-  const value = getRecord(fact.value);
-  if (fact.kind === 'experience') {
-    const company = getText(value, 'company');
-    const role = getText(value, 'role');
-    const weakKey = company ? `experience:${normalizeIdentityPart(company)}` : null;
-    return {
-      kind: fact.kind,
-      key:
-        company && role
-          ? `experience:${normalizeIdentityPart(company)}|${normalizeIdentityPart(role)}`
-          : null,
-      weakKey,
-    };
-  }
-  if (fact.kind === 'education') {
-    const school = getText(value, 'school');
-    const degree = getText(value, 'degree');
-    const weakKey = school ? `education:${normalizeIdentityPart(school)}` : null;
-    return {
-      kind: fact.kind,
-      key:
-        school && degree
-          ? `education:${normalizeIdentityPart(school)}|${normalizeIdentityPart(degree)}`
-          : null,
-      weakKey,
-    };
-  }
-
-  const name = getText(value, 'name');
-  const link = getText(value, 'link');
-  const normalizedLink = link ? normalizeProjectLink(link) : null;
-  return {
-    kind: fact.kind,
-    key: normalizedLink ? `project:${normalizedLink}` : null,
-    weakKey: name ? `project:${normalizeIdentityPart(name)}` : null,
-  };
-};
-
-const entityScalarFields: Record<EntityFactKind, string[]> = {
-  experience: ['company', 'role', 'location', 'startDate', 'endDate'],
-  project: ['name', 'role', 'summary', 'link'],
-  education: ['school', 'degree', 'startDate', 'endDate', 'details'],
-};
-
-const entityListFields = [
-  'responsibilities',
-  'individualResponsibilities',
-  'teamResponsibilities',
-  'achievements',
-] as const;
-
 const compareFacts = (left: ResumeFact, right: ResumeFact): number =>
   left.extractedAt - right.extractedAt || left.id.localeCompare(right.id);
 
-const getDistinctScalarValues = (facts: ResumeFact[], field: string): string[] => {
-  const values = facts
-    .map((fact) => getText(getRecord(fact.value), field))
-    .filter((value): value is string => value !== undefined);
-  return [...new Set(values.map((value) => normalizeIdentityPart(value)))];
-};
-
-/** Merge only exact-compatible scalar values; responsibility lists retain their source boundary. */
-export const mergeCompatibleFactValues = (
-  facts: ResumeFact[],
-): { ok: true; value: Record<string, unknown> } | { ok: false; conflictFields: string[] } => {
-  const first = facts[0];
-  if (
-    !first ||
-    (first.kind !== 'experience' && first.kind !== 'project' && first.kind !== 'education')
-  ) {
-    return { ok: false, conflictFields: [] };
-  }
-  const kind = first.kind;
-  if (facts.some((fact) => fact.kind !== kind)) return { ok: false, conflictFields: [] };
-
-  const orderedFacts = [...facts].sort(compareFacts);
-  const conflictFields = entityScalarFields[kind].filter(
-    (field) => getDistinctScalarValues(orderedFacts, field).length > 1,
-  );
-  if (conflictFields.length > 0) return { ok: false, conflictFields };
-
-  const value: Record<string, unknown> = {};
-  for (const field of entityScalarFields[kind]) {
-    const chosen = orderedFacts
-      .map((fact) => getText(getRecord(fact.value), field))
-      .find((item): item is string => item !== undefined);
-    if (chosen) value[field] = chosen;
-  }
-  for (const field of entityListFields) {
-    const seen = new Set<string>();
-    const merged: string[] = [];
-    for (const fact of orderedFacts) {
-      for (const item of getTextList(getRecord(fact.value), field)) {
-        const key = normalizeIdentityPart(item);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        merged.push(item);
-      }
-    }
-    if (merged.length > 0) value[field] = merged;
-  }
-  return { ok: true, value };
-};
-
-const hasAmbiguousIdentityPair = (left: ResumeFact, right: ResumeFact): boolean => {
-  const leftIdentity = resolveFactEntityIdentity(left);
-  const rightIdentity = resolveFactEntityIdentity(right);
-  if (!leftIdentity || !rightIdentity || leftIdentity.kind !== rightIdentity.kind) return false;
-  if (!leftIdentity.weakKey || leftIdentity.weakKey !== rightIdentity.weakKey) return false;
-  return !leftIdentity.key || !rightIdentity.key;
-};
-
-/** Groups current confirmed entity facts; unclear identities and conflicting fields stay separate. */
+/** Only a current user-confirmed link can combine multiple source facts into a record. */
 export const groupConfirmedFactsByEntity = (
   session: InterviewSession | null,
   facts: ResumeFact[],
-): { groups: FactEntityGroup[]; warnings: ResumeGenerationResult['entityWarnings'] } => {
+  links: FactEntityLink[] = [],
+  separations: FactEntitySeparation[] = [],
+): { groups: FactEntityGroup[]; warnings: FactEntityWarning[] } => {
   const eligibleFacts = getCurrentConfirmedFacts(session, facts)
     .filter((fact) => resolveFactEntityIdentity(fact))
     .sort(compareFacts);
   const groups: FactEntityGroup[] = [];
-  const warnings = new Map<string, ResumeGenerationResult['entityWarnings'][number]>();
-  const identityGroups = new Map<string, FactEntityGroup[]>();
-  const weakIdentityFacts = new Map<string, ResumeFact[]>();
+  const eligibleById = new Map(eligibleFacts.map((fact) => [fact.id, fact]));
+  const groupedFactIds = new Set<string>();
 
-  const addWarning = (
-    kind: EntityFactKind,
-    reason: ResumeGenerationResult['entityWarnings'][number]['reason'],
-    sourceFacts: ResumeFact[],
-  ) => {
-    const factIds = [...new Set(sourceFacts.map((fact) => fact.id))].sort();
-    if (factIds.length < 2) return;
-    const key = `${kind}:${reason}:${factIds.join('|')}`;
-    warnings.set(key, { kind, reason, factIds });
-  };
+  for (const link of validateFactEntityLinks(session, facts, links)) {
+    if (link.status !== 'active') continue;
+    const linkedFacts = link.factIds
+      .map((factId) => eligibleById.get(factId))
+      .filter((fact): fact is ResumeFact => fact !== undefined)
+      .sort(compareFacts);
+    if (linkedFacts.length !== link.factIds.length) continue;
+    const merged = mergeCompatibleFactValues(linkedFacts);
+    if (!merged.ok) continue;
+    groups.push({ kind: link.kind, key: link.entityId, facts: linkedFacts, value: merged.value });
+    for (const fact of linkedFacts) groupedFactIds.add(fact.id);
+  }
 
   for (const fact of eligibleFacts) {
-    const identity = resolveFactEntityIdentity(fact);
-    if (!identity) continue;
-    if (identity.weakKey) {
-      const weakGroup = weakIdentityFacts.get(identity.weakKey) ?? [];
-      weakGroup.push(fact);
-      weakIdentityFacts.set(identity.weakKey, weakGroup);
-    }
-    if (!identity.key) {
-      groups.push({ kind: identity.kind, key: null, facts: [fact], value: getRecord(fact.value) });
-      continue;
-    }
-
-    const indexKey = `${identity.kind}:${identity.key}`;
-    const matchingGroups = identityGroups.get(indexKey) ?? [];
-    let compatibleGroup: FactEntityGroup | undefined;
-    const conflictingGroups: FactEntityGroup[] = [];
-    for (const group of matchingGroups) {
-      const merged = mergeCompatibleFactValues([...group.facts, fact]);
-      if (merged.ok) {
-        compatibleGroup = group;
-        group.value = merged.value;
-        group.facts.push(fact);
-        break;
-      }
-      conflictingGroups.push(group);
-    }
-    if (compatibleGroup) continue;
-
-    for (const group of conflictingGroups)
-      addWarning(identity.kind, 'field-conflict', [...group.facts, fact]);
-    const newGroup: FactEntityGroup = {
-      kind: identity.kind,
-      key: identity.key,
+    if (groupedFactIds.has(fact.id)) continue;
+    groups.push({
+      kind: fact.kind as FactEntityKind,
+      key: null,
       facts: [fact],
       value: getRecord(fact.value),
-    };
-    groups.push(newGroup);
-    matchingGroups.push(newGroup);
-    identityGroups.set(indexKey, matchingGroups);
+    });
   }
 
-  for (const weakFacts of weakIdentityFacts.values()) {
-    if (weakFacts.length < 2) continue;
-    const kind = resolveFactEntityIdentity(weakFacts[0]!)?.kind;
-    if (!kind) continue;
-    const ambiguousFacts = weakFacts.filter((fact) =>
-      weakFacts.some(
-        (candidate) => candidate.id !== fact.id && hasAmbiguousIdentityPair(fact, candidate),
-      ),
-    );
-    if (ambiguousFacts.length > 1) addWarning(kind, 'identity-ambiguous', ambiguousFacts);
-  }
+  const warnings = getFactEntityAmbiguities(session, facts, links, separations);
 
   groups.sort((left, right) => compareFacts(left.facts[0]!, right.facts[0]!));
-  return { groups, warnings: [...warnings.values()] };
+  return { groups, warnings };
 };
 
 const responsibilityLabel = (
@@ -352,10 +184,12 @@ export const buildResumeDraftFromFacts = (
   session: InterviewSession | null,
   facts: ResumeFact[],
   locale: ResumeGenerationLocale,
+  entityLinks: FactEntityLink[] = [],
+  entitySeparations: FactEntitySeparation[] = [],
 ): ResumeGenerationResult => {
   const confirmedFacts = getCurrentConfirmedFacts(session, facts);
   const confirmedIds = new Set(confirmedFacts.map((fact) => fact.id));
-  const entityResult = groupConfirmedFactsByEntity(session, facts);
+  const entityResult = groupConfirmedFactsByEntity(session, facts, entityLinks, entitySeparations);
   const resume = createEmptyResume();
   const personal: Record<string, string> = {};
   const summaries: string[] = [];
@@ -392,7 +226,7 @@ export const buildResumeDraftFromFacts = (
     }
   }
 
-  const groupsByKind = (kind: EntityFactKind) =>
+  const groupsByKind = (kind: FactEntityKind) =>
     entityResult.groups.filter((group) => group.kind === kind);
   for (const [index, group] of groupsByKind('experience').entries()) {
     const id = `generated-experience-${index}-${cleanId(group.facts[0]!.id)}`;
@@ -478,4 +312,11 @@ export const getResumeDraftBasisKey = (
     isConfigured: boolean;
     connectionStatus: string;
   },
-): string => JSON.stringify({ session, facts, provider });
+  entityState?: { links: FactEntityLink[]; separations: FactEntitySeparation[] },
+): string =>
+  JSON.stringify({
+    session,
+    facts,
+    provider,
+    entityState: entityState ?? { links: [], separations: [] },
+  });

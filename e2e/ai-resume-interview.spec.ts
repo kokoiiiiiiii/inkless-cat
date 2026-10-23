@@ -116,6 +116,43 @@ const openInterview = async (page: Page, english = false) => {
   return page.getByRole('dialog', { name: english ? 'AI resume interview' : 'AI 智能简历访谈' });
 };
 
+test('interview dialog uses readable summary tabs on tablet and phone widths', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+    { width: 320, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(dialog.getByRole('button', { name: '访谈', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '摘要' })).toBeVisible();
+    await expect(dialog.locator('main')).toBeVisible();
+    await expect(dialog.getByRole('complementary')).toBeHidden();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+
+    await dialog.getByRole('button', { name: '摘要' }).click();
+    await expect(dialog.locator('main')).toBeHidden();
+    await expect(dialog.getByRole('complementary')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '访谈', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await dialog.getByRole('button', { name: '访谈', exact: true }).click();
+    await expect(dialog.locator('main')).toBeVisible();
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(dialog.getByRole('button', { name: '摘要' })).toBeHidden();
+  await expect(dialog.getByRole('complementary')).toBeVisible();
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
 const answer = async (dialog: import('@playwright/test').Locator, text: string) => {
   await dialog.getByRole('textbox', { name: '你的回答' }).fill(text);
   await dialog.getByRole('button', { name: '发送回答' }).click();
@@ -130,13 +167,23 @@ const addAndConfirmManualFact = async (
 ) => {
   await panel.getByRole('button', { name: '手动整理事实' }).click();
   await panel.getByLabel('事实类型').selectOption({ label: kindLabel });
-  await panel.getByLabel('来源回答').selectOption({ label: sourceLabel });
-  for (const [label, value] of fields) await panel.getByLabel(label).fill(value);
+  await panel.getByLabel('来源回答').first().selectOption({ label: sourceLabel });
+  for (const [label, value] of fields) {
+    await panel.getByRole('textbox', { name: label, exact: true }).fill(value);
+  }
   await panel.getByRole('button', { name: '添加待核实事实' }).click();
   const factCard = panel.locator('article').filter({ hasText: uniqueMarker });
   await expect(factCard).toHaveCount(1);
   await factCard.getByRole('button', { name: '我已核对这些字段' }).click();
   await expect(factCard.getByText('字段含义已由你确认', { exact: true })).toBeVisible();
+};
+
+const cancelAndStartNewInterview = async (page: Page, dialog: Locator) => {
+  await dialog.getByRole('button', { name: '取消访谈' }).click();
+  const confirmation = page.getByRole('alertdialog', { name: '要丢弃本次访谈吗？' });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: '丢弃回答' }).click();
+  await dialog.getByRole('button', { name: '重新开始访谈' }).click();
 };
 
 test.afterEach(async () => {
@@ -251,7 +298,230 @@ test('requires current-draft confirmation and keeps undo after rebuilding withou
   expect(requests).toBe(0);
 });
 
-test('aggregates confirmed facts for one experience while keeping responsibility ownership and provenance', async ({
+test('refuses draft undo after a Workspace edit returns to the applied value (ABA)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('头衔').fill('Original title');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Backend engineer');
+
+  const summary = dialog.getByRole('complementary');
+  const facts = summary.getByRole('region', { name: '事实核实' });
+  await addAndConfirmManualFact(
+    facts,
+    '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。',
+    '目标岗位',
+    [['目标岗位', 'Backend engineer']],
+    'Backend engineer',
+  );
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  await draft.getByLabel('目标岗位/头衔').fill('Applied title');
+  await summary.getByRole('button', { name: '检查并替换当前简历' }).click();
+  await summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }).check();
+  await summary.getByRole('button', { name: '确认替换正式简历' }).click();
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  const formalTitle = page.getByLabel('头衔', { exact: true });
+  await formalTitle.fill('Temporary Workspace edit');
+  await formalTitle.fill('Applied title');
+
+  const resumedDialog = await openInterview(page);
+  await resumedDialog.getByRole('button', { name: '撤销并恢复原简历' }).click();
+  await expect(resumedDialog.getByText(/正式简历已再次变化/u)).toBeVisible();
+  await expect(resumedDialog.getByRole('button', { name: '撤销并恢复原简历' })).toHaveCount(0);
+  await resumedDialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  await expect(formalTitle).toHaveValue('Applied title');
+});
+
+test('hides the previous draft and pending replacement after cancelling and starting a new session', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const baseline = await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'));
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'First round answer');
+  const summary = dialog.getByRole('complementary');
+  const facts = summary.getByRole('region', { name: '事实核实' });
+  const source = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '目标岗位',
+    [['目标岗位', 'First round candidate']],
+    'First round candidate',
+  );
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  await draft.getByLabel('目标岗位/头衔').fill('First session draft');
+  await summary.getByRole('button', { name: '检查并替换当前简历' }).click();
+  await summary.getByRole('checkbox', { name: /理解这会替换当前正式简历/u }).check();
+
+  await cancelAndStartNewInterview(page, dialog);
+
+  await expect(summary.getByTestId('generated-resume-draft')).toHaveCount(0);
+  await expect(summary.getByRole('button', { name: '确认替换正式简历' })).toHaveCount(0);
+  await expect(summary.getByRole('button', { name: '构建草稿' })).toBeDisabled();
+  expect(await page.evaluate(() => localStorage.getItem('inkless-cat/resume-store'))).toBe(
+    baseline,
+  );
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
+test('preserves the current draft when pausing and reopening the same interview session', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'A session that can be resumed');
+  const summary = dialog.getByRole('complementary');
+  const facts = summary.getByRole('region', { name: '事实核实' });
+  const source = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '目标岗位',
+    [['目标岗位', 'Backend engineer']],
+    'Backend engineer',
+  );
+  await summary.getByRole('button', { name: '构建草稿' }).click();
+  const draft = summary.getByTestId('generated-resume-draft');
+  await draft.getByText('编辑候选简历', { exact: true }).click();
+  await draft.getByLabel('目标岗位/头衔').fill('Paused session draft');
+
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+  await expect(dialog).toBeHidden();
+  const resumedDialog = await openInterview(page);
+  const resumedDraft = resumedDialog.getByTestId('generated-resume-draft');
+  await expect(resumedDraft).toBeVisible();
+  await expect(resumedDraft.getByLabel('目标岗位/头衔')).toHaveValue('Paused session draft');
+  await resumedDialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
+test('clears old association selections and links only new-session facts', async ({ page }) => {
+  await page.goto('/');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'First session answer');
+  const facts = dialog.getByRole('complementary').getByRole('region', { name: '事实核实' });
+  const source = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'First Session Co'],
+      ['岗位名称', 'Engineer'],
+      ['开始时间', '2020'],
+    ],
+    '2020',
+  );
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'First Session Co'],
+      ['岗位名称', 'Engineer'],
+      ['结束时间', '2021'],
+    ],
+    '2021',
+  );
+  const selectionGroup = facts.getByRole('group', { name: '已确认且仍有来源的事实' });
+  await selectionGroup.getByRole('checkbox').nth(0).check();
+  await selectionGroup.getByRole('checkbox').nth(1).check();
+  await expect(facts.getByText('已选择 2 条')).toBeVisible();
+
+  await cancelAndStartNewInterview(page, dialog);
+  await answer(dialog, 'Second session answer');
+  const nextSource = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+  await addAndConfirmManualFact(
+    facts,
+    nextSource,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'Second Session Co'],
+      ['岗位名称', 'Engineer'],
+      ['开始时间', '2022'],
+    ],
+    '2022',
+  );
+  await addAndConfirmManualFact(
+    facts,
+    nextSource,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'Second Session Co'],
+      ['岗位名称', 'Engineer'],
+      ['结束时间', '2023'],
+    ],
+    '2023',
+  );
+  await expect(facts.getByText('已选择 0 条')).toBeVisible();
+  const currentSelectionGroup = facts.getByRole('group', { name: '已确认且仍有来源的事实' });
+  await currentSelectionGroup.getByRole('checkbox').nth(0).check();
+  await currentSelectionGroup.getByRole('checkbox').nth(1).check();
+  await facts.getByRole('button', { name: '确认属于同一条记录' }).click();
+  await expect(facts.getByRole('status').filter({ hasText: '已关联所选事实' })).toBeVisible();
+  await expect(facts.getByText(/First Session Co/u)).toHaveCount(0);
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
+test('clears an association selection when a fact is rejected', async ({ page }) => {
+  await page.goto('/');
+  const dialog = await openInterview(page);
+  await dialog.getByRole('button', { name: '使用基础问题开始' }).click();
+  await answer(dialog, 'Facts that can be reviewed');
+  const facts = dialog.getByRole('complementary').getByRole('region', { name: '事实核实' });
+  const source = '你希望应聘什么岗位或寻找什么类型的机会？可以先宽泛介绍，也可以跳过。';
+
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'Review Co'],
+      ['岗位名称', 'Engineer'],
+      ['开始时间', '2020'],
+    ],
+    '2020',
+  );
+  await addAndConfirmManualFact(
+    facts,
+    source,
+    '工作经历',
+    [
+      ['雇主/任职公司（非客户公司）', 'Review Co'],
+      ['岗位名称', 'Engineer'],
+      ['结束时间', '2021'],
+    ],
+    '2021',
+  );
+
+  const selectionGroup = facts.getByRole('group', { name: '已确认且仍有来源的事实' });
+  await selectionGroup.getByRole('checkbox').nth(0).check();
+  await selectionGroup.getByRole('checkbox').nth(1).check();
+  await expect(facts.getByText('已选择 2 条')).toBeVisible();
+  await facts
+    .locator('article')
+    .filter({ hasText: '2020' })
+    .getByRole('button', { name: '拒绝' })
+    .click();
+
+  await expect(facts.getByText('已选择 1 条')).toBeVisible();
+  await expect(facts.getByRole('button', { name: '确认属于同一条记录' })).toBeDisabled();
+  await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
+});
+
+test('keeps similar facts separate until the user links them and preserves responsibility ownership and provenance', async ({
   page,
 }) => {
   let requests = 0;
@@ -304,6 +574,22 @@ test('aggregates confirmed facts for one experience while keeping responsibility
   );
 
   await summary.getByRole('button', { name: '构建草稿' }).click();
+  const separateDraft = summary.getByTestId('generated-resume-draft');
+  await expect(separateDraft.locator('fieldset')).toHaveCount(3);
+  const separateSources = JSON.parse(
+    (await separateDraft.getAttribute('data-source-fact-ids')) ?? '[]',
+  ) as Array<{ factIds: string[] }>;
+  expect(separateSources).toHaveLength(3);
+  expect(separateSources.every(({ factIds }) => factIds.length === 1)).toBe(true);
+
+  const associationGroup = facts.getByRole('group', { name: '已确认且仍有来源的事实' });
+  await associationGroup.getByRole('checkbox').nth(0).check();
+  await associationGroup.getByRole('checkbox').nth(1).check();
+  await associationGroup.getByRole('checkbox').nth(2).check();
+  await facts.getByRole('button', { name: '确认属于同一条记录' }).click();
+  await expect(facts.getByRole('status').filter({ hasText: '已关联所选事实' })).toBeVisible();
+  await summary.getByRole('button', { name: '按最新事实重建' }).click();
+
   const draft = summary.getByTestId('generated-resume-draft');
   await expect(draft.locator('fieldset')).toHaveCount(1);
   const sources = JSON.parse((await draft.getAttribute('data-source-fact-ids')) ?? '[]') as Array<{
@@ -845,6 +1131,7 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
     .getByRole('dialog', { name: '切换语言' })
     .getByRole('button', { name: '仅切换语言' })
     .click();
+  await expect(page.getByRole('button', { name: 'Create resume with AI' })).toBeVisible();
   let dialog = await openInterview(page, true);
   await expect(dialog.getByText('Start from scratch')).toBeVisible();
   await dialog.getByRole('button', { name: 'Start with guide questions' }).click();
