@@ -180,7 +180,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
               >
                 <input
                   type="checkbox"
-                  className="mt-1 size-4 shrink-0 accent-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                  className="mt-1 size-4 shrink-0 accent-indigo-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400"
                   checked={checked}
                   disabled={Boolean(link)}
                   onChange={() => {
@@ -221,7 +221,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
             </span>
             <button
               type="button"
-              className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-400 dark:text-slate-950"
+              className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-400 dark:text-slate-950"
               disabled={currentSelectedFactIds.length < 2 || hasMixedKinds}
               onClick={handleAssociate}
             >
@@ -229,7 +229,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
             </button>
             <button
               type="button"
-              className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               disabled={currentSelectedFactIds.length < 2 || hasMixedKinds}
               onClick={() => handleKeepSeparate(currentSelectedFactIds)}
             >
@@ -286,7 +286,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:bg-indigo-400 dark:text-slate-950"
+                      className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:bg-indigo-400 dark:text-slate-950"
                       onClick={() => {
                         setSelectedFactIds(warning.factIds);
                         setMessage({ key: 'aiInterview.entities.chooseAssociateAction' });
@@ -296,7 +296,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
                     </button>
                     <button
                       type="button"
-                      className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                       onClick={() => handleKeepSeparate(warning.factIds)}
                     >
                       {t('aiInterview.entities.keepSeparate')}
@@ -368,7 +368,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
                   {canConfirm && (
                     <button
                       type="button"
-                      className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:bg-indigo-400 dark:text-slate-950"
+                      className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:bg-indigo-400 dark:text-slate-950"
                       onClick={() => {
                         setMessage(
                           controller.confirmEntityLink(link.entityId)
@@ -382,7 +382,7 @@ const FactEntityAssociationPanel = ({ session, controller }: FactEntityAssociati
                   )}
                   <button
                     type="button"
-                    className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     onClick={() => {
                       controller.unlinkEntityFacts(link.entityId);
                       setMessage({ key: 'aiInterview.entities.linkRemoved' });

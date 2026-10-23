@@ -11,7 +11,7 @@ type AIProviderSettingsDialogProps = {
 };
 
 const secondaryButtonClass =
-  'inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+  'inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 
 const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSettingsDialogProps) => {
   const settings = useAIProviderSettings();
@@ -180,7 +180,7 @@ const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSetti
               onChange={(event) => settings.updateField('baseUrl', event.currentTarget.value)}
               placeholder="https://example.com/v1"
               aria-describedby={baseUrlHelpId}
-              className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
             <p
               id={baseUrlHelpId}
@@ -206,7 +206,7 @@ const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSetti
                 value={settings.form.apiKey}
                 onChange={(event) => settings.updateField('apiKey', event.currentTarget.value)}
                 aria-describedby={apiKeyHelpId}
-                className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               />
               <button
                 type="button"
@@ -241,7 +241,7 @@ const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSetti
               onChange={(event) => settings.updateField('model', event.currentTarget.value)}
               placeholder="deepseek-chat"
               aria-describedby={modelHelpId}
-              className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
             <p
               id={modelHelpId}
@@ -267,7 +267,7 @@ const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSetti
           {statusMessage}
         </div>
 
-        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 px-5 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:static sm:mx-0 sm:mb-0 sm:flex-row sm:flex-wrap sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 px-5 py-3 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 sm:static sm:mx-0 sm:mb-0 sm:flex-row sm:flex-wrap sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
           <button
             type="button"
             className={secondaryButtonClass}
@@ -293,7 +293,7 @@ const AIProviderSettingsDialog = ({ open, onClose, triggerRef }: AIProviderSetti
           ) : (
             <button
               type="button"
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500"
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500"
               onClick={() => void settings.testConnection()}
               disabled={!settings.canTest}
             >

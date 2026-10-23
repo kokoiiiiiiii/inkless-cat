@@ -134,7 +134,7 @@ const PersonalSection = memo(
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-4 lg:w-[260px] lg:flex-shrink-0">
+            <div className="flex flex-col gap-4 lg:w-[260px] lg:shrink-0">
               {showPhoto && (
                 <div className="self-center lg:self-stretch">
                   <PhotoUpload
@@ -215,7 +215,7 @@ const PersonalSection = memo(
                   {contactCards.map((contact) => (
                     <div
                       key={contact.id}
-                      className="rounded-xl border border-slate-200/60 bg-white/80 p-3 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/60"
+                      className="rounded-xl border border-slate-200/60 bg-white/80 p-3 shadow-xs dark:border-slate-700/60 dark:bg-slate-900/60"
                     >
                       <div className="grid gap-3 md:grid-cols-2">
                         <label className={labelClass}>
@@ -262,7 +262,7 @@ const PersonalSection = memo(
                   {extras.map((extra) => (
                     <div
                       key={extra.id}
-                      className="rounded-xl border border-slate-200/60 bg-white/80 p-3 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/60"
+                      className="rounded-xl border border-slate-200/60 bg-white/80 p-3 shadow-xs dark:border-slate-700/60 dark:bg-slate-900/60"
                     >
                       <div className="grid gap-3 md:grid-cols-2">
                         <label className={labelClass}>

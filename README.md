@@ -23,7 +23,7 @@ Inkless Cat 是一个纯前端、开箱即用的开源简历编辑器。它以�
 
 - React 19 + TypeScript
 - Vite 8（开发/构建，Rolldown/Oxc；生产压缩继续使用 Terser）
-- Tailwind CSS + PostCSS Nesting（样式）
+- Tailwind CSS 4（CSS-first 主题与 Vite 插件）
 - Immer（不可变数据与安全更新）
 - Zustand + `persist`（实体/UI 状态与本地持久化）
 - FSD 改良版分层（pages/widgets/features/entities/shared）+ 路径别名
@@ -38,7 +38,8 @@ Inkless Cat 是一个纯前端、开箱即用的开源简历编辑器。它以�
 
 ## 快速开始 🚀
 
-环境要求：Node.js `24.x`（版本见 `.nvmrc`），npm `>=11.19.1 <12`。质量 CI 固定使用 npm `11.20.0`。
+环境要求：Node.js `24.x`（版本见 `.nvmrc`），npm `>=11.6.2 <12`。质量 CI 固定使用 npm `11.20.0`；Cloudflare Pages 使用 Node 24 随附的兼容 npm（Pages build image 的 npm 与所选 Node 版本对应）。
+浏览器最低版本：Chrome 111、Edge 111、Firefox 128、Safari 16.4。
 
 ```bash
 npm install           # 安装依赖
@@ -171,7 +172,7 @@ src/
 ## 质量与工程 🔧
 
 - Lint：基于 `eslint.config.js`，集成 React/TS/import/jsx-a11y/unicorn/security/tailwindcss 等规则，约束跨层导入与路径穿透。
-- 样式扫描：Tailwind `content` 已覆盖 `features/entities/widgets/pages/shared/app`，避免生产环境样式被摇掉。
+- 样式扫描：Tailwind 4 的 CSS-first 配置显式扫描 `src/` 与 `index.html`；主题令牌维护在 `src/index.css`。
 - 构建：Vite 8 + Terser；生产环境剔除 `console`/`debugger`。
 
 ## 数据与隐私 🔐

@@ -136,6 +136,7 @@ const config = tseslint.config(
     },
     settings: {
       react: { version: 'detect' },
+      tailwindcss: { cssConfigPath: './src/index.css' },
       'import/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
       'import/resolver': {
         typescript: { project: './tsconfig.eslint.json', alwaysTryTypes: true },
@@ -160,6 +161,7 @@ const config = tseslint.config(
     },
     settings: {
       react: { version: 'detect' },
+      tailwindcss: { cssConfigPath: './src/index.css' },
       'import/resolver': {
         node: { extensions: ['.js', '.jsx'] },
       },

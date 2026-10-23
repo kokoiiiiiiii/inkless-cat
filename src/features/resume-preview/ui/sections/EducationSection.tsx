@@ -33,7 +33,7 @@ export const EducationSection = ({
             key={edu.id}
             ref={setSectionRef('education', edu.id)}
             className={cn(
-              'rounded-2xl border border-transparent px-4 py-4 text-sm shadow-sm transition hover:-translate-y-0.5',
+              'rounded-2xl border border-transparent px-4 py-4 text-sm shadow-xs transition hover:-translate-y-0.5',
               variant.card,
             )}
             style={themeStyles.card}

@@ -27,13 +27,13 @@ type AIResumeInterviewRuntimeProps = {
 };
 
 const closeButtonClass =
-  'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-lg text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+  'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-lg text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 const secondaryButtonClass =
-  'inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-500 motion-reduce:transition-none';
+  'inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-500 motion-reduce:transition-none';
 const primaryButtonClass =
-  'inline-flex min-h-11 items-center justify-center rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500 dark:text-slate-950 dark:hover:bg-brand-400 motion-reduce:transition-none';
+  'inline-flex min-h-11 items-center justify-center rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500 dark:text-slate-950 dark:hover:bg-brand-400 motion-reduce:transition-none';
 const fieldClass =
-  'min-h-28 w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900';
+  'min-h-28 w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900';
 
 const phaseKeys: Record<InterviewPhase, string> = {
   targetRole: 'aiInterview.phases.targetRole',
@@ -369,7 +369,7 @@ const AIResumeInterviewRuntime = ({
               {answer && !answer.skipped && session?.status !== 'cancelled' && (
                 <button
                   type="button"
-                  className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-brand-800 underline decoration-brand-300 underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-brand-200"
+                  className="mt-2 min-h-9 rounded-lg px-2 text-xs font-medium text-brand-800 underline decoration-brand-300 underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-brand-200"
                   onClick={(event) => requestEditAnswer(question.id, event.currentTarget)}
                 >
                   {t('aiInterview.editAnswer')}
@@ -498,7 +498,7 @@ const AIResumeInterviewRuntime = ({
           <h3
             ref={currentQuestionRef}
             tabIndex={-1}
-            className="whitespace-pre-wrap break-words text-base leading-7 text-slate-900 outline-none dark:text-slate-100 sm:text-lg"
+            className="whitespace-pre-wrap break-words text-base leading-7 text-slate-900 outline-hidden dark:text-slate-100 sm:text-lg"
           >
             {localizeInterviewQuestion(question, t).content}
           </h3>
@@ -804,7 +804,7 @@ const AIResumeInterviewRuntime = ({
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              className="hidden min-h-10 rounded-full px-3 text-xs font-medium text-slate-600 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-300 sm:inline-flex"
+              className="hidden min-h-10 rounded-full px-3 text-xs font-medium text-slate-600 underline underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-300 sm:inline-flex"
               onClick={openProviderSettings}
             >
               {t('aiInterview.configureProvider')}
@@ -826,7 +826,7 @@ const AIResumeInterviewRuntime = ({
         <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950/50 lg:hidden">
           <button
             type="button"
-            className={`min-h-10 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ${mobileTab === 'interview' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
+            className={`min-h-10 rounded-lg px-3 text-sm font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 ${mobileTab === 'interview' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
             aria-pressed={mobileTab === 'interview'}
             onClick={() => setMobileTab('interview')}
           >
@@ -834,7 +834,7 @@ const AIResumeInterviewRuntime = ({
           </button>
           <button
             type="button"
-            className={`min-h-10 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ${mobileTab === 'summary' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
+            className={`min-h-10 rounded-lg px-3 text-sm font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 ${mobileTab === 'summary' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
             aria-pressed={mobileTab === 'summary'}
             onClick={() => setMobileTab('summary')}
           >
@@ -894,7 +894,7 @@ const AIResumeInterviewRuntime = ({
               <button
                 ref={cancelTriggerRef}
                 type="button"
-                className="ml-auto min-h-11 rounded-full px-4 text-sm font-medium text-rose-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 dark:text-rose-300"
+                className="ml-auto min-h-11 rounded-full px-4 text-sm font-medium text-rose-700 underline underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-400 dark:text-rose-300"
                 onClick={(event) => {
                   confirmationTriggerRef.current = event.currentTarget;
                   confirmationReturnTargetRef.current = 'trigger';
@@ -909,7 +909,7 @@ const AIResumeInterviewRuntime = ({
             <button
               ref={closeOnlyButtonRef}
               type="button"
-              className="ml-auto min-h-11 rounded-full px-4 text-sm font-medium text-slate-600 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-300"
+              className="ml-auto min-h-11 rounded-full px-4 text-sm font-medium text-slate-600 underline underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-300"
               onClick={closeAndPause}
             >
               {t('aiInterview.closeOnly')}

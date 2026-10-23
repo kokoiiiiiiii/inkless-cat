@@ -65,7 +65,7 @@ export const CustomSection = ({
           {items.map((item, index) => (
             <li key={item || index} className="flex gap-2">
               <span
-                className={cn('mt-[0.4rem] h-1.5 w-1.5 flex-shrink-0 rounded-full', variant.bullet)}
+                className={cn('mt-[0.4rem] h-1.5 w-1.5 shrink-0 rounded-full', variant.bullet)}
                 style={accentBulletStyle}
               />
               <span className={cn('flex-1', variant.metaValue)} style={themeStyles.text}>

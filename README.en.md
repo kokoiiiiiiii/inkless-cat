@@ -23,7 +23,7 @@ Live Demo: <https://inkless-cat.pages.dev>
 
 - React 19 + TypeScript
 - Vite 8 (dev/build, Rolldown/Oxc; Terser remains the production minifier)
-- Tailwind CSS + PostCSS Nesting (styling)
+- Tailwind CSS 4 (CSS-first theme and Vite plugin)
 - Immer (immutable updates)
 - Zustand + `persist` (entity/UI stores with browser persistence)
 - FSD‑inspired layering (pages/widgets/features/entities/shared) + path aliases
@@ -38,7 +38,8 @@ Live Demo: <https://inkless-cat.pages.dev>
 
 ## Quickstart
 
-Requirements: Node.js `24.x` (version pinned in `.nvmrc`) and npm `>=11.19.1 <12`. Quality CI pins npm `11.20.0`.
+Requirements: Node.js `24.x` (version pinned in `.nvmrc`) and npm `>=11.6.2 <12`. Quality CI pins npm `11.20.0`; Cloudflare Pages uses the compatible npm bundled with its selected Node 24 runtime.
+Minimum browsers: Chrome 111, Edge 111, Firefox 128, and Safari 16.4.
 
 ```bash
 npm install           # install dependencies
@@ -171,7 +172,7 @@ Example:
 ## Quality & Tooling
 
 - Linting: `eslint.config.js` integrates React/TS/import/jsx‑a11y/unicorn/security/tailwindcss, enforces import boundaries and alias usage.
-- Tailwind content: configured to scan `features/entities/widgets/pages/shared/app` to avoid purging required classes in production.
+- Tailwind 4 scans `src/` and `index.html` through CSS-first source declarations; theme tokens live in `src/index.css`.
 - Build: Vite 8 + Terser; drops `console` and `debugger` in production builds.
 
 ## Data & Privacy

@@ -78,7 +78,7 @@ const TemplateThumbnailComponent = ({
       aria-hidden="true"
       data-testid="template-thumbnail"
     >
-      <div className="relative h-20 w-14 overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm dark:border-slate-600">
+      <div className="relative h-20 w-14 overflow-hidden rounded-xs border border-slate-200 bg-white shadow-xs dark:border-slate-600">
         <div className="pointer-events-none absolute left-0 top-0 h-[800px] w-[560px] origin-top-left scale-[0.1]">
           <ResumePreview
             resume={thumbnailResume}

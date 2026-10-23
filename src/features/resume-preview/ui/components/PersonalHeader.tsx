@@ -77,7 +77,7 @@ export const PersonalHeader = ({
             <img
               src={photoSource}
               alt={t('preview.candidatePhoto')}
-              className="flex-shrink-0 rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40"
+              className="shrink-0 rounded-3xl object-cover shadow-lg shadow-slate-300/30 ring-4 ring-slate-200/50 dark:ring-slate-700/40"
               style={{
                 width: `${photoSize}px`,
                 height: `${photoSize}px`,
@@ -91,7 +91,7 @@ export const PersonalHeader = ({
           <div className={cn('text-sm', variant.metaWrapper)} style={themeStyles.muted}>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 print:grid-cols-2">
               {contactItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-[auto,1fr] items-baseline gap-x-2">
+                <div key={item.id} className="grid grid-cols-[auto_1fr] items-baseline gap-x-2">
                   <dt className={cn('font-medium', variant.metaLabel)} style={themeStyles.heading}>
                     {item.label}
                   </dt>

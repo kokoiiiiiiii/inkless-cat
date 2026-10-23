@@ -24,7 +24,7 @@ export const FeedbackViewport = () => {
       {items.map((item) => (
         <div
           key={item.id}
-          className={`pointer-events-auto w-full max-w-sm rounded-2xl border p-4 shadow-xl backdrop-blur ${toneClassMap[item.tone]}`}
+          className={`pointer-events-auto w-full max-w-sm rounded-2xl border p-4 shadow-xl backdrop-blur-sm ${toneClassMap[item.tone]}`}
           role={item.tone === 'error' ? 'alert' : 'status'}
         >
           <div className="flex items-start gap-3">

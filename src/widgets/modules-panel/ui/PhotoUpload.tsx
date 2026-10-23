@@ -14,10 +14,10 @@ type PhotoUploadProps = {
 };
 
 const uploadButtonClass =
-  'inline-flex items-center justify-center rounded-full border border-transparent bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/40 transition hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400';
+  'inline-flex items-center justify-center rounded-full border border-transparent bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/40 transition hover:-translate-y-0.5 hover:bg-brand-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-brand-500 dark:hover:bg-brand-400';
 
 const clearButtonClass =
-  'inline-flex items-center justify-center rounded-full border border-transparent bg-slate-200/70 px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-300/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-700/70';
+  'inline-flex items-center justify-center rounded-full border border-transparent bg-slate-200/70 px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-300/80 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-700/70';
 
 const PhotoUpload = ({
   value,
@@ -110,9 +110,9 @@ const PhotoUpload = ({
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300/80 bg-slate-50/80 p-5 text-center shadow-inner shadow-slate-200/60 dark:border-slate-700/70 dark:bg-slate-900/60 dark:shadow-none">
+    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300/80 bg-slate-50/80 p-5 text-center inset-shadow-sm inset-shadow-slate-200/60 dark:border-slate-700/70 dark:bg-slate-900/60 dark:inset-shadow-none">
       <div
-        className="relative flex items-center justify-center overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        className="relative flex items-center justify-center overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-900"
         style={boxStyle}
       >
         {photoSource ? (

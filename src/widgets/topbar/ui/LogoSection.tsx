@@ -15,7 +15,7 @@ const LogoSection = () => {
         <img
           src={inklessCatLogoPng}
           alt={logoAlt === 'topbar.logoAlt' ? 'Inkless Cat logo' : logoAlt}
-          className="size-10 rounded-full border border-slate-200/70 bg-white object-cover shadow-inner shadow-brand-200/60 dark:border-slate-700 dark:bg-slate-900"
+          className="size-10 rounded-full border border-slate-200/70 bg-white object-cover inset-shadow-sm inset-shadow-brand-200/60 dark:border-slate-700 dark:bg-slate-900"
         />
       </picture>
       <div className="flex flex-col">
