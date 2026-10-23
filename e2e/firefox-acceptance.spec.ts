@@ -45,3 +45,15 @@ test('Firefox supports the AI interview without a configured provider', async ({
   await interview.getByRole('button', { name: '使用基础问题开始' }).click();
   await expect(interview.getByRole('textbox', { name: '你的回答' })).toBeVisible();
 });
+
+test('Firefox renders the isolated Liquid Glass prototype at mobile width', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/design/phase4a');
+
+  await expect(page.getByRole('heading', { name: '个人资料' })).toBeVisible();
+  await page.getByRole('textbox', { name: '姓名' }).fill('Firefox 演示');
+  await page.getByRole('button', { name: '预览' }).click();
+  await expect(page.getByRole('heading', { name: 'Firefox 演示' })).toBeVisible();
+  await expect(page.getByRole('region', { name: '简历实时预览' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
