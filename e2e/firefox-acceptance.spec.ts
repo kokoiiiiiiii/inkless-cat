@@ -45,3 +45,19 @@ test('Firefox supports the AI interview without a configured provider', async ({
   await interview.getByRole('button', { name: '使用基础问题开始' }).click();
   await expect(interview.getByRole('textbox', { name: '你的回答' })).toBeVisible();
 });
+
+test('Firefox accepts the isolated Phase 4B editor and keeps its mobile preview usable', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto('/design/phase4b');
+  await expect(page.getByRole('heading', { name: '个人资料' })).toBeVisible();
+  await page.getByRole('textbox', { name: '姓名' }).fill('Firefox 演示内容');
+  await expect(page.getByRole('heading', { name: 'Firefox 演示内容' })).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.getByRole('region', { name: '简历实时预览' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Firefox 演示内容' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});

@@ -31,6 +31,13 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=1 --retries=0
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/phase4b-') }}
+        with:
+          name: phase4b-studio-visual-review
+          path: test-results/**/phase4b-*.png
+          if-no-files-found: ignore
+          retention-days: 14
 
   linux-firefox-acceptance:
     if: github.event_name == 'pull_request'
