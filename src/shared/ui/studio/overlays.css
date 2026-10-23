@@ -80,6 +80,9 @@
 
 .studio-root .studio-dialog {
   position: fixed;
+  inset: 50% auto auto 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
   z-index: var(--studio-z-dialog);
   width: min(500px, calc(100vw - 28px));
   max-width: none;

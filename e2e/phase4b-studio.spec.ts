@@ -129,6 +129,17 @@ test('dialog traps focus, closes with Escape and restores focus to its trigger',
 
   const dialog = page.getByRole('dialog', { name: 'Phase 4B 设计演示' });
   await expect(dialog).toBeVisible();
+  const dialogBounds = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(dialogBounds).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  if (!dialogBounds || !viewport) throw new Error('Dialog and viewport must be measurable');
+  expect(
+    Math.abs(dialogBounds.x + dialogBounds.width / 2 - viewport.width / 2),
+  ).toBeLessThanOrEqual(2);
+  expect(
+    Math.abs(dialogBounds.y + dialogBounds.height / 2 - viewport.height / 2),
+  ).toBeLessThanOrEqual(2);
   const closeButton = dialog.getByRole('button', { name: '关闭弹窗' });
   const confirmButton = dialog.getByRole('button', { name: '明白了' });
   await expect(confirmButton).toBeFocused();
