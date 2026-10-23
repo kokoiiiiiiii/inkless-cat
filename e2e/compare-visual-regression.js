@@ -12,11 +12,9 @@ const outputRoot = path.resolve(
 );
 
 const readCheckoutSha = (directory) =>
-  execFileSync(
-    'git',
-    ['-c', `safe.directory=${directory}`, '-C', directory, 'rev-parse', 'HEAD'],
-    { encoding: 'utf8' },
-  ).trim();
+  execFileSync('git', ['-c', `safe.directory=${directory}`, '-C', directory, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+  }).trim();
 
 if (!baselineRoot) {
   throw new Error('MODERNIZATION_BASELINE_DIR is required; visual comparison cannot be skipped.');
