@@ -12,7 +12,7 @@ test('Liquid Glass prototype keeps editing and module controls local @phase4a', 
   await page.getByRole('textbox', { name: '姓名' }).fill('许清禾');
   await expect(page.locator('.studio-paper-heading h2')).toHaveText('许清禾');
 
-  await page.getByRole('button', { name: '模块管理' }).click();
+  await page.getByRole('button', { name: '模块管理', exact: true }).click();
   await page.getByRole('switch', { name: '隐藏工作经历' }).click();
   await expect(page.getByRole('switch', { name: '显示工作经历' })).toHaveAttribute(
     'aria-checked',
@@ -64,8 +64,10 @@ test('Liquid Glass review captures are independent at desktop, tablet and mobile
   page,
 }, testInfo) => {
   const attachCapture = async (name: string) => {
+    const path = testInfo.outputPath(`${name}.png`);
+    await page.screenshot({ path, animations: 'disabled', fullPage: true });
     await testInfo.attach(name, {
-      body: await page.screenshot({ animations: 'disabled', fullPage: true }),
+      path,
       contentType: 'image/png',
     });
   };
