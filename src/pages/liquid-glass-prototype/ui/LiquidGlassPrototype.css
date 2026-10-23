@@ -2120,9 +2120,12 @@
 
   .studio-editor-column {
     width: min(100% - 28px, 700px);
+    height: calc(100dvh - 170px - env(safe-area-inset-bottom));
     max-height: none;
     margin: 0 auto;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 5px 0 26px;
   }
 

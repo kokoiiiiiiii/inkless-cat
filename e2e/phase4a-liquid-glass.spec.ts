@@ -110,5 +110,18 @@ test('Liquid Glass review captures are independent at desktop, tablet and mobile
 
   await page.setViewportSize({ width: 320, height: 780 });
   await expectNoHorizontalOverflow(320);
+  const mobileSummaryField = page.getByRole('textbox', { name: '个人简介' });
+  await mobileSummaryField.focus();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const field = document.querySelector('.studio-field textarea');
+        const navigation = document.querySelector('.studio-mobile-nav');
+        if (!field || !navigation) return false;
+        return field.getBoundingClientRect().bottom <= navigation.getBoundingClientRect().top - 8;
+      }),
+    )
+    .toBe(true);
+  await mobileSummaryField.evaluate((element) => (element as HTMLTextAreaElement).blur());
   await attachCapture('liquid-glass-mobile-320');
 });
