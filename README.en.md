@@ -22,7 +22,7 @@ Live Demo: <https://inkless-cat.pages.dev>
 ## Tech Stack
 
 - React 19 + TypeScript
-- Vite 7 (dev/build)
+- Vite 8 (dev/build, Rolldown/Oxc; Terser remains the production minifier)
 - Tailwind CSS + PostCSS Nesting (styling)
 - Immer (immutable updates)
 - Zustand + `persist` (entity/UI stores with browser persistence)
@@ -172,7 +172,7 @@ Example:
 
 - Linting: `eslint.config.js` integrates React/TS/import/jsx‑a11y/unicorn/security/tailwindcss, enforces import boundaries and alias usage.
 - Tailwind content: configured to scan `features/entities/widgets/pages/shared/app` to avoid purging required classes in production.
-- Build: Vite 7 + Terser; drops `console` and `debugger` in production builds.
+- Build: Vite 8 + Terser; drops `console` and `debugger` in production builds.
 
 ## Data & Privacy
 
