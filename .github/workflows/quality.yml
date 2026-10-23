@@ -29,14 +29,8 @@ jobs:
 
   linux-browser-acceptance:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
-    container:
-      image: mcr.microsoft.com/playwright:v1.61.1-noble
-      options: --user 1001
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
-      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
     steps:
       - uses: actions/checkout@v5
         with:
@@ -50,6 +44,7 @@ jobs:
       - run: node --version
       - run: npm --version
       - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
       - run: npm run build
       - uses: actions/checkout@v5
         with:
