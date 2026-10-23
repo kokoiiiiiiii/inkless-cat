@@ -11,6 +11,13 @@ const outputRoot = path.resolve(
   process.env.MODERNIZATION_VISUAL_RESULTS ?? path.join(repoRoot, '.visual-regression-results'),
 );
 
+const readCheckoutSha = (directory) =>
+  execFileSync(
+    'git',
+    ['-c', `safe.directory=${directory}`, '-C', directory, 'rev-parse', 'HEAD'],
+    { encoding: 'utf8' },
+  ).trim();
+
 if (!baselineRoot) {
   throw new Error('MODERNIZATION_BASELINE_DIR is required; visual comparison cannot be skipped.');
 }
@@ -18,12 +25,8 @@ if (!baselineRoot) {
 const baseDirectory = path.resolve(baselineRoot);
 const expectedBaselineSha = process.env.MODERNIZATION_BASELINE_SHA;
 const expectedHeadSha = process.env.MODERNIZATION_HEAD_SHA;
-const baselineSha = execFileSync('git', ['-C', baseDirectory, 'rev-parse', 'HEAD'], {
-  encoding: 'utf8',
-}).trim();
-const checkoutSha = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], {
-  encoding: 'utf8',
-}).trim();
+const baselineSha = readCheckoutSha(baseDirectory);
+const checkoutSha = readCheckoutSha(repoRoot);
 if (expectedBaselineSha && baselineSha !== expectedBaselineSha) {
   throw new Error(
     `Expected base ${expectedBaselineSha}, but visual baseline checkout is ${baselineSha}.`,
