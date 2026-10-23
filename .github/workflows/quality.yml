@@ -2,6 +2,11 @@ name: Quality checks
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
   workflow_dispatch:
 
 permissions:
@@ -27,7 +32,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=1 --retries=0
 
-  linux-browser-acceptance:
+  linux-firefox-acceptance:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -44,8 +49,29 @@ jobs:
       - run: node --version
       - run: npm --version
       - run: npm ci
+      - run: npx playwright install --with-deps firefox
+      - run: npm run build
+      - name: Run Firefox acceptance paths
+        run: npm run test:e2e -- --config playwright.firefox.config.ts --workers=1 --retries=0
+
+  visual-parity:
+    if: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'visual-parity') }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+          check-latest: true
+          cache: npm
+      - run: npm install --global npm@11.20.0
+      - run: node --version
+      - run: npm --version
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright install firefox
       - run: npm run build
       - uses: actions/checkout@v5
         with:
@@ -62,8 +88,6 @@ jobs:
           MODERNIZATION_BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
           MODERNIZATION_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           MODERNIZATION_VISUAL_RESULTS: ${{ github.workspace }}/visual-regression-results
-      - name: Run Firefox acceptance paths
-        run: npm run test:e2e -- --config playwright.firefox.config.ts --workers=1 --retries=0
       - uses: actions/upload-artifact@v7
         if: always()
         with:

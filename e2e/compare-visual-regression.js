@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 import { chromium } from '@playwright/test';
 
+// Use this strict old/new UI comparison only for changes expected to preserve appearance, such as
+// build-tool, dependency, or CSS-engine migrations and internal refactors. Do not use it for
+// intentional redesigns (for example, Liquid Glass, new navigation, editor redesigns, new themes,
+// or layout changes); those need a new design baseline and a separate visual review.
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const baselineRoot = process.env.MODERNIZATION_BASELINE_DIR;
 const outputRoot = path.resolve(
