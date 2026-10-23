@@ -1,4 +1,11 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { StudioIcon, type StudioIconName } from './StudioIcon';
 
@@ -10,28 +17,42 @@ type StudioPopoverProps = {
 
 export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => {
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
 
-    const firstItem = menuRef.current?.querySelector<HTMLElement>(
-      '[role="menuitem"]:not(:disabled)',
+    const menuItems = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [];
+    for (const item of menuItems) item.tabIndex = -1;
+
+    const firstItem = [...menuItems].find(
+      (item) => !item.matches(':disabled, [aria-disabled="true"]'),
     );
     firstItem?.focus();
 
     const dismissOutside = (event: PointerEvent) => {
-      if (!menuRef.current?.parentElement?.contains(event.target as Node)) setOpen(false);
+      if (event.target instanceof Node && !anchorRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
     };
     document.addEventListener('pointerdown', dismissOutside);
 
     return () => document.removeEventListener('pointerdown', dismissOutside);
   }, [open]);
 
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && menuRef.current?.contains(nextTarget)) return;
+    setOpen(false);
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const items = [
-      ...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? []),
+      ...(menuRef.current?.querySelectorAll<HTMLElement>(
+        '[role="menuitem"]:not(:disabled):not([aria-disabled="true"])',
+      ) ?? []),
     ];
     const currentIndex = items.indexOf(document.activeElement as HTMLElement);
 
@@ -56,7 +77,7 @@ export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => 
   };
 
   return (
-    <div className="studio-popover-anchor">
+    <div className="studio-popover-anchor" ref={anchorRef}>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
@@ -77,6 +98,7 @@ export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => 
         data-glass-layer="true"
         hidden={!open}
         aria-label={label}
+        onBlur={handleBlur}
         onClick={(event) => {
           if (event.target instanceof Element && event.target.closest('[role="menuitem"]')) {
             setOpen(false);

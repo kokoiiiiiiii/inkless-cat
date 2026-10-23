@@ -54,4 +54,4 @@ Phase 4C must keep `ResumePreviewView` and the production print CSS as the only 
 
 ## Visual artifacts and scope
 
-The `phase4b-studio-visual-review` GitHub Actions artifact is uploaded only for pull requests whose head branch starts with `design/phase4b-`. It contains fresh Phase 4B screenshots (desktop light/dark, 1024px, 768px, 390px, 320px, modules, templates, dialog, A4 preview); they are review evidence, not a legacy pixel-parity baseline. No `visual-parity` label is required or added.
+The `phase4b-studio-visual-review` GitHub Actions artifact is uploaded only for pull requests whose head branch starts with `design/phase4b-`. It contains fresh Phase 4B screenshots (desktop light/dark, 1024px, 768px, 390px, 320px, modules, templates, dialog, expanded Popover, A4 preview); they are review evidence, not a legacy pixel-parity baseline. No `visual-parity` label is required or added.

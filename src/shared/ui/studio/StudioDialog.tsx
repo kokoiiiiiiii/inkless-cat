@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
 
 import { StudioIcon } from './StudioIcon';
 
@@ -10,6 +10,7 @@ type StudioDialogProps = {
 };
 
 export const StudioDialog = ({ children, onClose, open, title }: StudioDialogProps) => {
+  const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -28,7 +29,7 @@ export const StudioDialog = ({ children, onClose, open, title }: StudioDialogPro
 
   return (
     <dialog
-      aria-labelledby="studio-dialog-title"
+      aria-labelledby={titleId}
       className="studio-dialog studio-glass"
       data-glass-layer="true"
       onCancel={(event) => {
@@ -52,7 +53,7 @@ export const StudioDialog = ({ children, onClose, open, title }: StudioDialogPro
           <StudioIcon name="close" />
         </button>
       </div>
-      <h2 id="studio-dialog-title">{title}</h2>
+      <h2 id={titleId}>{title}</h2>
       <div className="studio-dialog__body">{children}</div>
     </dialog>
   );

@@ -150,6 +150,12 @@ test('dialog traps focus, closes with Escape and restores focus to its trigger',
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await expect(dialog).toBeVisible();
+  await confirmButton.click();
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
 });
 
 test('Tab order and reduced-motion preferences keep focus feedback predictable', async ({
@@ -233,18 +239,94 @@ test('mobile More menu supports arrow navigation and opens the selected demo pan
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    type GlobalWithMenuActivations = typeof globalThis & { menuActivationCount: number };
+    (globalThis as GlobalWithMenuActivations).menuActivationCount = 0;
+    document.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('[role="menuitem"]')) {
+        (globalThis as GlobalWithMenuActivations).menuActivationCount += 1;
+      }
+    });
+  });
   await page.goto(studioPath);
-  await page.getByRole('button', { name: '更多' }).click();
+  const moreButton = page.getByRole('button', { name: '更多' });
+  await moreButton.focus();
+  await page.keyboard.press('Enter');
+  await expect(moreButton).toHaveAttribute('aria-expanded', 'true');
 
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
   const firstItem = page.getByRole('menuitem', { name: '模块管理' });
   await expect(firstItem).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(page.getByRole('menuitem', { name: 'AI 功能演示' })).toBeFocused();
+  const interviewItem = page.getByRole('menuitem', { name: 'AI 功能演示' });
+  await expect(interviewItem).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(firstItem).toBeFocused();
+  await page.keyboard.press('End');
+  await expect(page.getByRole('menuitem', { name: '设置入口' })).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(firstItem).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(interviewItem).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'AI 功能演示' })).toBeVisible();
   await expect(page.getByText('演示界面 · 不调用模型')).toBeVisible();
+  await expect(menu).toBeHidden();
+  await expect(moreButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(moreButton).toBeFocused();
+  expect(
+    await page.evaluate(
+      () => (globalThis as typeof globalThis & { menuActivationCount: number }).menuActivationCount,
+    ),
+  ).toBe(1);
+
+  await page.keyboard.press('Enter');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(moreButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(moreButton).toBeFocused();
+});
+
+test('mobile More menu closes on Tab, Shift+Tab, and outside clicks without trapping or stealing focus', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(studioPath);
+  await page.evaluate(() => {
+    const nextControl = document.createElement('button');
+    nextControl.id = 'phase4b-after-mobile-navigation';
+    nextControl.textContent = 'Next control';
+    document.querySelector('.studio-mobile-nav')?.after(nextControl);
+  });
+
+  const moreButton = page.getByRole('button', { name: '更多' });
+  const menu = page.getByRole('menu');
+  const afterNavigation = page.getByRole('button', { name: 'Next control' });
+
+  await moreButton.click();
+  const firstItem = page.getByRole('menuitem', { name: '模块管理' });
+  await expect(firstItem).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(afterNavigation).toBeFocused();
+  await expect(menu).toBeHidden();
+  await expect(moreButton).toHaveAttribute('aria-expanded', 'false');
+
+  await moreButton.focus();
+  await page.keyboard.press('Enter');
+  await expect(firstItem).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(moreButton).toBeFocused();
+  await expect(menu).toBeHidden();
+  await expect(moreButton).toHaveAttribute('aria-expanded', 'false');
+
+  await page.keyboard.press('Enter');
+  await expect(firstItem).toBeFocused();
+  await afterNavigation.click();
+  await expect(menu).toBeHidden();
+  await expect(afterNavigation).toBeFocused();
+  await expect(moreButton).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('captures independent Phase 4B visual review screenshots', async ({ page }, testInfo) => {
@@ -288,6 +370,9 @@ test('captures independent Phase 4B visual review screenshots', async ({ page },
   await capture('phase4b-dialog');
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '更多' }).click();
+  await capture('phase4b-popover-expanded');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '预览', exact: true }).click();
   await capture('phase4b-a4-preview-mobile');
 });

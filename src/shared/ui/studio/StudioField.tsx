@@ -8,21 +8,48 @@ import {
 } from 'react';
 
 type FieldShellProps = {
+  baseClassName: string;
+  className?: string;
+  describedBy?: string;
+  id?: string;
   label: string;
   helpText?: string;
-  children: (id: string, describedBy?: string) => ReactNode;
+  children: (attributes: FieldControlAttributes) => ReactNode;
 };
 
-const FieldShell = ({ label, helpText, children }: FieldShellProps) => {
-  const fieldId = useId();
-  const helpId = `${fieldId}-help`;
+type FieldControlAttributes = {
+  className: string;
+  describedBy?: string;
+  id: string;
+};
+
+const mergeIdRefs = (...values: Array<string | undefined>) => {
+  const idRefs = values.flatMap((value) => value?.trim().split(/\s+/u).filter(Boolean) ?? []);
+  const uniqueIdRefs = [...new Set(idRefs)];
+  return uniqueIdRefs.length > 0 ? uniqueIdRefs.join(' ') : undefined;
+};
+
+const FieldShell = ({
+  baseClassName,
+  className,
+  describedBy,
+  id,
+  label,
+  helpText,
+  children,
+}: FieldShellProps) => {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
+  const helpId = `${generatedId}-help`;
+  const fieldClassName = className ? `${baseClassName} ${className}` : baseClassName;
+  const fieldDescribedBy = mergeIdRefs(describedBy, helpText ? helpId : undefined);
 
   return (
     <div className="studio-field">
       <label className="studio-field__label" htmlFor={fieldId}>
         {label}
       </label>
-      {children(fieldId, helpText ? helpId : undefined)}
+      {children({ className: fieldClassName, describedBy: fieldDescribedBy, id: fieldId })}
       {helpText ? (
         <span className="studio-field__help" id={helpId}>
           {helpText}
@@ -38,17 +65,32 @@ type StudioInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> 
   onValueChange: (value: string) => void;
 };
 
-export const StudioInput = ({ label, helpText, onValueChange, ...props }: StudioInputProps) => (
-  <FieldShell label={label} helpText={helpText}>
-    {(id, describedBy) => (
+export const StudioInput = ({
+  'aria-describedby': describedBy,
+  className,
+  helpText,
+  id,
+  label,
+  onValueChange,
+  ...props
+}: StudioInputProps) => (
+  <FieldShell
+    baseClassName="studio-control"
+    className={className}
+    describedBy={describedBy}
+    helpText={helpText}
+    id={id}
+    label={label}
+  >
+    {({ className: fieldClassName, describedBy: fieldDescribedBy, id: fieldId }) => (
       <input
-        className="studio-control"
-        id={id}
+        {...props}
+        className={fieldClassName}
+        id={fieldId}
         onChange={(event: ChangeEvent<HTMLInputElement>) =>
           onValueChange(event.currentTarget.value)
         }
-        aria-describedby={describedBy}
-        {...props}
+        aria-describedby={fieldDescribedBy}
       />
     )}
   </FieldShell>
@@ -63,19 +105,29 @@ type StudioTextareaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'on
 export const StudioTextarea = ({
   label,
   helpText,
+  className,
+  id,
+  'aria-describedby': describedBy,
   onValueChange,
   ...props
 }: StudioTextareaProps) => (
-  <FieldShell label={label} helpText={helpText}>
-    {(id, describedBy) => (
+  <FieldShell
+    baseClassName="studio-control studio-control--textarea"
+    className={className}
+    describedBy={describedBy}
+    helpText={helpText}
+    id={id}
+    label={label}
+  >
+    {({ className: fieldClassName, describedBy: fieldDescribedBy, id: fieldId }) => (
       <textarea
-        className="studio-control studio-control--textarea"
-        id={id}
+        {...props}
+        className={fieldClassName}
+        id={fieldId}
         onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
           onValueChange(event.currentTarget.value)
         }
-        aria-describedby={describedBy}
-        {...props}
+        aria-describedby={fieldDescribedBy}
       />
     )}
   </FieldShell>
@@ -91,19 +143,29 @@ export const StudioSelect = ({
   children,
   label,
   helpText,
+  className,
+  id,
+  'aria-describedby': describedBy,
   onValueChange,
   ...props
 }: StudioSelectProps) => (
-  <FieldShell label={label} helpText={helpText}>
-    {(id, describedBy) => (
+  <FieldShell
+    baseClassName="studio-control"
+    className={className}
+    describedBy={describedBy}
+    helpText={helpText}
+    id={id}
+    label={label}
+  >
+    {({ className: fieldClassName, describedBy: fieldDescribedBy, id: fieldId }) => (
       <select
-        className="studio-control"
-        id={id}
+        {...props}
+        className={fieldClassName}
+        id={fieldId}
         onChange={(event: ChangeEvent<HTMLSelectElement>) =>
           onValueChange(event.currentTarget.value)
         }
-        aria-describedby={describedBy}
-        {...props}
+        aria-describedby={fieldDescribedBy}
       >
         {children}
       </select>
