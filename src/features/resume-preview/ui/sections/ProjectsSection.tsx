@@ -38,7 +38,7 @@ export const ProjectsSection = ({
               key={project.id}
               ref={setSectionRef('projects', project.id)}
               className={cn(
-                'rounded-2xl border border-transparent px-4 py-4 text-sm shadow-sm transition hover:-translate-y-0.5',
+                'rounded-2xl border border-transparent px-4 py-4 text-sm shadow-xs transition hover:-translate-y-0.5',
                 variant.card,
               )}
               style={themeStyles.card}
@@ -90,7 +90,7 @@ export const ProjectsSection = ({
                     <li key={index} className="flex gap-2">
                       <span
                         className={cn(
-                          'mt-[0.4rem] h-1.5 w-1.5 flex-shrink-0 rounded-full',
+                          'mt-[0.4rem] h-1.5 w-1.5 shrink-0 rounded-full',
                           variant.bullet,
                         )}
                         style={accentBulletStyle}

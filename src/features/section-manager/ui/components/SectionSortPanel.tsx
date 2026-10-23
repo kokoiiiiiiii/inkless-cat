@@ -25,11 +25,11 @@ type SectionSortPanelProps = {
 };
 
 const dragItemClass =
-  'relative flex cursor-default select-none items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/90 px-4 py-3 text-sm shadow-sm transition-[transform,margin] duration-150 ease-out hover:border-brand-400 hover:shadow-lg motion-reduce:transition-none dark:border-slate-700/60 dark:bg-slate-900/60';
+  'relative flex cursor-default select-none items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/90 px-4 py-3 text-sm shadow-xs transition-[transform,margin] duration-150 ease-out hover:border-brand-400 hover:shadow-lg motion-reduce:transition-none dark:border-slate-700/60 dark:bg-slate-900/60';
 const dragIndicatorClass =
   'pointer-events-none absolute left-4 right-4 h-1 rounded-full bg-brand-500';
 const actionButtonClass =
-  'inline-flex min-h-11 items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:scale-100 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200';
+  'inline-flex min-h-11 items-center justify-center gap-1 rounded-full border border-slate-200/70 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:scale-100 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200';
 
 export const SectionSortPanel = ({
   resolvedActiveSections,
@@ -130,7 +130,7 @@ export const SectionSortPanel = ({
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60">
+    <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-xs dark:border-slate-800/70 dark:bg-slate-900/60">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
           {t('modules.sort.title')}
@@ -261,7 +261,7 @@ export const SectionSortPanel = ({
                         title={label}
                         data-move-direction={direction}
                         disabled={isDisabled}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md font-semibold text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md font-semibold text-slate-500 hover:bg-slate-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
                         onClick={(event) => {
                           event.stopPropagation();
                           if (isDisabled || !onReorderSections) return;

@@ -149,7 +149,7 @@ const CustomSectionEditor = memo(
                     {fieldsValue.map((field) => (
                       <div
                         key={field.id}
-                        className="rounded-xl border border-slate-200/70 bg-white/80 p-3 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/60"
+                        className="rounded-xl border border-slate-200/70 bg-white/80 p-3 shadow-xs dark:border-slate-700/60 dark:bg-slate-900/60"
                       >
                         <div className="flex flex-col gap-3 md:flex-row">
                           <label className={`${labelClass} md:flex-1`}>

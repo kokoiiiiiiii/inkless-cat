@@ -116,7 +116,7 @@ const TemplateBasicsFields = ({
         <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
           {t('template.creation.nameLabel')}
           <input
-            className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+            className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
             type="text"
             value={templateName}
             placeholder={t('template.creation.namePlaceholder')}
@@ -126,7 +126,7 @@ const TemplateBasicsFields = ({
         <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
           {t('template.creation.styleLabel')}
           <select
-            className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+            className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
             value={previewStyle}
             onChange={(event) => onStyleChange(event.target.value)}
           >
@@ -144,7 +144,7 @@ const TemplateBasicsFields = ({
       <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
         {t('template.creation.descriptionLabel')}
         <input
-          className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+          className="h-11 w-full rounded-xl border border-slate-300/60 bg-white/80 px-3 text-sm text-slate-900 shadow-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
           type="text"
           value={templateDescription}
           placeholder={t('template.creation.descriptionPlaceholder')}
@@ -154,7 +154,7 @@ const TemplateBasicsFields = ({
       <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
         {t('template.creation.accentLabel')}
         <input
-          className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+          className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
           type="color"
           value={accentColor}
           onChange={(event) => onAccentChange(event.target.value)}
@@ -181,7 +181,7 @@ const CustomThemeFieldGrid = ({
         >
           {t(labelKey)}
           <input
-            className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
+            className="h-11 w-full cursor-pointer rounded-xl border border-slate-300/60 bg-white/80 px-2 text-sm text-slate-900 shadow-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-brand-400"
             type="color"
             value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
             onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
@@ -235,7 +235,7 @@ const TemplateCreationForm = ({ onSaveTemplate }: TemplateCreationFormProps) => 
 
   return (
     <form
-      className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/60"
+      className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-xs dark:border-slate-700/60 dark:bg-slate-900/60"
       onSubmit={handleSubmit}
     >
       <TemplateBasicsFields

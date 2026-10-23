@@ -235,7 +235,7 @@ const ActionButtons = ({
         {pendingLocale && (
           <div
             ref={dialogRef}
-            className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm dark:bg-slate-900/70 sm:px-6"
+            className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-xs dark:bg-slate-900/70 sm:px-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="locale-dialog-title"
@@ -259,14 +259,14 @@ const ActionButtons = ({
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                  className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
                   onClick={handleLanguageOnly}
                 >
                   {translateWithFallback('topbar.langSwitch.languageOnly', '仅切换语言')}
                 </button>
                 <button
                   type="button"
-                  className="flex-1 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                  className="flex-1 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300"
                   onClick={handleLoadTemplate}
                 >
                   {t('topbar.langSwitch.loadTemplate', {

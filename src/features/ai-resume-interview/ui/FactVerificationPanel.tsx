@@ -217,7 +217,7 @@ const FactValueEditor = ({ kind, value, onChange, idPrefix }: FactEditorProps) =
             {field.multiline ? (
               <textarea
                 id={fieldId}
-                className="mt-1 min-h-20 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                className="mt-1 min-h-20 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 value={fieldText}
                 onChange={(event) =>
                   onChange(setFieldText(value, field.key, event.currentTarget.value, field.list))
@@ -226,7 +226,7 @@ const FactValueEditor = ({ kind, value, onChange, idPrefix }: FactEditorProps) =
             ) : (
               <input
                 id={fieldId}
-                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 value={fieldText}
                 onChange={(event) =>
                   onChange(setFieldText(value, field.key, event.currentTarget.value))
@@ -295,7 +295,7 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${fact.status === 'confirmed' ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200' : fact.status === 'conflict' || fact.status === 'stale' ? 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100' : fact.status === 'rejected' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'dark:bg-brand-950 bg-brand-50 text-brand-900 dark:text-brand-200'}`}
+          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${fact.status === 'confirmed' ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200' : fact.status === 'conflict' || fact.status === 'stale' ? 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100' : fact.status === 'rejected' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'bg-brand-50 text-brand-900 dark:text-brand-200'}`}
         >
           {statusLabel(fact.status, t)}
         </span>
@@ -344,7 +344,7 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
         </p>
       )}
       <details className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 dark:bg-slate-900">
-        <summary className="cursor-pointer font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-200">
+        <summary className="cursor-pointer font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-slate-200">
           {t('aiInterview.facts.viewSource')}
         </summary>
         {source ? (
@@ -443,9 +443,9 @@ const FactCard = ({ fact, session, controller }: FactCardProps) => {
 };
 
 const smallPrimaryClass =
-  'inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500 dark:text-slate-950';
+  'inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500 dark:text-slate-950';
 const smallSecondaryClass =
-  'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+  'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 
 type FactVerificationPanelProps = {
   session: InterviewSession | null;
@@ -550,7 +550,7 @@ const FactVerificationPanel = ({
 
   return (
     <section
-      className="dark:bg-brand-950/20 min-w-0 rounded-2xl border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-900 sm:p-4"
+      className="min-w-0 rounded-2xl border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-900 sm:p-4"
       aria-labelledby="resume-fact-verification-heading"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -725,7 +725,7 @@ const FactVerificationPanel = ({
             <label className="text-xs font-medium text-slate-700 dark:text-slate-200">
               {t('aiInterview.facts.factType')}
               <select
-                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 value={manualKind}
                 onChange={(event) => {
                   const nextKind = event.currentTarget.value as FactKind;
@@ -744,7 +744,7 @@ const FactVerificationPanel = ({
             <label className="text-xs font-medium text-slate-700 dark:text-slate-200">
               {t('aiInterview.facts.sourceAnswer')}
               <select
-                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 value={manualSourceId}
                 onChange={(event) => setManualSourceId(event.currentTarget.value)}
               >
@@ -805,7 +805,7 @@ const FactVerificationPanel = ({
 
       {controller.confirmedCount > 0 && (
         <details className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
-          <summary className="cursor-pointer text-xs font-semibold text-emerald-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-100">
+          <summary className="cursor-pointer text-xs font-semibold text-emerald-950 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-100">
             {t('aiInterview.facts.confirmedSummary', { count: controller.confirmedCount })}
           </summary>
           <ul className="mt-2 space-y-2 text-xs leading-5 text-emerald-950 dark:text-emerald-100">

@@ -76,12 +76,12 @@ type ActivePolishRequest = {
 };
 
 const inputClass =
-  'min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
+  'min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
 const textAreaClass = `${inputClass} min-h-20 resize-y leading-6`;
 const buttonClass =
-  'inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 motion-reduce:transition-none';
+  'inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 motion-reduce:transition-none';
 const primaryButtonClass =
-  'inline-flex min-h-10 items-center justify-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500 dark:text-slate-950 motion-reduce:transition-none';
+  'inline-flex min-h-10 items-center justify-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brand-500 dark:text-slate-950 motion-reduce:transition-none';
 
 const snapshotMatches = (current: ResumeSnapshot, snapshot: ResumeSnapshot) =>
   current.workspaceGeneration === snapshot.workspaceGeneration &&
@@ -968,7 +968,7 @@ const ResumeGenerationPanel = ({
             <h5 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
               {t('aiInterview.generation.previewTitle')}
             </h5>
-            <div className="max-h-[420px] overflow-auto rounded-lg bg-white p-2 shadow-inner dark:bg-slate-900">
+            <div className="max-h-[420px] overflow-auto rounded-lg bg-white p-2 inset-shadow-sm dark:bg-slate-900">
               <ResumePreview
                 resume={draft.resume}
                 activeSections={deriveSectionsFromResume(draft.resume)}
@@ -978,7 +978,7 @@ const ResumeGenerationPanel = ({
           </div>
 
           <details className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-white">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-white">
               {t('aiInterview.generation.editTitle')}
             </summary>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1125,7 +1125,7 @@ const ResumeGenerationPanel = ({
               <label className="mt-3 flex min-h-11 items-start gap-3 text-sm leading-5 text-rose-950 dark:text-rose-100">
                 <input
                   type="checkbox"
-                  className="mt-1 size-4 rounded border-rose-400 accent-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                  className="mt-1 size-4 rounded-sm border-rose-400 accent-rose-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400"
                   checked={replacementAcknowledged}
                   onChange={(event) => {
                     replacementAcknowledgedRef.current = event.target.checked;

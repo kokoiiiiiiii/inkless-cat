@@ -30,7 +30,7 @@ const ControlButton = ({
   onClick,
 }: ControlButtonProps) => {
   const baseClass =
-    'inline-flex min-h-10 items-center justify-center rounded-full border border-transparent px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 motion-reduce:transition-none';
+    'inline-flex min-h-10 items-center justify-center rounded-full border border-transparent px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 motion-reduce:transition-none';
   const toneClass =
     tone === 'danger'
       ? 'bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-200 dark:hover:bg-red-500/30'
@@ -59,7 +59,7 @@ const StyleSelector = ({
     <label className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
       {t('template.controls.styleLabel')}
       <select
-        className="min-h-10 rounded-lg border border-slate-300/70 bg-white px-2 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="min-h-10 rounded-lg border border-slate-300/70 bg-white px-2 text-xs text-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         value={value}
         onChange={onChange}
       >
@@ -88,7 +88,7 @@ const AccentColorPicker = ({
     <label className="inline-flex min-h-10 items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
       {t('template.controls.accentLabel')}
       <input
-        className="h-9 w-11 cursor-pointer rounded-md border border-slate-300 bg-white p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900"
+        className="h-9 w-11 cursor-pointer rounded-md border border-slate-300 bg-white p-1 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900"
         type="color"
         value={value}
         onChange={onChange}
@@ -114,7 +114,7 @@ const ThemeColorPickers = ({
         >
           {t(labelKey)}
           <input
-            className="h-9 w-11 cursor-pointer rounded-md border border-slate-300 bg-white p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900"
+            className="h-9 w-11 cursor-pointer rounded-md border border-slate-300 bg-white p-1 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900"
             type="color"
             value={theme[key] ?? DEFAULT_CUSTOM_THEME[key] ?? fallback}
             onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(key, event.target.value)}
@@ -222,7 +222,7 @@ export const CustomTemplateControls = ({
             {t('template.creation.nameLabel')}
             <input
               id={nameInputId}
-              className="min-h-10 w-full rounded-lg border border-slate-300/70 bg-white px-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="min-h-10 w-full rounded-lg border border-slate-300/70 bg-white px-3 text-sm text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type="text"
               value={nameDraft}
               placeholder={t('template.inputs.namePlaceholder')}
@@ -252,7 +252,7 @@ export const CustomTemplateControls = ({
         <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
           {t('template.creation.descriptionLabel')}
           <input
-            className="min-h-10 w-full rounded-lg border border-slate-300/70 bg-white px-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="min-h-10 w-full rounded-lg border border-slate-300/70 bg-white px-3 text-sm text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             type="text"
             value={template.description || ''}
             placeholder={t('template.inputs.descriptionPlaceholder')}
