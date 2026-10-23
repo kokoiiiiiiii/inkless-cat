@@ -28,7 +28,8 @@ test('Phase 4B stays readable at all requested widths in light and dark themes',
         `horizontal overflow at ${width}px in ${theme} theme`,
       ).toBeLessThanOrEqual(width);
 
-      const navigationLabel = width <= 768 ? '移动端工作区导航' : '工作台导航';
+      const navigationLabel =
+        width <= 768 ? '移动端工作区导航' : width <= 1000 ? '工作区快速导航' : '工作台导航';
       await expect(page.getByRole('navigation', { name: navigationLabel })).toBeVisible();
 
       if (width === 320) {
@@ -148,7 +149,11 @@ test('Tab order and reduced-motion preferences keep focus feedback predictable',
 
   const brand = page.getByRole('link', { name: 'Inkless Cat Studio 首页' });
   const help = page.getByRole('button', { name: '演示说明' });
+  await brand.focus();
+  await expect(brand).toBeFocused();
   await page.keyboard.press('Tab');
+  await expect(help).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await expect(brand).toBeFocused();
   expect(
     await brand.evaluate((element) => Number.parseFloat(getComputedStyle(element).outlineWidth)),
@@ -186,7 +191,7 @@ test('mobile switcher hides while the visual viewport is occupied by an onscreen
   });
   await page.goto(studioPath);
 
-  const mobileNavigation = page.getByRole('navigation', { name: '移动端工作区导航' });
+  const mobileNavigation = page.locator('.studio-mobile-nav');
   await page.getByRole('textbox', { name: '姓名' }).focus();
   await page.evaluate(() => {
     (
@@ -224,6 +229,15 @@ test('mobile More menu supports arrow navigation and opens the selected demo pan
 
 test('captures independent Phase 4B visual review screenshots', async ({ page }, testInfo) => {
   const capture = async (name: string) => {
+    await expect(page.locator('.studio-root')).toBeVisible();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        }),
+    );
     const path = testInfo.outputPath(`${name}.png`);
     await page.screenshot({ fullPage: true, path });
     await testInfo.attach(name, { contentType: 'image/png', path });
