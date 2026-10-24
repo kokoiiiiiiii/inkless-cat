@@ -54,7 +54,7 @@ export const StudioPopover = ({
 
   const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
     const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && menuRef.current?.contains(nextTarget)) return;
+    if (nextTarget instanceof Node && anchorRef.current?.contains(nextTarget)) return;
     setOpen(false);
   };
 
@@ -70,6 +70,15 @@ export const StudioPopover = ({
       event.preventDefault();
       setOpen(false);
       triggerRef.current?.focus();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      if (event.shiftKey) {
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
       return;
     }
 

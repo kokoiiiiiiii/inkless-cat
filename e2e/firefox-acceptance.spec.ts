@@ -2,6 +2,16 @@ import { expect, test } from '@playwright/test';
 
 import { clickSecondaryTopbarAction } from './topbar-actions';
 
+const getSectionOrder = async (page: import('@playwright/test').Page) =>
+  page
+    .getByTestId('section-sort-list')
+    .locator('[data-section-key]')
+    .evaluateAll((elements) =>
+      elements.map((element) => (element as HTMLElement).dataset.sectionKey ?? ''),
+    );
+
+const undoShortcut = process.platform === 'darwin' ? 'Meta+z' : 'Control+z';
+
 test('Firefox supports editor startup, basic editing, dark mode, and mobile switching', async ({
   page,
 }) => {
@@ -96,4 +106,54 @@ test('Firefox keeps Phase 4B overlay focus and dismissal paths operable', async 
   await dialog.getByRole('button', { name: '明白了' }).click();
   await expect(dialog).toBeHidden();
   await expect(dialogTrigger).toBeFocused();
+});
+
+test('Firefox production more-actions popover toggles closed after focus returns to its trigger', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  const trigger = page.getByRole('button', { name: '更多操作' });
+  const menu = page.getByRole('menu', { name: '更多操作' });
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem').first()).toBeFocused();
+  await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(menu).toBeHidden();
+
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
+test('Firefox keeps module Undo history while the manager is hidden', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '展开模块管理' }).click();
+
+  const initialOrder = await getSectionOrder(page);
+  await page.getByRole('button', { name: '将工作经历上移' }).click();
+  const reordered = await getSectionOrder(page);
+  expect(reordered).not.toEqual(initialOrder);
+  await page.getByRole('button', { name: '收起模块管理' }).click();
+
+  const editorNavigation = page
+    .getByRole('navigation', { name: '工作区导航' })
+    .getByRole('button', { name: '简历编辑' });
+  await editorNavigation.click();
+  await expect(page.locator('#production-personal-section')).toBeFocused();
+  await page.keyboard.press(undoShortcut);
+  await expect.poll(() => getSectionOrder(page)).toEqual(reordered);
+
+  await page.getByRole('button', { name: '展开模块管理' }).click();
+  const undo = page.getByRole('button', { name: '撤销', exact: true });
+  await expect(undo).toBeEnabled();
+  await undo.focus();
+  await page.keyboard.press(undoShortcut);
+  await expect.poll(() => getSectionOrder(page)).toEqual(initialOrder);
+  await expect(undo).toBeDisabled();
 });

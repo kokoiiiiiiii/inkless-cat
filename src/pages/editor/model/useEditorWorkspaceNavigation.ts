@@ -1,5 +1,5 @@
 import type { MobileView } from '@entities/ui';
-import { type RefObject, useCallback, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 type Destination = 'editor' | 'modules' | 'templates' | 'preview';
 type Panel = 'modules' | 'templates';
@@ -35,6 +35,18 @@ export const useEditorWorkspaceNavigation = ({
   const requestVersion = useRef(0);
   const pendingFrame = useRef<number | null>(null);
   const pendingTemplateVersion = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      requestVersion.current += 1;
+      pendingTemplateVersion.current = null;
+      if (pendingFrame.current !== null) {
+        globalThis.cancelAnimationFrame(pendingFrame.current);
+        pendingFrame.current = null;
+      }
+    },
+    [],
+  );
 
   const beginNavigation = useCallback(() => {
     requestVersion.current += 1;
@@ -123,7 +135,8 @@ export const useEditorWorkspaceNavigation = ({
     const version = beginNavigation();
     if (!isLargeScreen) {
       setMobileView('preview');
-      globalThis.requestAnimationFrame(() => {
+      pendingFrame.current = globalThis.requestAnimationFrame(() => {
+        pendingFrame.current = null;
         if (version !== requestVersion.current) return;
         globalThis.scrollTo({
           top: 0,
@@ -136,6 +149,7 @@ export const useEditorWorkspaceNavigation = ({
     resetPanels();
     setActivePane('preview');
     const frame = globalThis.requestAnimationFrame(() => {
+      pendingFrame.current = null;
       if (version !== requestVersion.current) return;
       previewScrollContainerRef.current?.scrollTo({
         top: 0,
@@ -163,7 +177,8 @@ export const useEditorWorkspaceNavigation = ({
     }
 
     setMobileView('editor');
-    globalThis.requestAnimationFrame(() => {
+    pendingFrame.current = globalThis.requestAnimationFrame(() => {
+      pendingFrame.current = null;
       if (version !== requestVersion.current) return;
       globalThis.scrollTo({
         top: 0,

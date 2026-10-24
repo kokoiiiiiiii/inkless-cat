@@ -104,6 +104,7 @@ export const SectionManager = memo(
             handlePointerDown={handlePointerDown}
             canRestore={canRestore}
             canUndo={canUndo}
+            isOpen={open}
             onReorderSections={onReorderSections ? handleReorder : undefined}
             onRestore={handleRestore}
             onUndo={handleUndo}
