@@ -294,16 +294,25 @@ test('mobile More menu closes on Tab, Shift+Tab, and outside clicks without trap
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(studioPath);
+  const mobileNavigation = page.locator('.studio-mobile-nav');
+  await expect(mobileNavigation).toBeVisible();
   await page.evaluate(() => {
     const nextControl = document.createElement('button');
     nextControl.id = 'phase4b-after-mobile-navigation';
     nextControl.textContent = 'Next control';
-    document.querySelector('.studio-mobile-nav')?.after(nextControl);
+    document.body.append(nextControl);
   });
 
   const moreButton = page.getByRole('button', { name: '更多' });
   const menu = page.getByRole('menu');
   const afterNavigation = page.getByRole('button', { name: 'Next control' });
+  await expect(afterNavigation).toBeAttached();
+  await expect(afterNavigation).toBeVisible();
+  await expect(afterNavigation).toBeEnabled();
+  expect(await afterNavigation.evaluate((button) => button.parentElement === document.body)).toBe(
+    true,
+  );
+  expect(await afterNavigation.evaluate((button) => button.tabIndex)).toBe(0);
 
   await moreButton.click();
   const firstItem = page.getByRole('menuitem', { name: '模块管理' });
