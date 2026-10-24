@@ -6,6 +6,7 @@ const baselineDirectory = process.env.PHASE4C1_BASELINE_DIR ?? '.phase4c1-print-
 
 export default defineConfig({
   testDir: './e2e',
+  outputDir: 'test-results/phase4c1-print',
   testMatch: ['phase4c1-print-comparison.spec.ts'],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
