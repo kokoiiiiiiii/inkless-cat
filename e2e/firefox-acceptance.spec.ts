@@ -45,3 +45,53 @@ test('Firefox supports the AI interview without a configured provider', async ({
   await interview.getByRole('button', { name: '使用基础问题开始' }).click();
   await expect(interview.getByRole('textbox', { name: '你的回答' })).toBeVisible();
 });
+
+test('Firefox accepts the isolated Phase 4B editor and keeps its mobile preview usable', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto('/design/phase4b');
+  await expect(page.getByRole('heading', { name: '个人资料' })).toBeVisible();
+  await page.getByRole('textbox', { name: '姓名' }).fill('Firefox 演示内容');
+  await expect(page.getByRole('heading', { name: 'Firefox 演示内容' })).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.getByRole('region', { name: '简历实时预览' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Firefox 演示内容' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test('Firefox keeps Phase 4B overlay focus and dismissal paths operable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/design/phase4b');
+
+  const moreButton = page.getByRole('button', { name: '更多' });
+  const menu = page.getByRole('menu');
+  await moreButton.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menuitem', { name: '模块管理' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(menu).toBeHidden();
+  await expect(moreButton).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(moreButton).toBeFocused();
+
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const dialogTrigger = page.getByRole('button', { name: '演示说明' });
+  await dialogTrigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Phase 4B 设计演示' });
+  await expect(dialog.getByRole('button', { name: '明白了' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(dialogTrigger).toBeFocused();
+
+  await dialogTrigger.click();
+  await dialog.getByRole('button', { name: '明白了' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(dialogTrigger).toBeFocused();
+});

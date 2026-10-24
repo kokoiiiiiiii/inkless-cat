@@ -191,6 +191,25 @@ const config = tseslint.config(
     },
   },
   {
+    // Phase 4B styles use local BEM selectors declared in their own scoped stylesheets.
+    files: [
+      'src/shared/ui/studio/**/*.tsx',
+      'src/features/studio-demo/**/*.tsx',
+      'src/pages/phase4b-studio/**/*.tsx',
+      'src/widgets/studio-shell/**/*.tsx',
+    ],
+    rules: {
+      'tailwindcss/no-custom-classname': 'off',
+    },
+  },
+  {
+    // Keyboard users need to focus the scrollable preview region to inspect the full A4 page.
+    files: ['src/widgets/studio-shell/ui/StudioPreviewPanel.tsx'],
+    rules: {
+      'jsx-a11y/no-noninteractive-tabindex': 'off',
+    },
+  },
+  {
     files: [
       'src/entities/resume/**/*.{ts,tsx}',
       'src/entities/template/**/*.{ts,tsx}',
