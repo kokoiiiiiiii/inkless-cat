@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
+
 test('Firefox supports editor startup, basic editing, dark mode, and mobile switching', async ({
   page,
 }) => {
@@ -11,7 +13,7 @@ test('Firefox supports editor startup, basic editing, dark mode, and mobile swit
   await name.fill('Firefox 验收');
   await expect(page.getByRole('heading', { name: 'Firefox 验收' })).toBeVisible();
 
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(2, 6, 23)');
 

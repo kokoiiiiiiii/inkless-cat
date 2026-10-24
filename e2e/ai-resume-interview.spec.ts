@@ -2,6 +2,8 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
+
 const apiKey = 'test_only_interview_key_never_persist';
 const activeServers = new Set<Server>();
 
@@ -100,7 +102,7 @@ const startSSEMock = async (
 };
 
 const configureProvider = async (page: Page, baseUrl: string) => {
-  await page.getByRole('button', { name: 'AI 设置' }).click();
+  await clickSecondaryTopbarAction(page, /AI 设置|AI settings/u);
   const dialog = page.getByRole('dialog', { name: 'AI 服务设置' });
   await dialog.getByLabel('API Base URL').fill(baseUrl);
   await dialog.getByRole('textbox', { name: 'API Key' }).fill(apiKey);
@@ -1082,7 +1084,7 @@ test('shows and enforces the answer context budget without changing the draft', 
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await configureProvider(page, baseUrl);
   const dialog = await openInterview(page);
   await dialog.getByRole('button', { name: '使用 AI 动态追问' }).click();
@@ -1125,8 +1127,8 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: '夜间模式' }).click();
-  await page.getByRole('button', { name: 'English' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
+  await clickSecondaryTopbarAction(page, 'English');
   await page
     .getByRole('dialog', { name: '切换语言' })
     .getByRole('button', { name: '仅切换语言' })
@@ -1142,8 +1144,8 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
   await dialog.getByRole('button', { name: 'Pause interview and close' }).click();
 
   await page.setViewportSize({ width: 768, height: 1024 });
-  await page.getByRole('button', { name: /Light Mode/u }).click();
-  await page.getByRole('button', { name: '中文' }).click();
+  await clickSecondaryTopbarAction(page, /Light Mode/u);
+  await clickSecondaryTopbarAction(page, '中文');
   await page
     .getByRole('dialog', { name: 'Switch language' })
     .getByRole('button', { name: 'Language only' })
@@ -1160,7 +1162,7 @@ test('supports English and Chinese layouts at desktop, tablet, and mobile sizes'
   await dialog.getByRole('button', { name: '暂停访谈并关闭' }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   dialog = await openInterview(page);
   await expect(dialog.getByRole('button', { name: '访谈', exact: true })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: /你希望应聘/u })).toBeVisible();

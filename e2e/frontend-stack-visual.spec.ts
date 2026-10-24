@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { expect, type Page, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
+
 const evidenceRoot = process.env.MODERNIZATION_VISUAL_EVIDENCE;
 const appUrl = process.env.MODERNIZATION_PREVIEW_URL ?? '/';
 const viewports = [
@@ -24,7 +26,7 @@ const capture = async (page: Page, name: string, fullPage = false) => {
 const setTheme = async (page: Page, theme: (typeof themes)[number]) => {
   const current = await page.locator('html').getAttribute('data-theme');
   if (current !== theme) {
-    await page.getByRole('button', { name: current === 'dark' ? '日间模式' : '夜间模式' }).click();
+    await clickSecondaryTopbarAction(page, current === 'dark' ? '日间模式' : '夜间模式');
   }
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 };
@@ -81,7 +83,7 @@ test('visual: template, AI settings, and interview screens remain readable on de
 
       await preparePage(page, viewport.width, viewport.height);
       await setTheme(page, theme);
-      await page.getByRole('button', { name: 'AI 设置' }).click();
+      await clickSecondaryTopbarAction(page, 'AI 设置');
       const settings = page.getByRole('dialog', { name: 'AI 服务设置' });
       await expect(settings).toBeVisible();
       await capture(page, 'ai-settings/' + viewport.name + '-' + theme);

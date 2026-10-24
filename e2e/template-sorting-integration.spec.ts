@@ -22,8 +22,7 @@ const openTemplatePanel = async (page: Page) => {
   ).toBeVisible();
 };
 
-const mainPreview = (page: Page) =>
-  page.locator('main > section').nth(1).locator('.resume-preview');
+const mainPreview = (page: Page) => page.locator('.production-preview-pane .resume-preview');
 
 test('section order and template changes preserve fictional resume data together', async ({
   page,

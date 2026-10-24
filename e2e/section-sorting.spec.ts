@@ -1,5 +1,7 @@
 import { type Browser, type CDPSession, expect, type Page, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
+
 const getOrder = async (page: Page) =>
   page
     .getByTestId('section-sort-list')
@@ -75,9 +77,9 @@ test('keyboard sorting, focus, preview sync, Undo, and Restore remain consistent
   expect(transitionProperty).toBe('none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await expect(page.locator('html')).toHaveClass(/dark/u);
-  await page.getByRole('button', { name: '日间模式' }).click();
+  await clickSecondaryTopbarAction(page, '日间模式');
   await expect(page.locator('html')).not.toHaveClass(/dark/u);
 
   await page.getByRole('button', { name: '将社交与链接下移' }).focus();

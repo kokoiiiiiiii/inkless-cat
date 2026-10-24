@@ -3,6 +3,8 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 
 import { expect, type Page, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
+
 // Keep the browser request on the same HTTP protocol as the local app so the
 // route can forward it to the chunked mock server without changing protocols.
 const endpoint = '**/v1/chat/completions';
@@ -154,7 +156,7 @@ test.afterEach(async () => {
 });
 
 const configureProvider = async (page: Page) => {
-  await page.getByRole('button', { name: 'AI 设置' }).click();
+  await clickSecondaryTopbarAction(page, /AI 设置|AI settings/u);
   const dialog = page.getByRole('dialog', { name: 'AI 服务设置' });
   const localProviderBaseUrl = new URL('/v1', page.url()).href.replace(/\/$/u, '');
   await dialog.getByLabel('API Base URL').fill(localProviderBaseUrl);
@@ -710,7 +712,7 @@ test('workspace export contains accepted fields only, while the dialog adapts to
   expect(unacceptedWorkspace).not.toContain('Temporary suggestion for this session.');
   expect(unacceptedWorkspace).toContain(original);
 
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await page.getByRole('button', { name: 'English' }).click();
   await page
     .getByRole('dialog', { name: '切换语言' })
