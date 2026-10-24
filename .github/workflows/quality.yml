@@ -70,7 +70,9 @@ jobs:
         if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
         with:
           name: phase4c1-production-visual-review
-          path: test-results/**/phase4c1-*.png
+          path: |
+            test-results/**/phase4c1-*.png
+            test-results/**/phase4c1-*.json
           if-no-files-found: ignore
           retention-days: 14
 
