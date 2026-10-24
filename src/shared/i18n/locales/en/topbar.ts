@@ -1,4 +1,5 @@
 export const topbar = {
+  moreActions: 'More actions',
   aiResume: 'Create resume with AI',
   aiProviderSettings: 'AI settings',
   loadSample: 'Load Sample',

@@ -1,4 +1,5 @@
 export const topbar = {
+  moreActions: '更多操作',
   aiResume: 'AI 创建简历',
   aiProviderSettings: 'AI 设置',
   loadSample: '载入示例',

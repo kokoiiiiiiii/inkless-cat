@@ -11,11 +11,21 @@ import { StudioIcon, type StudioIconName } from './StudioIcon';
 
 type StudioPopoverProps = {
   children: ReactNode;
+  className?: string;
   icon: StudioIconName;
   label: string;
+  onTriggerRef?: (node: HTMLButtonElement | null) => void;
+  triggerClassName?: string;
 };
 
-export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => {
+export const StudioPopover = ({
+  children,
+  className = '',
+  icon,
+  label,
+  onTriggerRef,
+  triggerClassName = '',
+}: StudioPopoverProps) => {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -77,14 +87,17 @@ export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => 
   };
 
   return (
-    <div className="studio-popover-anchor" ref={anchorRef}>
+    <div className={`studio-popover-anchor ${className}`.trim()} data-open={open} ref={anchorRef}>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={label}
-        className="studio-icon-button"
+        className={`studio-icon-button ${triggerClassName}`.trim()}
         onClick={() => setOpen((value) => !value)}
-        ref={triggerRef}
+        ref={(node) => {
+          triggerRef.current = node;
+          onTriggerRef?.(node);
+        }}
         title={label}
         type="button"
       >
