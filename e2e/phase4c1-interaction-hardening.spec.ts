@@ -28,8 +28,7 @@ const observePopoverEvents = async (page: Page) => {
   await page.evaluate(() => {
     const describeElement = (element: Element | null) => {
       if (!element) return null;
-      const semanticElement =
-        element.closest('button[aria-label], [role="menuitem"]') ?? element;
+      const semanticElement = element.closest('button[aria-label], [role="menuitem"]') ?? element;
       const tag = semanticElement.tagName.toLowerCase();
       const label = semanticElement.getAttribute('aria-label');
       const menuitem =
@@ -171,7 +170,9 @@ const captureInitialPopover = async (
   expect(menuBounds.x).toBeGreaterThanOrEqual(0);
   expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(viewport.width);
 
-  const dockBounds = await page.getByRole('navigation', { name: '编辑与预览切换' }).boundingBox();
+  const dock = page.getByRole('navigation', { name: '编辑与预览切换' });
+  await (viewport.width <= 1023 ? expect(dock).toBeVisible() : expect(dock).toHaveCount(0));
+  const dockBounds = viewport.width <= 1023 ? await dock.boundingBox() : null;
   if (dockBounds) {
     expect(menuBounds.y + menuBounds.height).toBeLessThanOrEqual(dockBounds.y - 8);
   }
@@ -300,7 +301,11 @@ test('outside clicks and repeat clicks after scrolling the menu close without tr
   await page.keyboard.press('Tab');
   await expect(menu).toBeHidden();
   await expect
-    .poll(() => menu.evaluate((element) => !element.contains(document.activeElement)))
+    .poll(() =>
+      page
+        .locator('.production-topbar__more')
+        .evaluate((anchor) => !anchor.contains(document.activeElement)),
+    )
     .toBe(true);
 
   await trigger.click();

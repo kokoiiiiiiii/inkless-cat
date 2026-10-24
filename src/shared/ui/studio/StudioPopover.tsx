@@ -78,6 +78,29 @@ export const StudioPopover = ({
         event.preventDefault();
         setOpen(false);
         triggerRef.current?.focus();
+      } else {
+        const focusableElements = [
+          ...document.querySelectorAll<HTMLElement>(
+            'a[href], button, input, select, textarea, [tabindex]',
+          ),
+        ].filter(
+          (element) =>
+            element.tabIndex >= 0 &&
+            !element.hasAttribute('disabled') &&
+            element.getClientRects().length > 0 &&
+            globalThis.getComputedStyle(element).visibility !== 'hidden',
+        );
+        const triggerIndex = triggerRef.current
+          ? focusableElements.indexOf(triggerRef.current)
+          : -1;
+        const nextFocusable = focusableElements
+          .slice(triggerIndex + 1)
+          .find((element) => !anchorRef.current?.contains(element));
+        setOpen(false);
+        if (nextFocusable) {
+          event.preventDefault();
+          nextFocusable.focus();
+        }
       }
       return;
     }
