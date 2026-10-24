@@ -1,7 +1,7 @@
 import type { ActiveSectionKey } from '@entities/resume';
-import { Topbar } from '@widgets/topbar';
 import { GlassSurface, StudioIcon } from '@shared/ui/studio';
-import { type FocusEvent, useEffect, useState } from 'react';
+import { Topbar } from '@widgets/topbar';
+import { type FocusEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { UseEditorPageControllerResult } from '../model/useEditorPageController';
 import { EditorPreviewPane } from './EditorPreviewPane';
@@ -9,18 +9,8 @@ import { EditorSidebarPane } from './EditorSidebarPane';
 import { MobileSwitcherBar } from './MobileSwitcherBar';
 import './production-studio-shell.css';
 
-type StudioDestination = 'editor' | 'modules' | 'templates' | 'preview';
-
 type ProductionStudioShellProps = {
   controller: UseEditorPageControllerResult;
-};
-
-const focusElement = (id: string) => {
-  requestAnimationFrame(() => {
-    const element = document.querySelector<HTMLElement>(`#${id}`);
-    element?.focus({ preventScroll: true });
-    element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  });
 };
 
 export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps) => {
@@ -41,13 +31,37 @@ export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps
     showEditor,
     showPreview,
     isLargeScreen,
-    setMobileView,
+    workspaceNavigation,
     editorScrollContainerRef,
     previewScrollContainerRef,
     registerPreviewRef,
   } = controller;
   const [textEntryFocused, setTextEntryFocused] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const topbar = root?.querySelector<HTMLElement>('.production-topbar');
+    if (!root || !topbar) return;
+
+    const updateStickyOffset = () => {
+      root.style.setProperty(
+        '--production-studio-sticky-top',
+        `${Math.ceil(topbar.getBoundingClientRect().height + 24)}px`,
+      );
+    };
+
+    updateStickyOffset();
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateStickyOffset);
+    observer?.observe(topbar);
+    window.addEventListener('resize', updateStickyOffset);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateStickyOffset);
+    };
+  }, []);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -76,40 +90,12 @@ export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps
     );
   };
 
-  const selectDestination = (destination: StudioDestination) => {
-    if (destination === 'preview') {
-      if (isLargeScreen) {
-        previewScrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-        focusElement('production-preview-pane');
-      } else {
-        setMobileView('preview');
-      }
-      return;
-    }
-
-    if (!isLargeScreen) setMobileView('editor');
-
-    if (destination === 'modules' && !panelState.modulePanelOpen) {
-      panelState.toggleModulePanel();
-    }
-    if (destination === 'templates' && !panelState.templatePanelOpen) {
-      panelState.handleToggleTemplatePanel();
-    }
-
-    editorScrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    focusElement(
-      destination === 'modules'
-        ? 'production-modules-panel'
-        : destination === 'templates'
-          ? 'production-template-panel'
-          : 'production-editor-pane',
-    );
-  };
-
   return (
     <div
+      ref={rootRef}
       className="studio-root production-studio-root"
       data-keyboard-open={keyboardOpen ? 'true' : 'false'}
+      data-current-destination={workspaceNavigation.currentDestination}
       data-theme={panelState.theme}
       onFocusCapture={handleFocusCapture}
     >
@@ -135,29 +121,47 @@ export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps
             <span>{t('editor.studioNavigation.title')}</span>
           </div>
           <nav aria-label={t('editor.studioNavigation.label')} className="production-studio-nav">
-            <button onClick={() => selectDestination('editor')} type="button">
+            <button
+              aria-current={
+                workspaceNavigation.currentDestination === 'editor' ? 'location' : undefined
+              }
+              onClick={workspaceNavigation.navigateToEditor}
+              type="button"
+            >
               <StudioIcon name="file" />
               <span>{t('editor.studioNavigation.editor')}</span>
             </button>
             <button
               aria-controls="production-modules-panel"
               aria-expanded={panelState.modulePanelOpen}
-              onClick={() => selectDestination('modules')}
+              aria-current={
+                workspaceNavigation.currentDestination === 'modules' ? 'location' : undefined
+              }
+              onClick={workspaceNavigation.toggleModulesFromNavigation}
               type="button"
             >
               <StudioIcon name="layers" />
               <span>{t('editor.studioNavigation.modules')}</span>
             </button>
             <button
-              aria-controls="production-template-panel"
               aria-expanded={panelState.templatePanelOpen}
-              onClick={() => selectDestination('templates')}
+              aria-controls={panelState.templatePanelOpen ? 'production-template-panel' : undefined}
+              aria-current={
+                workspaceNavigation.currentDestination === 'templates' ? 'location' : undefined
+              }
+              onClick={workspaceNavigation.toggleTemplatesFromNavigation}
               type="button"
             >
               <StudioIcon name="palette" />
               <span>{t('editor.studioNavigation.templates')}</span>
             </button>
-            <button onClick={() => selectDestination('preview')} type="button">
+            <button
+              aria-current={
+                workspaceNavigation.currentDestination === 'preview' ? 'location' : undefined
+              }
+              onClick={workspaceNavigation.navigateToPreview}
+              type="button"
+            >
               <StudioIcon name="eye" />
               <span>{t('editor.studioNavigation.preview')}</span>
             </button>
@@ -168,8 +172,8 @@ export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps
             <MobileSwitcherBar
               showEditor={showEditor}
               showPreview={showPreview}
-              onSelectEditor={() => setMobileView('editor')}
-              onSelectPreview={() => setMobileView('preview')}
+              onSelectEditor={workspaceNavigation.returnToMobileEditor}
+              onSelectPreview={workspaceNavigation.navigateToPreview}
               editorLabel={t('editor.title')}
               previewLabel={t('preview.title')}
               navigationLabel={t('editor.studioNavigation.mobile')}
@@ -177,7 +181,9 @@ export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps
           )}
           <div
             className="production-studio-workspace"
-            data-mobile-view={showEditor && showPreview ? 'split' : showEditor ? 'editor' : 'preview'}
+            data-mobile-view={
+              showEditor && showPreview ? 'split' : showEditor ? 'editor' : 'preview'
+            }
           >
             <EditorSidebarPane
               visible={showEditor}
@@ -191,6 +197,7 @@ export const ProductionStudioShell = ({ controller }: ProductionStudioShellProps
               }
               templatePanelOpen={panelState.templatePanelOpen}
               onToggleTemplatePanel={panelState.handleToggleTemplatePanel}
+              onTemplatePanelReady={workspaceNavigation.handleTemplatePanelReady}
               scrollRef={editorScrollContainerRef}
               resume={resume}
               controller={modulesPanelController}

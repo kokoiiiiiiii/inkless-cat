@@ -1,4 +1,5 @@
 .studio-root.production-studio-root {
+  --production-studio-sticky-top: 104px;
   overflow-x: clip;
   overflow-y: visible;
 }
@@ -143,7 +144,7 @@
 
 .production-studio-sidebar {
   position: sticky;
-  top: 104px;
+  top: var(--production-studio-sticky-top);
   display: flex;
   min-width: 0;
   min-height: calc(100dvh - 128px);
@@ -182,7 +183,8 @@
 }
 
 .production-studio-nav button:hover,
-.production-studio-nav button[aria-expanded='true'] {
+.production-studio-nav button[aria-expanded='true'],
+.production-studio-nav button[aria-current='location'] {
   border-color: var(--studio-color-border);
   background: var(--studio-color-surface);
   color: var(--studio-color-accent-strong);
@@ -226,11 +228,27 @@
 .production-studio-root .production-editor-pane {
   container-name: production-editor-pane;
   container-type: inline-size;
-  scroll-margin-top: 104px;
 }
 
 .production-studio-root .production-preview-pane {
-  scroll-margin-top: 104px;
+  scroll-margin-top: var(--production-studio-sticky-top);
+}
+
+#production-personal-section:focus-visible,
+#production-modules-navigation-target:focus-visible,
+#production-template-panel:focus-visible,
+.production-preview-pane:focus-visible {
+  outline: 2px solid var(--studio-focus-color);
+  outline-offset: 3px;
+  box-shadow: var(--studio-focus-ring);
+}
+
+@media (min-width: 1024px) {
+  .production-studio-root .production-editor-pane,
+  .production-studio-root .production-preview-pane {
+    top: var(--production-studio-sticky-top);
+    max-height: calc(100dvh - var(--production-studio-sticky-top) - 16px);
+  }
 }
 
 /* Keep the real resume typography independent from the studio shell tokens. */
@@ -496,8 +514,8 @@
   .production-topbar,
   .production-studio-root .production-editor-pane,
   .production-studio-root .production-preview-pane {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 

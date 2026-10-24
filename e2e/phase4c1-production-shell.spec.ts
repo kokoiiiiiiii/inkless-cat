@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 const editorPath = '/';
-const widths = [1440, 1280, 1024, 1000, 900, 768, 390, 360, 320];
+const widths = [1440, 1280, 1100, 1024, 1000, 900, 768, 390, 360, 320];
 
 test('production shell keeps the real resume controller, preview and persistence', async ({
   page,
@@ -115,6 +115,488 @@ test('production panes, navigation and mobile mode agree at every supported widt
       `visible focusable controls beneath aria-hidden content at ${width}px`,
     ).toBe(0);
   }
+});
+
+test('workspace navigation toggles, switches and returns with stable focus and state', async ({
+  page,
+}) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(editorPath);
+
+  const root = page.locator('.production-studio-root');
+  const nav = page.getByRole('navigation', { name: '工作区导航' });
+  const editorButton = nav.getByRole('button', { name: '简历编辑' });
+  const modulesButton = nav.getByRole('button', { name: '模块管理' });
+  const templatesButton = nav.getByRole('button', { name: '模板选择' });
+  const previewButton = nav.getByRole('button', { name: '实时预览' });
+  const moduleRegion = page.locator('#production-modules-panel');
+  const templateRegion = page.locator('#production-template-panel');
+  const editorTarget = page.locator('#production-personal-section');
+  const moduleTarget = page.locator('#production-modules-navigation-target');
+
+  const expectCurrent = async (destination: string) => {
+    await expect(root).toHaveAttribute('data-current-destination', destination);
+    await expect(nav.locator(`[aria-current="location"]`)).toHaveCount(1);
+    await expect(nav.locator(`[aria-current="location"]`)).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+  };
+  const expectScrollAligned = async (targetId: string) => {
+    await expect
+      .poll(() =>
+        page.evaluate((id) => {
+          const target = document.querySelector<HTMLElement>(`#${id}`);
+          const scroll = document.querySelector<HTMLElement>('[data-production-editor-scroll]');
+          if (!target || !scroll) return Number.POSITIVE_INFINITY;
+          return Math.abs(
+            target.getBoundingClientRect().top -
+              scroll.getBoundingClientRect().top -
+              scroll.clientTop,
+          );
+        }, targetId),
+      )
+      .toBeLessThanOrEqual(2);
+  };
+
+  await expectCurrent('editor');
+  await expect(editorTarget).toBeVisible();
+  await editorButton.click();
+  await expect(editorTarget).toBeFocused();
+  await expectScrollAligned('production-personal-section');
+
+  const fullName = page.getByRole('textbox', { name: '姓名' });
+  await fullName.fill('Workspace navigation preservation');
+  await expect(page.locator('.resume-preview')).toContainText('Workspace navigation preservation');
+
+  await modulesButton.click();
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(modulesButton).toHaveAttribute('aria-controls', 'production-modules-panel');
+  await expect(moduleRegion).toBeVisible();
+  await expect(moduleTarget).toBeFocused();
+  await expectScrollAligned('production-modules-navigation-target');
+  await expectCurrent('modules');
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templateRegion).toHaveCount(0);
+
+  await modulesButton.click();
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(moduleRegion).toBeHidden();
+  await expect(modulesButton).toBeFocused();
+  await expectCurrent('editor');
+
+  await templatesButton.click();
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(templatesButton).toHaveAttribute('aria-controls', 'production-template-panel');
+  await expect(templateRegion).toBeVisible();
+  await expect(
+    page.getByRole('group', { name: /选择一个简历模板/u }).getByRole('radio'),
+  ).toHaveCount(4);
+  await expect(templateRegion).toBeFocused();
+  await expectScrollAligned('production-template-panel');
+  await expectCurrent('templates');
+  const activeTemplateBefore = await page
+    .getByRole('group', { name: /选择一个简历模板/u })
+    .getByRole('radio')
+    .evaluateAll(
+      (radios) =>
+        (
+          radios.find((radio) => (radio as HTMLInputElement).checked) as
+            | HTMLInputElement
+            | undefined
+        )?.value,
+    );
+
+  await templatesButton.click();
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templatesButton).not.toHaveAttribute('aria-controls');
+  await expect(templateRegion).toHaveCount(0);
+  await expect(templatesButton).toBeFocused();
+  await expectCurrent('editor');
+
+  await modulesButton.click();
+  await expect(moduleRegion).toBeVisible();
+  await templatesButton.click();
+  await expect(moduleRegion).toBeHidden();
+  await expect(templateRegion).toBeVisible();
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(templateRegion).toBeFocused();
+  await expectCurrent('templates');
+  const activeTemplateAfterReopen = await page
+    .getByRole('group', { name: /选择一个简历模板/u })
+    .getByRole('radio')
+    .evaluateAll(
+      (radios) =>
+        (
+          radios.find((radio) => (radio as HTMLInputElement).checked) as
+            | HTMLInputElement
+            | undefined
+        )?.value,
+    );
+  expect(activeTemplateAfterReopen).toBe(activeTemplateBefore);
+
+  await editorButton.click();
+  await expect(moduleRegion).toBeHidden();
+  await expect(templateRegion).toHaveCount(0);
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templatesButton).not.toHaveAttribute('aria-controls');
+  await expect(editorTarget).toBeVisible();
+  await expect(editorTarget).toBeFocused();
+  await expectScrollAligned('production-personal-section');
+  await expect(fullName).toHaveValue('Workspace navigation preservation');
+  await expect(page.locator('.resume-preview')).toContainText('Workspace navigation preservation');
+  await expectCurrent('editor');
+  await previewButton.click();
+  await expect(page.locator('.production-preview-pane')).toBeVisible();
+  await expect(page.locator('.production-preview-pane')).toBeFocused();
+  await expect(page.locator('[data-production-preview-scroll="true"]')).toHaveJSProperty(
+    'scrollTop',
+    0,
+  );
+  await expectCurrent('preview');
+  await expect(page.locator('.production-editor-pane')).toBeVisible();
+
+  await editorButton.click();
+  await expect(editorTarget).toBeFocused();
+  await expect(fullName).toHaveValue('Workspace navigation preservation');
+  await expectCurrent('editor');
+  expect(pageErrors).toEqual([]);
+});
+
+test('workspace navigation supports keyboard activation with visible focus', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(editorPath);
+
+  const nav = page.getByRole('navigation', { name: '工作区导航' });
+  const modulesButton = nav.getByRole('button', { name: '模块管理' });
+  const templatesButton = nav.getByRole('button', { name: '模板选择' });
+  const editorButton = nav.getByRole('button', { name: '简历编辑' });
+
+  await modulesButton.focus();
+  expect(
+    await modulesButton.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).outlineWidth),
+    ),
+  ).toBeGreaterThanOrEqual(2);
+  await page.keyboard.press('Enter');
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#production-modules-navigation-target')).toBeFocused();
+  await modulesButton.focus();
+  await page.keyboard.press('Space');
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#production-modules-panel')).toBeHidden();
+
+  await templatesButton.focus();
+  await page.keyboard.press('Space');
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    page.getByRole('group', { name: /选择一个简历模板/u }).getByRole('radio'),
+  ).toHaveCount(4);
+  await expect(page.locator('#production-template-panel')).toBeFocused();
+  await editorButton.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#production-personal-section')).toBeFocused();
+  await expect(editorButton).toHaveAttribute('aria-current', 'location');
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'false');
+  expect(pageErrors).toEqual([]);
+});
+
+test('module manager controls and rapid workspace navigation stay synchronized', async ({
+  page,
+}) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(editorPath);
+
+  const root = page.locator('.production-studio-root');
+  const nav = page.getByRole('navigation', { name: '工作区导航' });
+  const modulesButton = nav.getByRole('button', { name: '模块管理' });
+  const templatesButton = nav.getByRole('button', { name: '模板选择' });
+  const editorButton = nav.getByRole('button', { name: '简历编辑' });
+  const moduleTarget = page.locator('#production-modules-navigation-target');
+  const moduleRegion = page.locator('#production-modules-panel');
+
+  await modulesButton.click();
+  await expect(moduleRegion).toBeVisible();
+  const managerCollapse = moduleTarget.getByRole('button', { name: '收起模块管理' });
+  await expect(managerCollapse).toHaveAttribute('aria-expanded', 'true');
+  await managerCollapse.click();
+  await expect(moduleRegion).toBeHidden();
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(root).toHaveAttribute('data-current-destination', 'editor');
+  await expect(nav.locator('[aria-current="location"]')).toHaveCount(1);
+  await expect(editorButton).toHaveAttribute('aria-current', 'location');
+
+  const managerExpand = moduleTarget.getByRole('button', { name: '展开模块管理' });
+  await expect(managerExpand).toHaveAttribute('aria-expanded', 'false');
+  await managerExpand.click();
+  await expect(moduleRegion).toBeVisible();
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(root).toHaveAttribute('data-current-destination', 'modules');
+
+  for (const button of [
+    modulesButton,
+    templatesButton,
+    templatesButton,
+    modulesButton,
+    editorButton,
+  ]) {
+    await button.click();
+  }
+
+  await expect(moduleRegion).toBeHidden();
+  await expect(page.locator('#production-template-panel')).toHaveCount(0);
+  await expect(modulesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templatesButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(templatesButton).not.toHaveAttribute('aria-controls');
+  await expect(page.locator('#production-personal-section')).toBeFocused();
+  await expect(editorButton).toHaveAttribute('aria-current', 'location');
+  await expect(root).toHaveAttribute('data-current-destination', 'editor');
+  expect(pageErrors).toEqual([]);
+});
+
+test('a completed lazy template load cannot steal focus after a newer navigation', async ({
+  page,
+}) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+
+  let notifyChunkRequest!: () => void;
+  let releaseChunkRequest!: () => void;
+  let notifyChunkResponse!: () => void;
+  const chunkRequested = new Promise<void>((resolve) => {
+    notifyChunkRequest = resolve;
+  });
+  const chunkResponseReceived = new Promise<void>((resolve) => {
+    notifyChunkResponse = resolve;
+  });
+  const chunkGate = new Promise<void>((resolve) => {
+    releaseChunkRequest = resolve;
+  });
+  page.on('response', (response) => {
+    if (response.url().includes('TemplateSelector.tsx')) notifyChunkResponse();
+  });
+  await page.route('**/TemplateSelector.tsx*', async (route) => {
+    notifyChunkRequest();
+    await chunkGate;
+    await route.continue();
+  });
+  await page.goto(editorPath);
+
+  const nav = page.getByRole('navigation', { name: '工作区导航' });
+  const templatesButton = nav.getByRole('button', { name: '模板选择' });
+  const editorButton = nav.getByRole('button', { name: '简历编辑' });
+  const editorTarget = page.locator('#production-personal-section');
+
+  await templatesButton.click();
+  await chunkRequested;
+  await editorButton.click();
+  await expect(editorTarget).toBeFocused();
+  releaseChunkRequest();
+  await chunkResponseReceived;
+  await expect(page.locator('#production-template-panel')).toHaveCount(0);
+  await expect(editorTarget).toBeFocused();
+  await expect(editorButton).toHaveAttribute('aria-current', 'location');
+  expect(pageErrors).toEqual([]);
+});
+
+test('personal information layout stays symmetric without horizontal overflow at all target widths', async ({
+  page,
+}, testInfo) => {
+  const measurements: Array<Record<string, unknown>> = [];
+
+  for (const width of [320, 360, 390, 768, 1024, 1100, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    if (width >= 1024) {
+      await page.goto(editorPath);
+      await page
+        .getByRole('navigation', { name: '工作区导航' })
+        .getByRole('button', { name: '简历编辑' })
+        .click();
+    } else {
+      await page.goto(editorPath);
+    }
+    await expect(page.locator('#production-personal-section')).toBeVisible();
+    const geometry = await page.evaluate(() => {
+      const pane = document.querySelector<HTMLElement>('.production-editor-pane');
+      const scroll = document.querySelector<HTMLElement>('[data-production-editor-scroll]');
+      const personal = document.querySelector<HTMLElement>('#production-personal-section');
+      const card = personal?.querySelector<HTMLElement>(':scope > div');
+      const input = card?.querySelector<HTMLElement>('input[type="text"]');
+      const topbar = document.querySelector<HTMLElement>('.production-topbar');
+      if (!pane || !scroll || !personal || !card || !input || !topbar) {
+        throw new Error('Editor layout targets must exist before measurement');
+      }
+
+      const paneStyle = getComputedStyle(pane);
+      const scrollStyle = getComputedStyle(scroll);
+      const cardStyle = getComputedStyle(card);
+      const paneBounds = pane.getBoundingClientRect();
+      const scrollBounds = scroll.getBoundingClientRect();
+      const personalBounds = personal.getBoundingClientRect();
+      const cardBounds = card.getBoundingClientRect();
+      const inputBounds = input.getBoundingClientRect();
+      const topbarBounds = topbar.getBoundingClientRect();
+      const borderLeft = Number.parseFloat(scrollStyle.borderLeftWidth);
+      const borderRight = Number.parseFloat(scrollStyle.borderRightWidth);
+      const scrollbarWidth = Math.max(
+        0,
+        scroll.offsetWidth - scroll.clientWidth - borderLeft - borderRight,
+      );
+      const paneContentLeft =
+        paneBounds.left +
+        Number.parseFloat(paneStyle.borderLeftWidth) +
+        Number.parseFloat(paneStyle.paddingLeft);
+      const paneContentRight =
+        paneBounds.right -
+        Number.parseFloat(paneStyle.borderRightWidth) -
+        Number.parseFloat(paneStyle.paddingRight);
+      const scrollContentLeft =
+        scrollBounds.left + borderLeft + Number.parseFloat(scrollStyle.paddingLeft);
+      const scrollContentRight =
+        scrollBounds.left +
+        borderLeft +
+        scroll.clientWidth -
+        Number.parseFloat(scrollStyle.paddingRight);
+      const cardPaddingLeft =
+        Number.parseFloat(cardStyle.paddingLeft) + Number.parseFloat(cardStyle.borderLeftWidth);
+      const cardPaddingRight =
+        Number.parseFloat(cardStyle.paddingRight) + Number.parseFloat(cardStyle.borderRightWidth);
+
+      return {
+        viewportWidth: window.innerWidth,
+        editorPane: { left: paneBounds.left, right: paneBounds.right, width: paneBounds.width },
+        paneContent: { left: paneContentLeft, right: paneContentRight },
+        scrollContent: { left: scrollContentLeft, right: scrollContentRight },
+        personalCard: { left: cardBounds.left, right: cardBounds.right, width: cardBounds.width },
+        input: { left: inputBounds.left, right: inputBounds.right, width: inputBounds.width },
+        personalSection: { top: personalBounds.top, bottom: personalBounds.bottom },
+        topbar: { bottom: topbarBounds.bottom, height: topbarBounds.height },
+        cardPadding: { left: cardPaddingLeft, right: cardPaddingRight },
+        leftPaneInset: cardBounds.left - paneContentLeft,
+        rightPaneInset: paneContentRight - cardBounds.right,
+        leftScrollInset: cardBounds.left - scrollContentLeft,
+        rightScrollInset: scrollContentRight - cardBounds.right,
+        leftInputInset: inputBounds.left - cardBounds.left,
+        rightInputInset: cardBounds.right - inputBounds.right,
+        scrollbarWidth,
+        editorScrollWidth: scroll.scrollWidth,
+        editorClientWidth: scroll.clientWidth,
+        documentWidth: document.documentElement.scrollWidth,
+      };
+    });
+    measurements.push(geometry);
+
+    expect(
+      Math.abs(Number(geometry.leftPaneInset) - Number(geometry.rightPaneInset)),
+      `pane inset mismatch at ${width}px`,
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(Number(geometry.leftScrollInset) - Number(geometry.rightScrollInset)),
+      `scroll content inset mismatch at ${width}px`,
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(Number(geometry.leftInputInset) - Number(geometry.rightInputInset)),
+      `input inset mismatch at ${width}px`,
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(
+        Number((geometry.cardPadding as { left: number }).left) -
+          Number((geometry.cardPadding as { right: number }).right),
+      ),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      geometry.documentWidth,
+      `horizontal document overflow at ${width}px`,
+    ).toBeLessThanOrEqual(width);
+    expect(
+      geometry.editorScrollWidth,
+      `horizontal editor overflow at ${width}px`,
+    ).toBeLessThanOrEqual(Number(geometry.editorClientWidth) + Number(geometry.scrollbarWidth) + 1);
+
+    if (width >= 1024 && width <= 1100) {
+      await page.evaluate(() => window.scrollTo({ top: 220, behavior: 'auto' }));
+      await expect
+        .poll(async () => {
+          const bounds = await page.locator('.production-editor-pane').boundingBox();
+          return bounds?.y ?? -1;
+        })
+        .toBeGreaterThanOrEqual(Number((geometry.topbar as { bottom: number }).bottom) - 1);
+      const stickyGeometry = await page.evaluate(() => {
+        const pane = document.querySelector<HTMLElement>('.production-editor-pane');
+        const topbar = document.querySelector<HTMLElement>('.production-topbar');
+        const personal = document.querySelector<HTMLElement>('#production-personal-section');
+        if (!pane || !topbar || !personal) throw new Error('Sticky targets must exist');
+        const paneBounds = pane.getBoundingClientRect();
+        const topbarBounds = topbar.getBoundingClientRect();
+        const targetBounds = personal.getBoundingClientRect();
+        return {
+          paneTop: paneBounds.top,
+          topbarBottom: topbarBounds.bottom,
+          targetTop: targetBounds.top,
+        };
+      });
+      expect(stickyGeometry.paneTop).toBeGreaterThanOrEqual(stickyGeometry.topbarBottom + 12);
+    }
+
+    if ([320, 390, 1024, 1440].includes(width)) {
+      const screenshotPath = testInfo.outputPath(`phase4c1-layout-${width}.png`);
+      await page.screenshot({ path: screenshotPath, fullPage: true, animations: 'disabled' });
+      await testInfo.attach(`phase4c1-layout-${width}.png`, {
+        path: screenshotPath,
+        contentType: 'image/png',
+      });
+    }
+
+    if (width === 320 || width === 390) {
+      await page.evaluate(() => {
+        const personal = document.querySelector<HTMLElement>('#production-personal-section');
+        const topbar = document.querySelector<HTMLElement>('.production-topbar');
+        if (!personal || !topbar) throw new Error('Mobile screenshot targets must exist');
+        const targetDocumentTop = personal.getBoundingClientRect().top + window.scrollY;
+        const stickyTopbarBottom = topbar.getBoundingClientRect().bottom;
+        window.scrollTo({
+          top: Math.max(0, targetDocumentTop - stickyTopbarBottom - 16),
+          behavior: 'auto',
+        });
+      });
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const personal = document.querySelector<HTMLElement>('#production-personal-section');
+            const topbar = document.querySelector<HTMLElement>('.production-topbar');
+            if (!personal || !topbar) return Number.NEGATIVE_INFINITY;
+            return personal.getBoundingClientRect().top - topbar.getBoundingClientRect().bottom;
+          }),
+        )
+        .toBeGreaterThanOrEqual(12);
+      const viewportScreenshotPath = testInfo.outputPath(`phase4c1-personal-viewport-${width}.png`);
+      await page.screenshot({ path: viewportScreenshotPath, animations: 'disabled' });
+      await testInfo.attach(`phase4c1-personal-viewport-${width}.png`, {
+        path: viewportScreenshotPath,
+        contentType: 'image/png',
+      });
+    }
+  }
+
+  const geometryPath = testInfo.outputPath('phase4c1-layout-geometry.json');
+  await writeFile(geometryPath, JSON.stringify(measurements, null, 2));
+  await testInfo.attach('phase4c1-layout-geometry.json', {
+    path: geometryPath,
+    contentType: 'application/json',
+  });
 });
 
 test('mobile action menu keeps every operation and supports keyboard dismissal and export', async ({
@@ -388,6 +870,12 @@ test('captures production shell visual review at desktop, tablet, mobile and pri
   await capture('phase4c1-template-panel');
   await page
     .getByRole('navigation', { name: '工作区导航' })
+    .getByRole('button', { name: '简历编辑' })
+    .click();
+  await expect(page.locator('#production-personal-section')).toBeFocused();
+  await capture('phase4c1-navigation-return-editor');
+  await page
+    .getByRole('navigation', { name: '工作区导航' })
     .getByRole('button', { name: '实时预览' })
     .click();
   await capture('phase4c1-a4-preview');
@@ -396,7 +884,7 @@ test('captures production shell visual review at desktop, tablet, mobile and pri
   await expect(page.locator('.production-studio-root')).toHaveAttribute('data-theme', 'dark');
   await capture('phase4c1-desktop-dark');
 
-  for (const width of [1280, 1024, 1000, 900, 768, 390, 360, 320]) {
+  for (const width of [1280, 1100, 1024, 1000, 900, 768, 390, 360, 320]) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
     await capture(`phase4c1-viewport-${width}`);
   }

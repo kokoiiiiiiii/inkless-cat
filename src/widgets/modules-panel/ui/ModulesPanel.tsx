@@ -76,6 +76,7 @@ const ModulesPanel = ({
         isOpen={modulePanelOpen}
         onToggle={onToggleModulePanel}
         onReorderSections={onSectionReorder}
+        panelId="production-modules-panel"
       />
       <PersonalSection
         personal={resume.personal}

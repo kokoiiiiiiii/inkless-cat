@@ -58,6 +58,45 @@ describe('ui store', () => {
     expect(state.modulePanelOpen).toBe(false);
   });
 
+  it('toggles workspace panels exclusively and closes an already open panel', () => {
+    const { toggleWorkspacePanel, setTemplatePanelOpen, setModulePanelOpen } =
+      useUIStore.getState();
+
+    expect(toggleWorkspacePanel('modules')).toBe(true);
+    expect(useUIStore.getState()).toMatchObject({
+      modulePanelOpen: true,
+      templatePanelOpen: false,
+    });
+    expect(toggleWorkspacePanel('modules')).toBe(false);
+    expect(useUIStore.getState()).toMatchObject({
+      modulePanelOpen: false,
+      templatePanelOpen: false,
+    });
+
+    expect(toggleWorkspacePanel('templates')).toBe(true);
+    expect(toggleWorkspacePanel('modules')).toBe(true);
+    expect(useUIStore.getState()).toMatchObject({
+      modulePanelOpen: true,
+      templatePanelOpen: false,
+    });
+    expect(toggleWorkspacePanel('templates')).toBe(true);
+    expect(useUIStore.getState()).toMatchObject({
+      modulePanelOpen: false,
+      templatePanelOpen: true,
+    });
+
+    setModulePanelOpen(true);
+    expect(useUIStore.getState()).toMatchObject({
+      modulePanelOpen: true,
+      templatePanelOpen: false,
+    });
+    setTemplatePanelOpen(true);
+    expect(useUIStore.getState()).toMatchObject({
+      modulePanelOpen: false,
+      templatePanelOpen: true,
+    });
+  });
+
   it('persists ui state to storage', () => {
     const { setTemplateId, setTemplatePanelOpen, setMobileView } = useUIStore.getState();
     setTemplateId('template-123');
