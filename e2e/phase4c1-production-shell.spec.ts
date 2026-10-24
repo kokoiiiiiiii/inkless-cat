@@ -210,6 +210,25 @@ test('production keyboard focus and reduced motion preferences stay visible', as
       Number.parseFloat(getComputedStyle(element).transitionDuration),
     ),
   ).toBeLessThan(0.001);
+
+  const previewSurface = page.locator('.production-preview-pane');
+  expect(
+    await previewSurface.evaluate((element) => getComputedStyle(element).backdropFilter),
+  ).not.toBe('none');
+  const mediaSession = await page.context().newCDPSession(page);
+  try {
+    await mediaSession.send('Emulation.setEmulatedMedia', {
+      media: 'screen',
+      features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }],
+    });
+    await expect
+      .poll(async () =>
+        previewSurface.evaluate((element) => getComputedStyle(element).backdropFilter),
+      )
+      .toBe('none');
+  } finally {
+    await mediaSession.detach();
+  }
 });
 
 test('captures production shell visual review at desktop, tablet, mobile and print sizes', async ({
