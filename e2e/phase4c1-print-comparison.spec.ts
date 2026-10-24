@@ -106,6 +106,81 @@ const readPdfLayoutLines = async (pdfPath: string) => {
     .filter((lines) => lines.length > 0);
 };
 
+const readPrintLayout = async (page: import('@playwright/test').Page) =>
+  page.evaluate(() => {
+    const properties = [
+      'display',
+      'position',
+      'width',
+      'height',
+      'minWidth',
+      'minHeight',
+      'maxWidth',
+      'maxHeight',
+      'flex',
+      'gridTemplateColumns',
+      'gridTemplateRows',
+      'gap',
+      'rowGap',
+      'columnGap',
+      'margin',
+      'padding',
+      'boxSizing',
+      'overflow',
+      'overflowX',
+      'overflowY',
+      'transform',
+      'contain',
+      'contentVisibility',
+      'breakInside',
+      'breakBefore',
+      'breakAfter',
+      'fontFamily',
+      'fontSize',
+      'lineHeight',
+    ] as const;
+
+    const inspect = (element: Element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        tagName: element.tagName.toLowerCase(),
+        id: element.id || undefined,
+        className: typeof element.className === 'string' ? element.className : undefined,
+        rect: {
+          x: Number(rect.x.toFixed(3)),
+          y: Number(rect.y.toFixed(3)),
+          width: Number(rect.width.toFixed(3)),
+          height: Number(rect.height.toFixed(3)),
+        },
+        scrollHeight: element.scrollHeight,
+        computed: Object.fromEntries(properties.map((property) => [property, style[property]])),
+      };
+    };
+
+    const resume = document.querySelector('.resume-preview');
+    const ancestors: ReturnType<typeof inspect>[] = [];
+    for (let element = resume; element; element = element.parentElement) {
+      ancestors.push(inspect(element));
+      if (element === document.body) break;
+    }
+
+    return {
+      media: matchMedia('print').matches ? 'print' : 'screen',
+      fontsStatus: document.fonts.status,
+      interFontAvailable: document.fonts.check('14px Inter'),
+      viewport: {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        documentClientHeight: document.documentElement.clientHeight,
+        documentScrollHeight: document.documentElement.scrollHeight,
+      },
+      document: [document.documentElement, document.body].map((element) => inspect(element)),
+      previewAncestors: ancestors,
+      previewChildren: resume ? [...resume.children].map((element) => inspect(element)) : [],
+    };
+  });
+
 const renderPdfPages = async (pdfPath: string, prefix: string) => {
   await execFileAsync('pdftoppm', ['-png', '-r', '96', pdfPath, prefix]);
   const outputFolder = path.dirname(prefix);
@@ -287,17 +362,26 @@ test('same Chinese fixture preserves A4 pagination, wrapped text, and bounded wo
       }
     }
 
+    const printLayout = {
+      baseline: await readPrintLayout(baselinePage),
+      head: await readPrintLayout(page),
+    };
+    const printLayoutPath = testInfo.outputPath('phase4c1-print-layout.json');
+    await writeFile(printLayoutPath, JSON.stringify(printLayout, null, 2));
+    await testInfo.attach('phase4c1-print-layout.json', {
+      path: printLayoutPath,
+      contentType: 'application/json',
+    });
+
     const headPdf = path.join(outputDirectory, 'phase4c1-print-head.pdf');
     const baselinePdf = path.join(outputDirectory, 'phase4c1-print-main.pdf');
-    await Promise.all([
-      page.pdf({ path: headPdf, format: 'A4', printBackground: true, preferCSSPageSize: true }),
-      baselinePage.pdf({
-        path: baselinePdf,
-        format: 'A4',
-        printBackground: true,
-        preferCSSPageSize: true,
-      }),
-    ]);
+    await baselinePage.pdf({
+      path: baselinePdf,
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+    await page.pdf({ path: headPdf, format: 'A4', printBackground: true, preferCSSPageSize: true });
     const headMetadata = await readPageCount(headPdf);
     const baselineMetadata = await readPageCount(baselinePdf);
     expect(headMetadata.count).toBeGreaterThan(1);
