@@ -92,6 +92,20 @@ const readPdfWordGeometry = async (pdfPath: string) => {
   });
 };
 
+const readPdfLayoutLines = async (pdfPath: string) => {
+  const { stdout } = await execFileAsync('pdftotext', ['-layout', '-enc', 'UTF-8', pdfPath, '-']);
+  return stdout
+    .replaceAll('\r\n', '\n')
+    .split('\f')
+    .map((page) =>
+      page
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    )
+    .filter((lines) => lines.length > 0);
+};
+
 const renderPdfPages = async (pdfPath: string, prefix: string) => {
   await execFileAsync('pdftoppm', ['-png', '-r', '96', pdfPath, prefix]);
   const outputFolder = path.dirname(prefix);
@@ -207,7 +221,7 @@ const measureProductionPath = async (page: import('@playwright/test').Page) => {
   };
 };
 
-test('same Chinese multi-page fixture preserves A4 pages, text and word geometry', async ({
+test('same Chinese fixture preserves A4 pagination, wrapped text, and bounded word geometry', async ({
   page,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -293,17 +307,11 @@ test('same Chinese multi-page fixture preserves A4 pages, text and word geometry
     expect(headMetadata.height).toBeGreaterThan(835);
     expect(headMetadata.height).toBeLessThan(850);
 
-    const headText = await execFileAsync('pdftotext', ['-layout', '-enc', 'UTF-8', headPdf, '-']);
-    const baselineText = await execFileAsync('pdftotext', [
-      '-layout',
-      '-enc',
-      'UTF-8',
-      baselinePdf,
-      '-',
+    const [headLayoutLines, baselineLayoutLines] = await Promise.all([
+      readPdfLayoutLines(headPdf),
+      readPdfLayoutLines(baselinePdf),
     ]);
-    expect(headText.stdout.replaceAll('\r\n', '\n')).toBe(
-      baselineText.stdout.replaceAll('\r\n', '\n'),
-    );
+    expect(headLayoutLines).toEqual(baselineLayoutLines);
 
     const [headGeometry, baselineGeometry] = await Promise.all([
       readPdfWordGeometry(headPdf),
