@@ -5,4 +5,13 @@ export const editor = {
     expand: '展开模板',
     collapse: '收起模板',
   },
+  studioNavigation: {
+    label: '工作区导航',
+    mobile: '编辑与预览切换',
+    title: '工作区',
+    editor: '简历编辑',
+    modules: '模块管理',
+    templates: '模板选择',
+    preview: '实时预览',
+  },
 } as const;
