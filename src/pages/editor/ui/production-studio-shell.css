@@ -1,7 +1,14 @@
 .studio-root.production-studio-root {
   --production-studio-sticky-top: 104px;
+  --production-studio-menu-surface: rgb(250 252 254 / 99.6%);
+  --production-studio-menu-surface-opaque: #fafcfe;
   overflow-x: clip;
   overflow-y: visible;
+}
+
+.studio-root.production-studio-root[data-theme='dark'] {
+  --production-studio-menu-surface: rgb(25 39 51 / 99.6%);
+  --production-studio-menu-surface-opaque: #192733;
 }
 
 .production-topbar {
@@ -119,18 +126,33 @@
   color: var(--studio-color-accent-strong);
 }
 
-.production-topbar__more .studio-popover {
+.production-studio-root .production-topbar__more .studio-popover {
   width: min(320px, calc(100vw - 32px));
   max-height: min(68vh, 540px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  background: var(--production-studio-menu-surface);
 }
 
-.production-topbar__more .studio-popover [role='menuitem'] {
+.production-studio-root .production-topbar__more .studio-popover [role='menuitem'] {
   width: 100%;
   min-height: 44px;
   border-radius: 11px;
   text-align: left;
+}
+
+.production-studio-root .production-topbar__more .studio-popover [role='menuitem']:hover,
+.production-studio-root .production-topbar__more .studio-popover [role='menuitem']:focus-visible {
+  border-color: var(--studio-color-accent);
+  background: var(--studio-color-accent-soft);
+  color: var(--studio-color-accent-strong);
+}
+
+.production-studio-root .production-topbar__more .studio-popover [role='menuitem']:active {
+  border-color: var(--studio-color-accent);
+  background: var(--studio-color-accent-soft);
+  color: var(--studio-color-accent-strong);
+  transform: translateY(1px);
 }
 
 .production-studio-layout {
@@ -377,7 +399,6 @@
     right: max(8px, env(safe-area-inset-right, 0px));
     bottom: auto;
     width: min(320px, calc(100vw - 32px));
-    background: var(--studio-glass-fill-strong);
     max-height: min(
       58vh,
       420px,
@@ -511,11 +532,25 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .production-studio-root .production-topbar__more .studio-popover {
+    background: var(--production-studio-menu-surface-opaque);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
   .production-topbar,
   .production-studio-root .production-editor-pane,
   .production-studio-root .production-preview-pane {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .production-studio-root .production-topbar__more .studio-popover {
+    background: var(--production-studio-menu-surface-opaque);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
