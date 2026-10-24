@@ -6,7 +6,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/firefox-acceptance.spec.ts'],
+  testIgnore: ['**/firefox-acceptance.spec.ts', '**/phase4c1-print-comparison.spec.ts'],
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,

@@ -64,6 +64,22 @@ describe('StudioPopover', () => {
     expect(document.activeElement).toBe(last);
   });
 
+  it('keeps the popover open when focus returns to its trigger, then lets the click toggle close it', () => {
+    const { first, trigger } = renderPopover();
+    const menu = document.querySelector('[role="menu"]');
+
+    fireEvent.click(trigger);
+    fireEvent.blur(first, { relatedTarget: trigger });
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(menu?.hasAttribute('hidden')).toBe(false);
+
+    fireEvent.click(trigger);
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(menu?.hasAttribute('hidden')).toBe(true);
+  });
+
   it('closes on Escape and returns focus to the trigger, then opens again cleanly', () => {
     const { first, trigger } = renderPopover();
     const menu = document.querySelector('[role="menu"]');

@@ -1,9 +1,19 @@
-import { useEffect } from 'react';
+import { type RefObject, useEffect } from 'react';
 
-export const useUndoHotkey = (enabled: boolean, handler: () => boolean) => {
+export const useUndoHotkey = (
+  enabled: boolean,
+  handler: () => boolean,
+  scopeRef?: RefObject<HTMLElement | null>,
+) => {
   useEffect(() => {
     if (!enabled) return;
     const listener = (event: KeyboardEvent) => {
+      if (
+        scopeRef &&
+        (!(event.target instanceof Node) || !scopeRef.current?.contains(event.target))
+      ) {
+        return;
+      }
       const target = event.target as HTMLElement | null;
       const tag = (target?.tagName || '').toLowerCase();
       const editable = target?.isContentEditable || tag === 'input' || tag === 'textarea';
@@ -18,5 +28,5 @@ export const useUndoHotkey = (enabled: boolean, handler: () => boolean) => {
     };
     globalThis.addEventListener('keydown', listener, { passive: false });
     return () => globalThis.removeEventListener('keydown', listener as EventListener);
-  }, [enabled, handler]);
+  }, [enabled, handler, scopeRef]);
 };

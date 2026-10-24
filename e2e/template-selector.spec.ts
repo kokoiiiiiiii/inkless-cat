@@ -1,6 +1,7 @@
 import type { WorkspaceData } from '@entities/workspace';
 import { expect, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
 import { exportWorkspaceFromUI, uploadJsonThroughUI } from './workspace';
 
 const openTemplatePanel = async (page: import('@playwright/test').Page) => {
@@ -11,7 +12,7 @@ const openTemplatePanel = async (page: import('@playwright/test').Page) => {
 };
 
 const mainPreview = (page: import('@playwright/test').Page) =>
-  page.locator('main > section').nth(1).locator('.resume-preview');
+  page.locator('.production-preview-pane .resume-preview');
 
 test('style selection preserves resume data, custom sections, locale changes and persistence', async ({
   page,
@@ -57,7 +58,7 @@ test('style selection preserves resume data, custom sections, locale changes and
   expect(afterStyle.templateId).toBe('dark-contrast');
   expect(afterStyle.resume.customSections[0]?.text).toBe('Keep this custom module intact.');
 
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('radio', { name: '现代蓝' }).click();
   await expect(mainPreview(page)).toHaveClass(/bg-white\/90/u);
@@ -213,7 +214,7 @@ test('template selection supports keyboard and stays usable at desktop, tablet a
   );
   expect(cardTransition).toBe('none');
 
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(darkRadio).toBeChecked();
   await page.getByRole('radio', { name: '现代蓝' }).click();

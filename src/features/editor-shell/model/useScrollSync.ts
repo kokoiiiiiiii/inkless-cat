@@ -12,6 +12,7 @@ export const useScrollSync = ({ activeSections }: UseScrollSyncParams) => {
   const previewScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const previewRefs = useRef<SectionRefMap>(new Map());
   const editorSectionRefs = useRef<SectionRefMap>(new Map());
+  const pendingFocusFrame = useRef<number | null>(null);
 
   useEffect(() => {
     const editorEl = editorScrollContainerRef.current;
@@ -117,6 +118,10 @@ export const useScrollSync = ({ activeSections }: UseScrollSyncParams) => {
         globalThis.cancelAnimationFrame(pendingFrame);
         pendingFrame = null;
       }
+      if (pendingFocusFrame.current !== null) {
+        globalThis.cancelAnimationFrame(pendingFocusFrame.current);
+        pendingFocusFrame.current = null;
+      }
     };
   }, [activeSections]);
 
@@ -149,19 +154,35 @@ export const useScrollSync = ({ activeSections }: UseScrollSyncParams) => {
     keysToTry.push(`${sectionKey}:__section__`);
     const targetNode = keysToTry.map((key) => previewRefs.current.get(key)).find(Boolean);
     if (!targetNode) return;
-    globalThis.requestAnimationFrame(() => {
-      if (typeof targetNode.scrollIntoView === 'function') {
-        targetNode.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest',
-        });
+    if (pendingFocusFrame.current !== null) {
+      globalThis.cancelAnimationFrame(pendingFocusFrame.current);
+    }
+    pendingFocusFrame.current = globalThis.requestAnimationFrame(() => {
+      pendingFocusFrame.current = null;
+      const preview = previewScrollContainerRef.current;
+      if (
+        !targetNode.isConnected ||
+        targetNode.getClientRects().length === 0 ||
+        !preview ||
+        preview.clientHeight === 0
+      ) {
+        return;
       }
-      const toolbarHeight = 96;
-      const targetTop = targetNode.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({
-        top: Math.max(targetTop - toolbarHeight, 0),
-        behavior: 'smooth',
+
+      const targetBounds = targetNode.getBoundingClientRect();
+      const previewBounds = preview.getBoundingClientRect();
+      const centeredOffset = Math.max(16, (preview.clientHeight - targetBounds.height) / 2);
+      const targetTop =
+        preview.scrollTop +
+        targetBounds.top -
+        previewBounds.top -
+        preview.clientTop -
+        centeredOffset;
+      preview.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
       });
     });
   }, []);

@@ -2,10 +2,9 @@ import { useAIProviderClient } from '@features/ai-provider-settings';
 import { AIResumeInterviewProvider, CreateResumeWithAIButton } from '@features/ai-resume-interview';
 import { type Locale, useI18n } from '@shared/i18n';
 import { LazyChunkBoundary } from '@shared/ui/LazyChunkBoundary';
+import { StudioPopover } from '@shared/ui/studio';
 import type { ChangeEvent, RefObject } from 'react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-
-import { baseButtonClass, primaryButtonClass } from './constants';
 
 const AIProviderSettingsDialog = lazy(
   () => import('@features/ai-provider-settings/ui/AIProviderSettingsDialog'),
@@ -48,7 +47,12 @@ const ActionButtons = ({
   const [aiSettingsLoadFailed, setAISettingsLoadFailed] = useState(false);
   const localeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const aiSettingsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const aiSettingsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const moreActionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const setMoreActionsTrigger = useCallback((node: HTMLButtonElement | null) => {
+    moreActionsTriggerRef.current = node;
+  }, []);
   const closeAISettings = useCallback(() => setAISettingsOpen(false), []);
   const loadAndOpenAISettings = useCallback(async () => {
     setAISettingsPreparing(true);
@@ -63,6 +67,10 @@ const ActionButtons = ({
     }
   }, [loadAIProviderTranslations]);
   const openAISettings = useCallback(() => {
+    const isCompactToolbar = globalThis.matchMedia?.('(max-width: 1100px)').matches ?? false;
+    aiSettingsTriggerRef.current = isCompactToolbar
+      ? moreActionsTriggerRef.current
+      : aiSettingsButtonRef.current;
     void loadAndOpenAISettings();
   }, [loadAndOpenAISettings]);
   const nextLocale = locale === 'en' ? 'zh-CN' : 'en';
@@ -71,7 +79,12 @@ const ActionButtons = ({
     return translated === key ? fallback : translated;
   };
 
-  const openLocaleDialog = () => setPendingLocale(nextLocale);
+  const openLocaleDialog = (fromMoreMenu = false) => {
+    localeTriggerRef.current = fromMoreMenu
+      ? moreActionsTriggerRef.current
+      : localeTriggerRef.current;
+    setPendingLocale(nextLocale);
+  };
   const closeLocaleDialog = () => setPendingLocale(null);
 
   const localeNameFallback = pendingLocale === 'en' ? 'English' : '中文';
@@ -137,54 +150,105 @@ const ActionButtons = ({
   return (
     <AIResumeInterviewProvider provider={provider} onOpenProviderSettings={openAISettings}>
       <>
-        <div className="scrollbar-thin flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
-          <button type="button" className={baseButtonClass} onClick={onResetSample}>
-            {t('topbar.loadSample')}
-          </button>
-          <button type="button" className={baseButtonClass} onClick={onClear}>
-            {t('topbar.clear')}
-          </button>
-          <button type="button" className={baseButtonClass} onClick={onImportClick}>
-            {t('topbar.import')}
-          </button>
-          <button type="button" className={baseButtonClass} onClick={onExport}>
-            {t('topbar.export')}
-          </button>
-          <button type="button" className={baseButtonClass} onClick={onExportWorkspace}>
-            {t('topbar.exportWorkspace')}
-          </button>
-          <button type="button" className={baseButtonClass} onClick={onExportMarkdown}>
-            {t('topbar.exportMarkdown')}
-          </button>
-          <button type="button" className={primaryButtonClass} onClick={onPrint}>
-            {t('topbar.print')}
-          </button>
-          <CreateResumeWithAIButton />
-          <button
-            ref={aiSettingsTriggerRef}
-            type="button"
-            className={baseButtonClass}
-            onClick={openAISettings}
-          >
-            {t('topbar.aiProviderSettings')}
-          </button>
-          <button type="button" className={baseButtonClass} onClick={onToggleTheme}>
-            {theme === 'light' ? t('topbar.themeDark') : t('topbar.themeLight')}
-          </button>
-          <button
-            ref={localeTriggerRef}
-            type="button"
-            className={baseButtonClass}
-            onClick={openLocaleDialog}
-          >
-            {t('topbar.toggleLang')}
-          </button>
+        <div className="production-topbar__actions">
+          <div className="production-topbar__primary">
+            <CreateResumeWithAIButton />
+            <button
+              type="button"
+              className="production-topbar__action production-topbar__action--primary"
+              onClick={onPrint}
+            >
+              {t('topbar.print')}
+            </button>
+          </div>
+          <div className="production-topbar__desktop-secondary">
+            <button type="button" className="production-topbar__action" onClick={onResetSample}>
+              {t('topbar.loadSample')}
+            </button>
+            <button type="button" className="production-topbar__action" onClick={onClear}>
+              {t('topbar.clear')}
+            </button>
+            <button type="button" className="production-topbar__action" onClick={onImportClick}>
+              {t('topbar.import')}
+            </button>
+            <button type="button" className="production-topbar__action" onClick={onExport}>
+              {t('topbar.export')}
+            </button>
+            <button type="button" className="production-topbar__action" onClick={onExportWorkspace}>
+              {t('topbar.exportWorkspace')}
+            </button>
+            <button type="button" className="production-topbar__action" onClick={onExportMarkdown}>
+              {t('topbar.exportMarkdown')}
+            </button>
+            <button
+              ref={aiSettingsButtonRef}
+              type="button"
+              className="production-topbar__action"
+              onClick={openAISettings}
+            >
+              {t('topbar.aiProviderSettings')}
+            </button>
+            <button type="button" className="production-topbar__action" onClick={onToggleTheme}>
+              {theme === 'light' ? t('topbar.themeDark') : t('topbar.themeLight')}
+            </button>
+            <button
+              ref={localeTriggerRef}
+              type="button"
+              className="production-topbar__action"
+              onClick={() => openLocaleDialog()}
+            >
+              {t('topbar.toggleLang')}
+            </button>
+          </div>
+          <div className="production-topbar__mobile-secondary">
+            <StudioPopover
+              className="production-topbar__more"
+              icon="menu"
+              label={t('topbar.moreActions')}
+              onTriggerRef={setMoreActionsTrigger}
+              triggerClassName="production-topbar__more-trigger"
+            >
+              <span className="studio-popover__label" role="presentation">
+                {t('topbar.moreActions')}
+              </span>
+              <button onClick={onResetSample} role="menuitem" type="button">
+                {t('topbar.loadSample')}
+              </button>
+              <button onClick={onClear} role="menuitem" type="button">
+                {t('topbar.clear')}
+              </button>
+              <button onClick={onImportClick} role="menuitem" type="button">
+                {t('topbar.import')}
+              </button>
+              <button onClick={onExport} role="menuitem" type="button">
+                {t('topbar.export')}
+              </button>
+              <button onClick={onExportWorkspace} role="menuitem" type="button">
+                {t('topbar.exportWorkspace')}
+              </button>
+              <button onClick={onExportMarkdown} role="menuitem" type="button">
+                {t('topbar.exportMarkdown')}
+              </button>
+              <button onClick={openAISettings} role="menuitem" type="button">
+                {t('topbar.aiProviderSettings')}
+              </button>
+              <button onClick={onToggleTheme} role="menuitem" type="button">
+                {theme === 'light' ? t('topbar.themeDark') : t('topbar.themeLight')}
+              </button>
+              <button onClick={() => openLocaleDialog(true)} role="menuitem" type="button">
+                {t('topbar.toggleLang')}
+              </button>
+            </StudioPopover>
+          </div>
           <input
             ref={inputRef}
             className="sr-only"
             type="file"
             accept="application/json,.json"
             onChange={onFileChange}
+            aria-label={t('topbar.import')}
+            aria-hidden="true"
+            tabIndex={-1}
           />
         </div>
         {aiSettingsPreparing && (
@@ -194,7 +258,7 @@ const ActionButtons = ({
         )}
         {aiSettingsLoadFailed && (
           <div
-            className="fixed bottom-4 right-4 z-[100] max-w-sm rounded-xl border border-rose-300 bg-white p-4 text-sm text-slate-900 shadow-xl dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+            className="fixed right-4 bottom-4 z-[100] max-w-sm rounded-xl border border-rose-300 bg-white p-4 text-sm text-slate-900 shadow-xl dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
             role="alert"
           >
             <p>{t('common.featureFailedLoad')}</p>
@@ -207,7 +271,7 @@ const ActionButtons = ({
           <LazyChunkBoundary
             renderError={(reload) => (
               <div
-                className="fixed bottom-4 right-4 z-[100] max-w-sm rounded-xl border border-rose-300 bg-white p-4 text-sm text-slate-900 shadow-xl dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+                className="fixed right-4 bottom-4 z-[100] max-w-sm rounded-xl border border-rose-300 bg-white p-4 text-sm text-slate-900 shadow-xl dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
                 role="alert"
               >
                 <p>{t('common.featureFailedLoad')}</p>
@@ -235,13 +299,13 @@ const ActionButtons = ({
         {pendingLocale && (
           <div
             ref={dialogRef}
-            className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-xs dark:bg-slate-900/70 sm:px-6"
+            className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-xs sm:px-6 dark:bg-slate-900/70"
             role="dialog"
             aria-modal="true"
             aria-labelledby="locale-dialog-title"
             aria-describedby="locale-dialog-description"
           >
-            <div className="relative w-full max-w-md translate-y-6 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-2xl transition-transform dark:border-slate-700 dark:bg-slate-900 sm:translate-y-4 lg:translate-y-2">
+            <div className="relative w-full max-w-md translate-y-6 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-2xl transition-transform sm:translate-y-4 lg:translate-y-2 dark:border-slate-700 dark:bg-slate-900">
               <h3
                 id="locale-dialog-title"
                 className="text-lg font-semibold text-slate-900 dark:text-white"
@@ -259,14 +323,14 @@ const ActionButtons = ({
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                  className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:outline-hidden dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
                   onClick={handleLanguageOnly}
                 >
                   {translateWithFallback('topbar.langSwitch.languageOnly', '仅切换语言')}
                 </button>
                 <button
                   type="button"
-                  className="flex-1 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300"
+                  className="flex-1 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-brand-600 focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:outline-hidden"
                   onClick={handleLoadTemplate}
                 >
                   {t('topbar.langSwitch.loadTemplate', {

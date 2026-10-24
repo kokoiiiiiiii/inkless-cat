@@ -31,7 +31,7 @@ const LogoSection = () => {
         target="_blank"
         rel="noreferrer"
         aria-label={githubLabel === 'topbar.githubLabel' ? 'GitHub Repository' : githubLabel}
-        className="ml-2 inline-flex size-10 items-center justify-center rounded-full border border-slate-200/70 bg-white/70 text-slate-500 transition hover:border-brand-500 hover:text-brand-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200"
+        className="ml-2 inline-flex size-10 items-center justify-center rounded-full border border-slate-200/70 bg-white/70 text-slate-500 transition hover:border-brand-500 hover:text-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-brand-400 dark:hover:text-brand-200 dark:focus-visible:outline-brand-300"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

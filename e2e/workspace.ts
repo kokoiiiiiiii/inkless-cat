@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { migrateWorkspace, type WorkspaceData } from '@entities/workspace';
 import { expect, type Page } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
+
 export const exportWorkspaceFromUI = async (page: Page): Promise<WorkspaceData> => {
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: /导出工作区|Export Workspace/u }).click(),
-  ]);
+  const downloadEvent = page.waitForEvent('download');
+  await clickSecondaryTopbarAction(page, /导出工作区|Export Workspace/u);
+  const download = await downloadEvent;
   const path = await download.path();
   if (!path) throw new Error('Playwright did not provide a downloaded workspace file.');
   const migrated = migrateWorkspace(JSON.parse(await readFile(path, 'utf8')) as unknown);

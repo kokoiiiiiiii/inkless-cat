@@ -84,9 +84,19 @@ const PersonalSection = memo(
     ] as const;
 
     return (
-      <section ref={sectionRef} className="space-y-4">
+      <section
+        id="production-personal-section"
+        ref={sectionRef}
+        className="space-y-4"
+        tabIndex={-1}
+        aria-labelledby="production-personal-heading"
+        data-production-navigation-target="editor"
+      >
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+          <h3
+            id="production-personal-heading"
+            className="text-base font-semibold text-slate-900 dark:text-white"
+          >
             {t('modules.personal.title')}
           </h3>
         </header>

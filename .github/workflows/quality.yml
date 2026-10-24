@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.22.1'
@@ -31,11 +33,46 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=1 --retries=0
+      - name: Install poppler for print output comparison
+        if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        run: sudo apt-get update && sudo apt-get install --yes poppler-utils
+      - uses: actions/checkout@v5
+        if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .phase4c1-print-baseline
+      - run: npm ci
+        if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        working-directory: .phase4c1-print-baseline
+      - run: npm run build
+        if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        working-directory: .phase4c1-print-baseline
+      - name: Compare main and production shell A4 output
+        if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        run: npm run test:e2e:phase4c1-print
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        with:
+          name: phase4c1-print-regression-review
+          path: |
+            test-results/**/phase4c1-print-*
+            test-results/**/phase4c1-performance-comparison.json
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/phase4b-') }}
         with:
           name: phase4b-studio-visual-review
           path: test-results/**/phase4b-*.png
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'feat/phase4c1-') }}
+        with:
+          name: phase4c1-production-visual-review
+          path: |
+            test-results/**/phase4c1-*.png
+            test-results/**/phase4c1-*.json
           if-no-files-found: ignore
           retention-days: 14
 

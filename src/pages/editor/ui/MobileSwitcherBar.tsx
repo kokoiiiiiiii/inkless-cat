@@ -1,3 +1,5 @@
+import { StudioIcon } from '@shared/ui/studio';
+
 type MobileSwitcherBarProps = {
   showEditor: boolean;
   showPreview: boolean;
@@ -5,6 +7,7 @@ type MobileSwitcherBarProps = {
   onSelectPreview: () => void;
   editorLabel: string;
   previewLabel: string;
+  navigationLabel: string;
 };
 
 export const MobileSwitcherBar = ({
@@ -14,8 +17,12 @@ export const MobileSwitcherBar = ({
   onSelectPreview,
   editorLabel,
   previewLabel,
+  navigationLabel,
 }: MobileSwitcherBarProps) => (
-  <div className="sticky top-20 z-30 -mx-1 flex rounded-full border border-slate-200/60 bg-white/90 p-1 shadow-xs backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/70 print:hidden">
+  <nav
+    aria-label={navigationLabel}
+    className="production-mobile-switcher studio-glass print:hidden"
+  >
     <button
       type="button"
       className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300 ${
@@ -26,6 +33,7 @@ export const MobileSwitcherBar = ({
       onClick={onSelectEditor}
       aria-pressed={showEditor}
     >
+      <StudioIcon name="file" />
       {editorLabel}
     </button>
     <button
@@ -38,7 +46,8 @@ export const MobileSwitcherBar = ({
       onClick={onSelectPreview}
       aria-pressed={showPreview}
     >
+      <StudioIcon name="eye" />
       {previewLabel}
     </button>
-  </div>
+  </nav>
 );

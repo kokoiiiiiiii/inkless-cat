@@ -103,6 +103,34 @@ describe('SectionSortPanel keyboard controls', () => {
     expect(document.activeElement).toBe(undo);
   });
 
+  it('scopes the Undo shortcut to the active sorting controls', () => {
+    render(<ControlledPanel initialOrder={['projects', 'experience', 'education']} />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /experience.*上移/u }));
+    const movedOrder = [...screen.getByTestId('section-sort-list').querySelectorAll('li')].map(
+      (row) => row.dataset.sectionKey ?? '',
+    );
+    const undo = screen.getByRole<HTMLButtonElement>('button', { name: '撤销' });
+
+    const outsideShortcut = fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true });
+    expect(outsideShortcut).toBe(true);
+    expect(undo.disabled).toBe(false);
+    expect(
+      [...screen.getByTestId('section-sort-list').querySelectorAll('li')].map(
+        (row) => row.dataset.sectionKey ?? '',
+      ),
+    ).toEqual(movedOrder);
+
+    undo.focus();
+    const scopedShortcut = fireEvent.keyDown(undo, { key: 'z', ctrlKey: true });
+    expect(scopedShortcut).toBe(false);
+    expect(
+      [...screen.getByTestId('section-sort-list').querySelectorAll('li')].map(
+        (row) => row.dataset.sectionKey ?? '',
+      ),
+    ).toEqual(['projects', 'experience', 'education']);
+  });
+
   it('uses the dedicated touch drag handle and keeps the rest of the row scrollable', () => {
     const handlePointerDown = vi.fn();
     render(

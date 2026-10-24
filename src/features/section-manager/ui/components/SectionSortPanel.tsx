@@ -19,6 +19,7 @@ type SectionSortPanelProps = {
   handlePointerDown: (event: ReactPointerEvent<HTMLElement>, sectionKey: string) => void;
   canRestore: boolean;
   canUndo: boolean;
+  isOpen?: boolean;
   onRestore: () => boolean;
   onUndo: () => boolean;
   onReorderSections?: SectionReorderHandler;
@@ -41,6 +42,7 @@ export const SectionSortPanel = ({
   handlePointerDown,
   canRestore,
   canUndo,
+  isOpen = true,
   onRestore,
   onUndo,
   onReorderSections,
@@ -52,6 +54,7 @@ export const SectionSortPanel = ({
   const moveButtonRefs = useRef(new Map<string, Map<MoveDirection, HTMLButtonElement>>());
   const restoreButtonRef = useRef<HTMLButtonElement | null>(null);
   const undoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const focusFirstAvailableMoveButton = useCallback(() => {
     for (const sectionKey of displayOrder) {
@@ -80,7 +83,11 @@ export const SectionSortPanel = ({
     [onUndo, t],
   );
 
-  useUndoHotkey(canUndo, () => applyUndo(document.activeElement === undoButtonRef.current));
+  useUndoHotkey(
+    canUndo && isOpen,
+    () => applyUndo(document.activeElement === undoButtonRef.current),
+    panelRef,
+  );
 
   useEffect(() => {
     if (!dragCompletion) return;
@@ -130,7 +137,10 @@ export const SectionSortPanel = ({
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-xs dark:border-slate-800/70 dark:bg-slate-900/60">
+    <div
+      ref={panelRef}
+      className="space-y-3 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-xs dark:border-slate-800/70 dark:bg-slate-900/60"
+    >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
           {t('modules.sort.title')}

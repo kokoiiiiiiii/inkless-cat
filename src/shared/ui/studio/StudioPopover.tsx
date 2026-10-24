@@ -11,11 +11,21 @@ import { StudioIcon, type StudioIconName } from './StudioIcon';
 
 type StudioPopoverProps = {
   children: ReactNode;
+  className?: string;
   icon: StudioIconName;
   label: string;
+  onTriggerRef?: (node: HTMLButtonElement | null) => void;
+  triggerClassName?: string;
 };
 
-export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => {
+export const StudioPopover = ({
+  children,
+  className = '',
+  icon,
+  label,
+  onTriggerRef,
+  triggerClassName = '',
+}: StudioPopoverProps) => {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -44,7 +54,7 @@ export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => 
 
   const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
     const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && menuRef.current?.contains(nextTarget)) return;
+    if (nextTarget instanceof Node && anchorRef.current?.contains(nextTarget)) return;
     setOpen(false);
   };
 
@@ -63,6 +73,38 @@ export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => 
       return;
     }
 
+    if (event.key === 'Tab') {
+      if (event.shiftKey) {
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      } else {
+        const focusableElements = [
+          ...document.querySelectorAll<HTMLElement>(
+            'a[href], button, input, select, textarea, [tabindex]',
+          ),
+        ].filter(
+          (element) =>
+            element.tabIndex >= 0 &&
+            !element.hasAttribute('disabled') &&
+            element.getClientRects().length > 0 &&
+            globalThis.getComputedStyle(element).visibility !== 'hidden',
+        );
+        const triggerIndex = triggerRef.current
+          ? focusableElements.indexOf(triggerRef.current)
+          : -1;
+        const nextFocusable = focusableElements
+          .slice(triggerIndex + 1)
+          .find((element) => !anchorRef.current?.contains(element));
+        setOpen(false);
+        if (nextFocusable) {
+          event.preventDefault();
+          nextFocusable.focus();
+        }
+      }
+      return;
+    }
+
     let nextIndex: number | undefined;
     if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1 + items.length) % items.length;
     if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
@@ -77,14 +119,17 @@ export const StudioPopover = ({ children, icon, label }: StudioPopoverProps) => 
   };
 
   return (
-    <div className="studio-popover-anchor" ref={anchorRef}>
+    <div className={`studio-popover-anchor ${className}`.trim()} data-open={open} ref={anchorRef}>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={label}
-        className="studio-icon-button"
+        className={`studio-icon-button ${triggerClassName}`.trim()}
         onClick={() => setOpen((value) => !value)}
-        ref={triggerRef}
+        ref={(node) => {
+          triggerRef.current = node;
+          onTriggerRef?.(node);
+        }}
         title={label}
         type="button"
       >

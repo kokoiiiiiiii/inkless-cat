@@ -17,6 +17,8 @@ import { useMediaQuery } from '@shared/hooks';
 import { useI18n } from '@shared/i18n';
 import { useDeferredValue } from 'react';
 
+import { useEditorWorkspaceNavigation } from './useEditorWorkspaceNavigation';
+
 export const useEditorPageController = () => {
   const { t, setLocale } = useI18n();
   const { resume, activeSections } = useResumeState();
@@ -27,9 +29,9 @@ export const useEditorPageController = () => {
     setTheme,
     setTemplateId,
     setCustomTemplates,
-    setTemplatePanelOpen,
-    setModulePanelOpen,
     setMobileView,
+    toggleWorkspacePanel,
+    resetPanels,
   } = useUIActions();
   const {
     customSections,
@@ -57,9 +59,20 @@ export const useEditorPageController = () => {
     theme,
     setTheme,
     templatePanelOpen,
-    setTemplatePanelOpen,
     modulePanelOpen,
-    setModulePanelOpen,
+    toggleWorkspacePanel,
+  });
+
+  const workspaceNavigation = useEditorWorkspaceNavigation({
+    isLargeScreen,
+    modulePanelOpen,
+    templatePanelOpen,
+    mobileView,
+    toggleWorkspacePanel,
+    resetPanels,
+    setMobileView,
+    editorScrollContainerRef,
+    previewScrollContainerRef,
   });
 
   const templatePanel = useEditorTemplatePanel({
@@ -102,8 +115,6 @@ export const useEditorPageController = () => {
     isLargeScreen,
     mobileView,
     setMobileView,
-    editorScrollContainerRef,
-    previewScrollContainerRef,
   });
 
   return {
@@ -119,6 +130,7 @@ export const useEditorPageController = () => {
     toggleSection,
     templatePanel,
     panelState,
+    workspaceNavigation,
     ioActions,
     showEditor,
     showPreview,

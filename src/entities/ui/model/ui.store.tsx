@@ -36,6 +36,7 @@ type UIStoreActions = {
   setCustomTemplates: StateSetter<ResumeTemplate[]>;
   setTemplatePanelOpen: StateSetter<boolean>;
   setModulePanelOpen: StateSetter<boolean>;
+  toggleWorkspacePanel: (panel: 'templates' | 'modules') => boolean;
   setMobileView: StateSetter<MobileView>;
   resetPanels: () => void;
 };
@@ -76,7 +77,7 @@ const createInitialState = (): UIStoreState => {
 export const useUIStore = createWithEqualityFn<UIStore>()(
   devtools(
     persist(
-      (set) => ({
+      (set, get) => ({
         ...createInitialState(),
         setTheme: (value) =>
           withStoreErrorBoundary(logger, 'setTheme', () =>
@@ -109,9 +110,13 @@ export const useUIStore = createWithEqualityFn<UIStore>()(
         setTemplatePanelOpen: (value) =>
           withStoreErrorBoundary(logger, 'setTemplatePanelOpen', () =>
             set(
-              (state) => ({
-                templatePanelOpen: resolveSetStateAction(value, state.templatePanelOpen),
-              }),
+              (state) => {
+                const templatePanelOpen = resolveSetStateAction(value, state.templatePanelOpen);
+                return {
+                  templatePanelOpen,
+                  ...(templatePanelOpen ? { modulePanelOpen: false } : {}),
+                };
+              },
               false,
               'ui/setTemplatePanelOpen',
             ),
@@ -119,11 +124,34 @@ export const useUIStore = createWithEqualityFn<UIStore>()(
         setModulePanelOpen: (value) =>
           withStoreErrorBoundary(logger, 'setModulePanelOpen', () =>
             set(
-              (state) => ({ modulePanelOpen: resolveSetStateAction(value, state.modulePanelOpen) }),
+              (state) => {
+                const modulePanelOpen = resolveSetStateAction(value, state.modulePanelOpen);
+                return {
+                  modulePanelOpen,
+                  ...(modulePanelOpen ? { templatePanelOpen: false } : {}),
+                };
+              },
               false,
               'ui/setModulePanelOpen',
             ),
           ),
+        toggleWorkspacePanel: (panel): boolean => {
+          withStoreErrorBoundary(logger, 'toggleWorkspacePanel', () =>
+            set(
+              (state) => {
+                const isOpen =
+                  panel === 'templates' ? state.templatePanelOpen : state.modulePanelOpen;
+                const nextOpen = !isOpen;
+                return panel === 'templates'
+                  ? { templatePanelOpen: nextOpen, modulePanelOpen: false }
+                  : { modulePanelOpen: nextOpen, templatePanelOpen: false };
+              },
+              false,
+              `ui/toggleWorkspacePanel/${panel}`,
+            ),
+          );
+          return panel === 'templates' ? get().templatePanelOpen : get().modulePanelOpen;
+        },
         setMobileView: (value) =>
           withStoreErrorBoundary(logger, 'setMobileView', () =>
             set(
@@ -218,6 +246,7 @@ export const useUIActions = () =>
       setCustomTemplates: state.setCustomTemplates,
       setTemplatePanelOpen: state.setTemplatePanelOpen,
       setModulePanelOpen: state.setModulePanelOpen,
+      toggleWorkspacePanel: state.toggleWorkspacePanel,
       setMobileView: state.setMobileView,
       resetPanels: state.resetPanels,
     }),

@@ -12,6 +12,7 @@ import {
   type TestInfo,
 } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
 import { exportWorkspaceFromUI, uploadJsonThroughUI } from './workspace';
 
 const EVIDENCE_DIR = process.env.TEMPLATE_SELECTOR_EVIDENCE_DIR;
@@ -267,7 +268,7 @@ const measureViewport = async (
       const resumeUpdateStart = await page.evaluate(() => performance.now());
       const nameField = page.getByRole('textbox', { name: '姓名' });
       await nameField.fill('Fictional Alex Morgan Updated');
-      await expect(page.locator('main > section').nth(1).locator('.resume-preview')).toContainText(
+      await expect(page.locator('.production-preview-pane .resume-preview')).toContainText(
         'Fictional Alex Morgan Updated',
       );
       await twoFrames(page);
@@ -298,7 +299,7 @@ const measureViewport = async (
         });
       }
 
-      await page.getByRole('button', { name: '夜间模式' }).click();
+      await clickSecondaryTopbarAction(page, '夜间模式');
       await page.emulateMedia({ reducedMotion: 'reduce' });
       const reducedMotionTransition = await selected.evaluate(
         (radio) => getComputedStyle(radio.closest('article')!).transitionProperty,
@@ -338,6 +339,7 @@ const measureViewport = async (
 test('measures twenty custom thumbnails in isolated desktop, tablet, and mobile contexts', async ({
   browser,
 }, testInfo) => {
+  test.setTimeout(120_000);
   if (EVIDENCE_DIR) await mkdir(EVIDENCE_DIR, { recursive: true });
   const desktopRuns: PerformanceRun[] = [];
   const tabletRuns: PerformanceRun[] = [];

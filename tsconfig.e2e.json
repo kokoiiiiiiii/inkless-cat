@@ -4,5 +4,10 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["playwright.config.ts", "playwright.firefox.config.ts", "e2e"]
+  "include": [
+    "playwright.config.ts",
+    "playwright.firefox.config.ts",
+    "playwright.phase4c1-print.config.ts",
+    "e2e"
+  ]
 }

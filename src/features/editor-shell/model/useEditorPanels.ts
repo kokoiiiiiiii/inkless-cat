@@ -5,30 +5,28 @@ type UseEditorPanelsOptions = {
   theme: 'light' | 'dark';
   setTheme: Dispatch<SetStateAction<'light' | 'dark'>>;
   templatePanelOpen: boolean;
-  setTemplatePanelOpen: Dispatch<SetStateAction<boolean>>;
+  toggleWorkspacePanel: (panel: 'templates' | 'modules') => boolean;
   modulePanelOpen: boolean;
-  setModulePanelOpen: Dispatch<SetStateAction<boolean>>;
 };
 
 export const useEditorPanels = ({
   theme,
   setTheme,
   templatePanelOpen,
-  setTemplatePanelOpen,
   modulePanelOpen,
-  setModulePanelOpen,
+  toggleWorkspacePanel,
 }: UseEditorPanelsOptions) => {
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === 'light' ? 'dark' : 'light'));
   }, [setTheme]);
 
   const handleToggleTemplatePanel = useCallback(() => {
-    setTemplatePanelOpen((open) => !open);
-  }, [setTemplatePanelOpen]);
+    toggleWorkspacePanel('templates');
+  }, [toggleWorkspacePanel]);
 
   const toggleModulePanel = useCallback(() => {
-    setModulePanelOpen((open) => !open);
-  }, [setModulePanelOpen]);
+    toggleWorkspacePanel('modules');
+  }, [toggleWorkspacePanel]);
 
   return {
     theme,

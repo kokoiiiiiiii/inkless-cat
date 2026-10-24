@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import type { WorkspaceData } from '@entities/workspace';
 import { expect, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction } from './topbar-actions';
 import {
   canonicalize,
   expectResumeSaved,
@@ -128,7 +129,7 @@ test('workspace export, clear, import and refresh preserve resume and workspace 
 }) => {
   await page.goto('/');
   await page.getByRole('textbox', { name: '姓名' }).fill('Before Workspace Round Trip');
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
 
   const initial = await exportWorkspaceFromUI(page);
   const workspace: WorkspaceData = {
@@ -293,7 +294,7 @@ test('storage quota failure during workspace import warns and keeps the last sav
   await page.goto('/');
   const fullName = page.getByRole('textbox', { name: '姓名' });
   await fullName.fill('Last saved version');
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   const workspace = await exportWorkspaceFromUI(page);
   workspace.resume.personal.fullName = 'Import not saved because of quota';
   workspace.theme = 'light';
@@ -335,7 +336,7 @@ test('workspace import rolls back if Resume saves but the UI store write fails',
 }) => {
   await page.goto('/');
   await page.getByRole('textbox', { name: '姓名' }).fill('Before partial persistence failure');
-  await page.getByRole('button', { name: '夜间模式' }).click();
+  await clickSecondaryTopbarAction(page, '夜间模式');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const storedBefore = await page.evaluate(() => ({
     resume: localStorage.getItem('inkless-cat/resume-store'),

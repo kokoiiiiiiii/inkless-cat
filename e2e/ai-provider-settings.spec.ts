@@ -2,11 +2,13 @@ import { readFile } from 'node:fs/promises';
 
 import { expect, test } from '@playwright/test';
 
+import { clickSecondaryTopbarAction, secondaryTopbarActionReturnTarget } from './topbar-actions';
+
 const endpoint = 'https://provider.example/v1/chat/completions';
 const apiKey = 'test_key_do_not_persist_01';
 
 const openSettings = async (page: import('@playwright/test').Page) => {
-  await page.getByRole('button', { name: /AI 设置|AI settings/u }).click();
+  await clickSecondaryTopbarAction(page, /AI 设置|AI settings/u);
   return page.getByRole('dialog', { name: /AI 服务设置|AI provider settings/u });
 };
 
@@ -253,7 +255,7 @@ test('cancels an in-flight request, clears settings, and supports locale, dark m
   await expect(dialog.getByRole('button', { name: 'Close AI settings' })).toBeFocused();
   await page.getByRole('button', { name: 'Close AI settings' }).click();
 
-  await page.getByRole('button', { name: 'Dark Mode' }).click();
+  await clickSecondaryTopbarAction(page, 'Dark Mode');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.setViewportSize({ width: 390, height: 844 });
   dialog = await openSettings(page);
@@ -268,18 +270,15 @@ test('keeps the dialog viewport-aligned across desktop, tablet, and mobile and r
   page,
 }) => {
   await page.goto('/');
-  const trigger = page.getByRole('button', { name: 'AI 设置' });
-
   for (const [name, viewport] of [
     ['desktop', { width: 1440, height: 900 }],
     ['tablet', { width: 768, height: 1024 }],
     ['mobile', { width: 390, height: 844 }],
   ] as const) {
     await page.setViewportSize(viewport);
+    const trigger = await secondaryTopbarActionReturnTarget(page, /AI 设置|AI settings/u);
     const enableDarkMode =
-      name === 'mobile'
-        ? page.getByRole('button', { name: '夜间模式' }).click()
-        : Promise.resolve();
+      name === 'mobile' ? clickSecondaryTopbarAction(page, '夜间模式') : Promise.resolve();
     await enableDarkMode;
 
     for (let cycle = 0; cycle < 2; cycle += 1) {
@@ -342,7 +341,7 @@ test('does not close for synthetic IME Escape and preserves Chinese field drafts
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('button', { name: 'AI 设置' })).toBeFocused();
+  await expect(await secondaryTopbarActionReturnTarget(page, /AI 设置|AI settings/u)).toBeFocused();
 
   const reopenedDialog = await openSettings(page);
   await expect(reopenedDialog.getByLabel('API Base URL')).toHaveValue(
