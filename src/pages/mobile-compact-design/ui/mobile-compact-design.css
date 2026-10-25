@@ -328,45 +328,44 @@
   padding: 11px 0 15px;
   border-bottom: 1px solid var(--m0-line);
 }
-.m0-avatar {
-  display: grid;
-  width: 56px;
-  height: 56px;
+.m0-avatar-upload {
+  min-width: 0;
+  flex: 1;
+}
+.m0-avatar-upload > div {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+.m0-avatar-upload > div > div:first-child {
   flex: 0 0 auto;
-  place-items: center;
-  overflow: hidden;
   border: 1px solid var(--m0-line);
   border-radius: 16px;
   background: linear-gradient(145deg, var(--m0-accent-soft), var(--m0-surface-soft));
-  color: var(--m0-accent);
-  font-size: calc(23px * var(--m0-font-scale, 1));
-  font-weight: 650;
+  box-shadow: none;
 }
-.m0-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.m0-avatar-copy {
-  display: grid;
+.m0-avatar-upload > div > div:nth-child(2) {
   min-width: 0;
-  gap: 3px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 10px;
 }
-.m0-avatar-copy strong {
-  font-size: calc(13px * var(--m0-font-scale, 1));
-}
-.m0-avatar-copy > span {
+.m0-avatar-upload > div > div:nth-child(2) > p {
+  flex-basis: 100%;
+  margin: 0;
   color: var(--m0-muted);
   font-size: calc(11px * var(--m0-font-scale, 1));
   line-height: 1.35;
+  text-align: left;
 }
-.m0-avatar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 3px;
-}
-.m0-avatar-actions button,
+.m0-avatar-upload button,
 .m0-preview-foot button {
   min-height: 44px;
   padding: 4px 2px;
@@ -376,7 +375,16 @@
   font-size: calc(12px * var(--m0-font-scale, 1));
   font-weight: 640;
 }
-.m0-avatar-actions .m0-subtle-action {
+.m0-avatar-upload button {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.m0-avatar-upload button:hover {
+  transform: none;
+}
+.m0-avatar-upload button + button {
   color: var(--m0-muted);
 }
 .m0-form-grid {
@@ -989,6 +997,9 @@
 }
 
 @media (max-width: 767px) {
+  .m0-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .m0-app[data-font-scale='1.5'],
   .m0-app[data-font-scale='2'] {
     padding-bottom: 112px;
@@ -1101,10 +1112,6 @@
   }
   .m0-form-grid {
     gap: 10px;
-  }
-  .m0-avatar {
-    width: 50px;
-    height: 50px;
   }
 }
 @media (max-width: 350px) {

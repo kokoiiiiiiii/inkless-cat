@@ -96,7 +96,7 @@ M0 原型 DOM 测量，正常字号：
 
 ### Compact Header
 
-- 正常字号 60px；叠加 `env(safe-area-inset-top)`，不使用大型玻璃容器。横屏压缩到 54px。普通状态保持一行：现有品牌图标和 Inkless Cat，右侧 AI 快捷入口与更多操作。
+- 正常字号 60px；叠加 `env(safe-area-inset-top)`，不使用大型玻璃容器。横屏压缩到 54px。普通状态保持一行：现有品牌图标和 Inkless Cat，右侧 AI 快捷入口与更多操作。AI 入口打开同一个 Action Sheet 并聚焦“AI 创建简历”；演示操作关闭 Sheet 并提示未连接 AI。
 - 320px 时 AI 入口收为带可访问名称的 44px 图标按钮；320/360/390/430px 不缩小主要触控区。
 - 背景使用冷灰与低透明度柔玻璃；滚动中不做高度切换，避免 sticky 跳动。字号放大时自然换行和增高。
 
@@ -104,7 +104,7 @@ M0 原型 DOM 测量，正常字号：
 
 - 主背景 `#f2f5f8`，单层白色编辑面；蓝灰 `#547b9a` 表示可操作/选中，边框 `#dfe6eb`。字段和正式简历纸张采用不透明表面。
 - 标签在输入上方；输入正文按 16px；左右间距成对；长文本 textarea 保留足够行数。保存状态靠近当前模块，不重复展示整页标题。
-- 头像预览 56×56px；真实文件选择仍由共享 `MAX_IMAGE_FILE_BYTES`、`MAX_IMAGE_DIMENSION`、`MAX_IMAGE_PIXELS` 常量校验。M0 原型只用 Blob URL 预览并在离开/移除时回收，不保存照片。
+- 头像预览 56×56px；M0 复用正式 `PhotoUpload`，保留类型、大小、像素、尺寸和 Data URL 校验。照片只写入原型的局部合成状态，不写 Workspace 或持久化 Store。
 - 表单、照片、模块入口都复用原有正式业务组件或真实展示组件；M0 页面仅用局部合成状态演示。
 
 ### Floating Dock
@@ -264,26 +264,38 @@ M0 实验使用正式 `ResumePreview` 和 `createM0Resume` 合成 Fixture。包�
 
 ### M0 覆盖
 
-`e2e/mobile-compact-studio-m0.spec.ts` 生成 `test-results/mobile-compact-studio-m0/`：390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图、`geometry.json`、`performance.json`。测试同时确认 M0 路由未请求生产 `App` 模块。工作流将该目录作为 GitHub Actions Artifact 上传 14 天。
+`e2e/mobile-compact-studio-m0.spec.ts` 生成 `test-results/mobile-compact-studio-m0/`：390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、AI 快捷入口焦点、导出不产生下载、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图、`geometry.json`、`performance.json`。测试确认 M0 路由不请求正式 `App`，并监测到它没有读取 `inkless-cat/resume-store` 或 `inkless-cat/ui-store`。工作流将该目录作为 GitHub Actions Artifact 上传 14 天。
 
-Before/After 对照使用 PR #17 [现有 Preview](https://8e2aeec3.inkless-cat.pages.dev/) 的旧 UI 几何表，与 M0 GitHub Actions Artifact 中同尺寸的合成数据截图和 DOM 几何表。旧 Preview 的截图没有复制进 Artifact：该浏览器配置中存在简历联系信息，保留只读几何证据，避免将其上传到 CI。M0 Artifact 截图只包含本地合成 Fixture；用户此前提供的 iPhone 截图未出现在本任务上下文中，仍为 Pending。
+Before/After 截图只包含合成数据；PR #17 [Preview](https://8e2aeec3.inkless-cat.pages.dev/) 的几何表与本地旧 UI 截图用于基线，M0 截图和 DOM 几何由同尺寸 Playwright Artifact 提供。旧 Preview 的预览截图没有复制：当时浏览器载入了联系信息，因此只保留只读几何测量。用户此前提到的 iPhone 实机截图没有附在本任务中，仍为 Pending。
 
-测试在隔离浏览器上下文写入三项 storage sentinel，并断言原型没有读取后改写这些值。有效 1×1 PNG 通过实际文件输入上传并移除；导入只打开系统选择器，不读取文件内容；原型不会调用 AI、不读写 API Key、不下载、不打印。
+| Before：390px 编辑 | After：390px 编辑 |
+| --- | --- |
+| ![旧版 390px 编辑首屏，合成数据](mobile-compact-studio-m0/evidence/before-390-edit-first.png) | ![M0 390px 编辑首屏，合成数据](mobile-compact-studio-m0/evidence/after-390-editor-first-screen.png) |
 
-M0 源码仅新增设计路由与独立 CSS/Fixture/测试。`src/main.tsx` 将原 `App` 改成懒加载并保留 `/` 路由；`I18nProvider` 只增加可选 `initialLocale`/`persistLocale`，默认值保持生产行为。没有改动正式 Editor controller、ResumePreview renderer、模块/模板业务回调或打印样式。
+| Before：390px 更多操作 | After：390px Action Sheet |
+| --- | --- |
+| ![旧版 390px 更多操作，合成数据](mobile-compact-studio-m0/evidence/before-390-actions.png) | ![M0 390px Action Sheet，合成数据](mobile-compact-studio-m0/evidence/after-390-action-sheet.png) |
+
+旧版 390px 编辑滚动和 320px 首屏：[390px 滚动](mobile-compact-studio-m0/evidence/before-390-edit-scroll.png)、[320px 首屏](mobile-compact-studio-m0/evidence/before-320-edit-first.png)。After 的 320px 编辑/菜单/预览、390px 预览/模板/模块、主题、横屏、键盘占用模拟及 1024/1440 桌面截图见本 PR 最新 Actions Artifact；其中 390px 编辑卡片左右各 16px，Header 60px，Dock 258×60px，首屏可见 5 个字段，document 横向溢出 0px。旧版 390px Preview 只使用 DOM 几何比较，不上传含联系信息的截图。
+
+测试在隔离浏览器上下文写入三项 storage sentinel，并包装 `Storage.getItem` 断言原型没有读取 resume/UI Store；页面不会改写 sentinel。有效 1×1 PNG 由正式 `PhotoUpload` 文件输入读取为 Data URL，显示后可移除；导入只打开系统选择器，不读取文件内容；原型不会调用 AI、不读写 API Key、不下载、不打印。
+
+M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将原 `App` 改成懒加载并保留 `/` 路由；纯 factory 入口让缩略图和合成模板不会经 `@entities/resume` barrel 评估持久化 Store；`I18nProvider` 只增加可选 `initialLocale`/`persistLocale`，默认值保持生产行为。没有改动正式 Editor controller、ResumePreview renderer、模块/模板业务回调或打印样式。
 
 ### 构建体积（Node 24 / Vite 生产 build）
 
 | 资源                                         |  原始大小 |     gzip |
 | -------------------------------------------- | --------: | -------: |
-| M0 动态入口 chunk                            |  41.55 KB | 13.55 KB |
-| M0 独立 CSS                                  |  22.30 KB |  4.82 KB |
+| M0 动态入口 chunk                            |  39.92 KB | 13.07 KB |
+| M0 独立 CSS                                  |  22.42 KB |  4.85 KB |
+| 复用的正式 `PhotoUpload` chunk               |  68.71 KB | 19.78 KB |
+| Resume/template 共用 chunk                   | 110.61 KB | 32.20 KB |
 | 共用 index CSS（原本已有）                   |  80.84 KB | 12.53 KB |
-| `App` chunk（不由 M0 route 引入）            |  92.68 KB | 23.90 KB |
-| `ResumePreview` 所需 `section-manager` chunk | 199.41 KB | 58.64 KB |
-| `TemplateSelector` chunk                     |  19.12 KB |  4.77 KB |
+| `App` chunk（不由 M0 route 引入）            | 112.36 KB | 31.01 KB |
+| `TemplateSelector` chunk                     |  19.14 KB |  4.78 KB |
+| 公共入口 `index` JS                          | 222.02 KB | 70.56 KB |
 
-M0 路由需要 React 公共运行时、i18n、section-manager、TemplateSelector 和 M0 自身 chunk；M0 初始入口没有静态导入 `App` chunk。上述是构建 chunk 大小，不代表整页 gzip 网络总量；CI 的 `performance.json` 记录同一 Chromium E2E 运行下的路由资源计时、FCP、编辑/预览绘制帧响应和合成长预览 rAF 帧间隔。计时样本受 CI 主机、字体和网络影响，不设性能预算门槛。生产体验仍需在 PR Preview 复核。
+表中是 Vite 本次构建输出中与原型和共享入口有关的 chunk 大小，不是路由累计下载量；`App` chunk 不由 M0 路由请求。M0 初始入口没有静态导入正式 `App`，而正式 `PhotoUpload` 被原型动态路由使用。CI 的 `performance.json` 记录相同 Chromium E2E 中的资源计时、FCP、编辑/预览绘制响应和合成长预览 rAF 帧间隔。计时受 CI 主机、字体和网络影响，不设预算门槛；生产体验仍需在 PR Preview 复核。
 
 ### 门禁和待验
 
@@ -292,16 +304,16 @@ M0 路由需要 React 公共运行时、i18n、section-manager、TemplateSelecto
 | `npm ci`                                                 | 本地与 Actions PASS；460 packages，0 vulnerabilities                                                                              |
 | `npm run typecheck`                                      | 本地 PASS                                                                                                                           |
 | 变更文件 ESLint                                          | 本地 PASS                                                                                                                           |
-| 全仓 `npm run lint`                                      | PASS，0 errors；371 条既有 Tailwind classname-order warnings                                                                        |
+| 全仓 `npm run lint`                                      | PASS，0 errors；368 条 Tailwind classname-order warnings                                                                            |
 | `npm test`                                               | 本地 PASS：49 files / 418 tests                                                                                                     |
 | `npm run build`                                          | 本地 PASS；M0 动态 chunk 和 CSS 已生成                                                                                              |
 | `npm audit --omit=dev --audit-level=moderate`            | 本地 PASS：0 vulnerabilities                                                                                                        |
 | `git diff --check`                                       | 本地 PASS                                                                                                                           |
-| GitHub Actions #96（实现 head `f785617`）                | PASS：quality、Linux Firefox acceptance 均 SUCCESS；`visual-parity` 按工作流条件跳过；后续仅报告文字更新需以 PR 最新检查为准          |
-| 完整 Chromium E2E（含既有打印回归）                      | PASS：87 passed；含现有 `e2e/pdf-print.spec.ts`；[run #96](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40172754897)       |
-| Linux Firefox acceptance                                 | PASS：[run #96](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40172754897)                                                |
-| Cloudflare Pages M0 Preview                              | PASS：[稳定分支 Preview](https://design-mobile-compact-studio.inkless-cat.pages.dev/design/mobile-compact)，已在官方 IAB 打开核验      |
-| 截图与几何 Artifact                                      | PASS：[mobile-compact-studio-m0-visual-review](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40172754897/artifacts/12590509643)；3.2 MB，保留至 2026-11-08 |
+| GitHub Actions（当前提交）                               | 推送后复验；必须检查 quality、Linux Firefox acceptance 和 Cloudflare Pages Preview                                                  |
+| 完整 Chromium E2E（含既有打印回归）                      | PASS：本地 87 passed；含现有 `e2e/pdf-print.spec.ts`；截图现等待短暂提示消失后捕获；最新提交由 Actions 再跑                           |
+| Linux Firefox acceptance                                 | 以当前提交的 Actions 结果为准                                                                                                        |
+| Cloudflare Pages M0 Preview                              | 以当前提交的 head Preview 为准；推送后用官方 IAB 复核                                                                                |
+| 截图与几何 Artifact                                      | 以当前提交的 `mobile-compact-studio-m0-visual-review` Artifact 为准；包含 `geometry.json`、`performance.json` 和全套视口截图          |
 | 原生 iPhone Safari/Chrome、键盘、动态岛、safe area、回弹 | Pending；不能由 WebKit/Chromium 代替                                                                                                |
 | 用户提供的既有 iPhone 截图逐张审计                       | Pending；当前消息未附截图                                                                                                           |
 | 完整 WCAG 2.2 AA / VoiceOver                             | Pending 专项审计                                                                                                                    |
@@ -321,4 +333,4 @@ M0 路由需要 React 公共运行时、i18n、section-manager、TemplateSelecto
 | P2   | 当前 PDF E2E 未发现 1.5pt 明确阈值                                 | 维持现有断言；要建立数值容差需另行审计基线，不在 M0 放宽 |
 | P3   | M0 设计截图来自 Chromium，不等同 Safari 字体和系统表单视觉         | 以原生手机验收补齐                                       |
 
-**M0 结论：CONDITIONAL PASS。** 高保真原型、交互、A4 可行性、设计/兼容性报告和自动化门禁已完成，PR #18 的 Draft Preview 可供手机设计评审。原生 iPhone 实机、未附的旧 iPhone 截图审计及完整 VoiceOver/WCAG 2.2 AA 仍为 Pending；这些结果不以 Chromium/Firefox 替代。PR 保持 Draft，不合并；M1～M3 不在本阶段开始。
+**M0 结论：CONDITIONAL PASS。** 高保真原型、交互、A4 可行性和设计/兼容性报告已完成；自动化门禁须以本次更新提交的 Actions 结果确认后最终交付。原生 iPhone 实机、未附的旧 iPhone 截图审计及完整 VoiceOver/WCAG 2.2 AA 仍为 Pending；这些结果不以 Chromium/Firefox 替代。PR 保持 Draft，不合并；M1～M3 不在本阶段开始。

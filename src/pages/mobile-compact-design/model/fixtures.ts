@@ -175,7 +175,7 @@ export const createM0Templates = (locale: PrototypeLocale, resume: ResumeData) =
 
   const builtInTemplates: ResumeTemplate[] = [
     {
-      id: 'm0-modern',
+      id: 'modern-blue',
       name: isChinese ? '现代蓝' : 'Modern Blue',
       description: isChinese
         ? '清晰、克制，适合多数岗位。'
@@ -185,8 +185,8 @@ export const createM0Templates = (locale: PrototypeLocale, resume: ResumeData) =
       ...shared,
     },
     {
-      id: 'm0-classic',
-      name: isChinese ? '深海经典' : 'Deep Classic',
+      id: 'dark-contrast',
+      name: isChinese ? '暗黑质感' : 'Dark Contrast',
       description: isChinese
         ? '使用深色标题与明确信息分组。'
         : 'Uses darker headings and clear grouping.',
@@ -195,8 +195,8 @@ export const createM0Templates = (locale: PrototypeLocale, resume: ResumeData) =
       ...shared,
     },
     {
-      id: 'm0-creative',
-      name: isChinese ? '柔彩创意' : 'Soft Creative',
+      id: 'creative-pastel',
+      name: isChinese ? '柔彩创意' : 'Creative Pastel',
       description: isChinese ? '柔和暖色强调个人表达。' : 'Soft warm accents for a personal touch.',
       accentColor: '#e8798f',
       previewStyle: 'creative',
@@ -229,9 +229,4 @@ export const createM0Templates = (locale: PrototypeLocale, resume: ResumeData) =
   return { builtInTemplates, customTemplates };
 };
 
-export const M0_ACTIVE_SECTIONS = [
-  'experience',
-  'education',
-  'skills',
-  'custom:m0-proof',
-];
+export const M0_ACTIVE_SECTIONS = ['experience', 'education', 'skills', 'custom:m0-proof'];

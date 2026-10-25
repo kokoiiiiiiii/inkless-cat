@@ -5,6 +5,9 @@ import { expect, type Page, test } from '@playwright/test';
 const artifactRoot = 'test-results/mobile-compact-studio-m0';
 
 const capture = async (page: Page, name: string) => {
+  // Keep the review screenshots focused on the layout instead of the transient
+  // demo toast produced by the interaction immediately before a capture.
+  await expect(page.locator('.m0-toast')).toBeHidden();
   await page.screenshot({
     path: `${artifactRoot}/${name}.png`,
     fullPage: true,
@@ -208,9 +211,24 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
     localStorage.setItem('inkless-cat/resume-store', 'm0-resume-sentinel');
     localStorage.setItem('inkless-cat/ui-store', 'm0-ui-sentinel');
     localStorage.setItem('inkless-cat-locale', 'en');
+    const state = globalThis as typeof globalThis & { __m0StoreReads?: string[] };
+    state.__m0StoreReads = [];
+    const originalGetItem = Object.getOwnPropertyDescriptor(Storage.prototype, 'getItem')
+      ?.value as (this: Storage, key: string) => string | null;
+    Storage.prototype.getItem = function (key: string) {
+      if (key === 'inkless-cat/resume-store' || key === 'inkless-cat/ui-store') {
+        state.__m0StoreReads?.push(key);
+      }
+      return Reflect.apply(originalGetItem, this, [key]);
+    };
   });
   await page.goto('/design/mobile-compact');
   expect(productionAppRequests).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => (globalThis as typeof globalThis & { __m0StoreReads?: string[] }).__m0StoreReads ?? [],
+    ),
+  ).toEqual([]);
   await expect(page.getByText('合成数据 · 不连接 AI')).toBeVisible();
   await expect(page.getByLabel('姓名')).toHaveValue('林岚');
   expect(
@@ -234,9 +252,13 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
       'base64',
     ),
   });
-  await expect(page.locator('.m0-avatar img')).toBeVisible();
-  await page.getByRole('button', { name: '移除' }).click();
-  await expect(page.locator('.m0-avatar img')).toHaveCount(0);
+  await expect(page.locator('.m0-avatar-upload img')).toBeVisible();
+  await expect(page.locator('.m0-avatar-upload img')).toHaveAttribute(
+    'src',
+    /^data:image\/png;base64,/,
+  );
+  await page.getByRole('button', { name: '移除照片' }).click();
+  await expect(page.locator('.m0-avatar-upload img')).toHaveCount(0);
 
   const geometry: Awaited<ReturnType<typeof measure>>[] = [];
   geometry.push(await measure(page, '390x844-editor-first-screen'));
@@ -285,6 +307,30 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.mouse.click(8, 80);
   await expect(sheet).toBeHidden();
   await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
+
+  let downloadCount = 0;
+  page.on('download', () => {
+    downloadCount += 1;
+  });
+  for (const label of ['导出 JSON', '导出 Workspace JSON', '导出 Markdown', '打印 / PDF']) {
+    await page.getByRole('button', { name: '更多操作' }).click();
+    await expect(sheet).toBeVisible();
+    await page.getByRole('button', { name: label }).click();
+    await expect(sheet).toBeHidden();
+  }
+  expect(downloadCount).toBe(0);
+
+  const aiShortcut = page.locator('.m0-ai');
+  await aiShortcut.click();
+  const aiAction = page.locator('[data-action-ai]');
+  await expect(sheet).toBeVisible();
+  await expect(aiAction).toBeFocused();
+  await expect(aiAction).toBeInViewport();
+  await capture(page, '390-ai-shortcut-action-sheet');
+  await aiAction.click();
+  await expect(sheet).toBeHidden();
+  await expect(aiShortcut).toBeFocused();
+  await expect(page.getByRole('status')).toContainText('不调用 AI');
 
   await page.getByRole('button', { name: '更多操作' }).click();
   await page.keyboard.press('Escape');
@@ -372,9 +418,9 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.getByRole('button', { name: '删除模板', exact: true }).click();
   await expect(demoTemplate).toHaveCount(0);
   await expect(page.getByRole('radio', { name: '现代蓝' })).toBeFocused();
-  await page.getByRole('radio', { name: /深海经典/ }).check();
+  await page.getByRole('radio', { name: /暗黑质感/ }).check();
   await page.getByRole('button', { name: /返回编辑/ }).click();
-  await expect(page.getByText(/深海经典/)).toBeVisible();
+  await expect(page.getByText(/暗黑质感/)).toBeVisible();
   await expect(page.locator('[data-m0-entry="templates"]')).toBeFocused();
   await page.getByRole('button', { name: '预览' }).click();
   await expect(page.locator('.m0-paper')).toBeVisible();

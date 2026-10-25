@@ -6,16 +6,10 @@ import type { ResumeTemplate } from '@entities/template';
 import { ResumePreview } from '@features/resume-preview';
 import { SectionManager } from '@features/section-manager';
 import { I18nProvider, useI18n } from '@shared/i18n';
-import { MAX_IMAGE_DIMENSION, MAX_IMAGE_FILE_BYTES, MAX_IMAGE_PIXELS } from '@shared/lib/limits';
+import { FeedbackViewport } from '@shared/ui/feedback';
+import PhotoUpload from '@widgets/photo-upload';
 import { TemplateSelector, type TemplateUpdatePayload } from '@widgets/template-selector';
-import {
-  type ChangeEvent,
-  type CSSProperties,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 
 import { createM0Resume, createM0Templates, M0_ACTIVE_SECTIONS } from '../model/fixtures';
 import { useM0Strings } from '../model/strings';
@@ -126,8 +120,6 @@ const M0Experience = () => {
   const [keyboardSimulation, setKeyboardSimulation] = useState(
     () => prototypeQuery.get('keyboard') === 'true',
   );
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [photoError, setPhotoError] = useState('');
   const [previewHeight, setPreviewHeight] = useState(500);
   const [previewViewportWidth, setPreviewViewportWidth] = useState(0);
   const previewContentRef = useRef<HTMLDivElement | null>(null);
@@ -137,12 +129,12 @@ const M0Experience = () => {
   const confirmDialogRef = useRef<HTMLDialogElement | null>(null);
   const deleteTemplateDialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const actionFocusTarget = useRef<'first' | 'ai'>('first');
   const providerReturnFocus = useRef<HTMLElement | null>(null);
   const moreActionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const clearReturnFocus = useRef<HTMLElement | null>(null);
   const deleteTemplateReturnFocus = useRef<HTMLElement | null>(null);
   const deleteTemplateConfirmed = useRef(false);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimer = useRef<ReturnType<typeof globalThis.setTimeout> | undefined>(undefined);
   const editScrollTop = useRef(0);
   const managementReturn = useRef<{ screen: 'templates' | 'modules'; scrollTop: number }>({
@@ -166,10 +158,9 @@ const M0Experience = () => {
 
   useEffect(
     () => () => {
-      if (photoUrl.startsWith('blob:')) URL.revokeObjectURL(photoUrl);
       if (toastTimer.current) globalThis.clearTimeout(toastTimer.current);
     },
-    [photoUrl],
+    [],
   );
 
   useEffect(() => {
@@ -178,7 +169,10 @@ const M0Experience = () => {
     if (actionOpen && !dialog.open) {
       previousFocus.current = document.activeElement as HTMLElement;
       dialog.showModal();
-      dialog.querySelector<HTMLElement>('[data-action-first]')?.focus();
+      const focusTarget =
+        actionFocusTarget.current === 'ai' ? '[data-action-ai]' : '[data-action-first]';
+      dialog.querySelector<HTMLElement>(focusTarget)?.focus();
+      actionFocusTarget.current = 'first';
     } else if (!actionOpen && dialog.open) {
       dialog.close();
     }
@@ -323,44 +317,6 @@ const M0Experience = () => {
   const updatePersonal = (key: keyof NonNullable<ResumeData['personal']>, value: string) => {
     setResume((current) => ({ ...current, personal: { ...current.personal, [key]: value } }));
   };
-  const handlePhoto = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setPhotoError('');
-    if (
-      file.size > MAX_IMAGE_FILE_BYTES ||
-      !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
-    ) {
-      setPhotoError(strings.photoError);
-      event.target.value = '';
-      return;
-    }
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      if (
-        image.naturalWidth > MAX_IMAGE_DIMENSION ||
-        image.naturalHeight > MAX_IMAGE_DIMENSION ||
-        image.naturalWidth * image.naturalHeight > MAX_IMAGE_PIXELS
-      ) {
-        URL.revokeObjectURL(objectUrl);
-        setPhotoError(strings.photoError);
-      } else {
-        setPhotoUrl((previous) => {
-          if (previous.startsWith('blob:')) URL.revokeObjectURL(previous);
-          return objectUrl;
-        });
-      }
-      if (photoInputRef.current) photoInputRef.current.value = '';
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      setPhotoError(strings.photoError);
-      if (photoInputRef.current) photoInputRef.current.value = '';
-    };
-    image.src = objectUrl;
-  };
-
   const updateTemplate = (selected: ResumeTemplate) => {
     setTemplate(selected);
     setTemplates((current) => ({
@@ -436,6 +392,7 @@ const M0Experience = () => {
         break;
       }
       case 'ai': {
+        setActionOpen(false);
         say(strings.demoNoAi);
         break;
       }
@@ -506,7 +463,12 @@ const M0Experience = () => {
           <button
             className="m0-icon-button m0-ai"
             type="button"
-            onClick={() => say(strings.demoNoAi)}
+            aria-haspopup="dialog"
+            aria-expanded={actionOpen}
+            onClick={() => {
+              actionFocusTarget.current = 'ai';
+              setActionOpen(true);
+            }}
             aria-label={strings.aiCreate}
           >
             <Icon name="spark" />
@@ -622,49 +584,14 @@ const M0Experience = () => {
                 <span className="m0-state-pill">{strings.saved}</span>
               </div>
               <div className="m0-avatar-row">
-                <div className="m0-avatar" aria-label={strings.photo}>
-                  {photoUrl ? (
-                    <img src={photoUrl} alt={strings.photo} />
-                  ) : (
-                    <span>{String(resume.personal?.fullName ?? 'IC').slice(0, 1)}</span>
-                  )}
+                <div className="m0-avatar-upload">
+                  <PhotoUpload
+                    value={resume.personal?.photo}
+                    onChange={(value) => updatePersonal('photo', value)}
+                    size={56}
+                  />
                 </div>
-                <div className="m0-avatar-copy">
-                  <strong>{strings.photo}</strong>
-                  <span>{strings.photoHint}</span>
-                  <div className="m0-avatar-actions">
-                    <button type="button" onClick={() => photoInputRef.current?.click()}>
-                      {strings.selectPhoto}
-                    </button>
-                    {photoUrl && (
-                      <button
-                        type="button"
-                        className="m0-subtle-action"
-                        onClick={() => {
-                          URL.revokeObjectURL(photoUrl);
-                          setPhotoUrl('');
-                        }}
-                      >
-                        {strings.removePhoto}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <input
-                  ref={photoInputRef}
-                  className="m0-visually-hidden"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  onChange={handlePhoto}
-                />
               </div>
-              {photoError && (
-                <p className="m0-error" role="alert">
-                  {photoError}
-                </p>
-              )}
               <div className="m0-form-grid">
                 <label className="m0-field">
                   <span>{strings.fieldName}</span>
@@ -1075,7 +1002,7 @@ const M0Experience = () => {
           </section>
           <section className="m0-action-group">
             <h3>{strings.aiGroup}</h3>
-            <button type="button" onClick={() => handleAction('ai')}>
+            <button type="button" data-action-ai onClick={() => handleAction('ai')}>
               {strings.aiCreate}
               <small>{strings.demoNoAi}</small>
             </button>
@@ -1266,6 +1193,7 @@ const M0Experience = () => {
       <footer className="m0-page-footer">
         M0 · {strings.previewSynthetic} · {strings.demoNoPrint}
       </footer>
+      <FeedbackViewport />
     </div>
   );
 };

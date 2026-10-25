@@ -1,4 +1,4 @@
-import { createSampleResume } from '@entities/resume';
+import { createSampleResume } from '@entities/resume-factory';
 
 import type { ResumeTemplate } from '../types';
 import { DEFAULT_TEMPLATE_ID } from './constants';
