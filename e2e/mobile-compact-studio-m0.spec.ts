@@ -291,8 +291,18 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(sheet).toBeHidden();
   await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
 
-  await page.getByRole('button', { name: '更多操作' }).click();
-  await page.getByRole('button', { name: '关闭更多操作' }).click();
+  const moreTrigger = page.getByRole('button', { name: '更多操作' });
+  const moreTriggerBounds = await moreTrigger.boundingBox();
+  if (!moreTriggerBounds) {
+    throw new Error('More trigger must be visible before opening the action sheet');
+  }
+  await moreTrigger.click();
+  // A native modal blocks pointer events on the underlying button. Tapping the
+  // same screen position reaches the dialog backdrop, which dismisses the sheet.
+  await page.mouse.click(
+    moreTriggerBounds.x + moreTriggerBounds.width / 2,
+    moreTriggerBounds.y + moreTriggerBounds.height / 2,
+  );
   await expect(sheet).toBeHidden();
   await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
 

@@ -159,7 +159,7 @@ M0 原型 DOM 测量，正常字号：
 | 模板创建、编辑、删除       | 只有确认后删除；删除当前模板回退到内置模板             | M0 原生 alertdialog，取消/Escape 焦点返回；生产沿用现有确认业务             |
 | 编辑 → 模块 → 编辑         | 显隐、排序、自定义模块保留；返回焦点到入口             | M0 通过 `SectionManager` 演示；生产不复制排序/Undo                          |
 | 模块按钮重复点击           | 当前管理面板可收起；模板/模块入口互斥                  | M0 用正式 `SectionManager` 展开/收起；正式 UI Store 继续管理面板互斥         |
-| 更多按钮重复点击           | 打开/关闭 Sheet                                        | M0 自动化与浏览器手动验证                                                   |
+| 更多按钮打开后再次点同位置 | 打开 Sheet；再次点顶栏原按钮的位置可关闭               | 原生 modal 会拦截底层按钮；该坐标落在 modal 遮罩上并关闭 Sheet。E2E 验证该触屏路径 |
 | 点遮罩 / Escape / 关闭按钮 | 关闭 Sheet 并将焦点还给触发器                          | M0 原生 modal + 焦点循环；E2E 覆盖                                          |
 | Tab / Shift+Tab            | 在 Sheet 或确认 Dialog 内循环，不落入背后页面          | M0 Action Sheet、清空与模板删除 Dialog 覆盖                                 |
 | Sheet → AI 设置            | 先关闭 Sheet，再打开设置 Dialog；退出后焦点回到触发器 | M0 合成 Dialog、焦点循环及单 Dialog 交接；禁用密钥字段，无 Provider 客户端  |
