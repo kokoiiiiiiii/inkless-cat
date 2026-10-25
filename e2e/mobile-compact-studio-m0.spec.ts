@@ -429,8 +429,12 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await capture(page, '390-preview-english-three-page-content');
   geometry.push(await measure(page, '390x844-preview-english-long'));
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.locator('.m0-lab summary').click();
+  await expect(page.getByLabel('Interface language')).toBeVisible();
   await page.getByLabel('Interface language').selectOption('zh-CN');
   await expect(page.getByLabel('姓名')).toHaveValue('林岚');
+  await page.locator('.m0-lab summary').click();
+  await expect(page.locator('.m0-lab-controls')).toBeHidden();
   await page.getByLabel('字体缩放').selectOption('1.5');
   await expect(page.locator('.m0-app')).toHaveAttribute('data-font-scale', '1.5');
   await expect(page.locator('.m0-brand-copy strong')).toHaveCSS('white-space', 'normal');
