@@ -31,12 +31,21 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=1 --retries=0
+        env:
+          M0_GEOMETRY_HEAD: ${{ github.sha }}
       - uses: actions/upload-artifact@v7
         if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/phase4b-') }}
         with:
           name: phase4b-studio-visual-review
           path: test-results/**/phase4b-*.png
           if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/mobile-compact-studio-m0') }}
+        with:
+          name: mobile-compact-studio-m0-visual-review
+          path: test-results/mobile-compact-studio-m0/**
+          if-no-files-found: warn
           retention-days: 14
 
   linux-firefox-acceptance:
@@ -60,6 +69,13 @@ jobs:
       - run: npm run build
       - name: Run Firefox acceptance paths
         run: npm run test:e2e -- --config playwright.firefox.config.ts --workers=1 --retries=0
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: firefox-mobile-compact-studio-m0-smoke
+          path: test-results/mobile-compact-studio-m0/m0-smoke-firefox-*.png
+          if-no-files-found: ignore
+          retention-days: 14
 
   visual-parity:
     if: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'visual-parity') }}

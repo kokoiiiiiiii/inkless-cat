@@ -1,4 +1,5 @@
-import { createEmptyResume, type ResumeData } from '@entities/resume';
+import type { ResumeData } from '@entities/resume';
+import { createEmptyResume } from '@entities/resume-factory';
 import type { ResumeTemplate } from '@entities/template';
 import { ResumePreview } from '@features/resume-preview';
 import { useI18n } from '@shared/i18n';
@@ -79,7 +80,7 @@ const TemplateThumbnailComponent = ({
       data-testid="template-thumbnail"
     >
       <div className="relative h-20 w-14 overflow-hidden rounded-xs border border-slate-200 bg-white shadow-xs dark:border-slate-600">
-        <div className="pointer-events-none absolute left-0 top-0 h-[800px] w-[560px] origin-top-left scale-[0.1]">
+        <div className="pointer-events-none absolute top-0 left-0 h-[800px] w-[560px] origin-top-left scale-[0.1]">
           <ResumePreview
             resume={thumbnailResume}
             activeSections={thumbnailSections}

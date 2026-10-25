@@ -122,10 +122,21 @@ type I18nContextValue = {
   };
 };
 
+type I18nProviderProps = {
+  children: ReactNode;
+  initialLocale?: Locale;
+  persistLocale?: boolean;
+};
+
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
-export const I18nProvider = ({ children }: { children: ReactNode }) => {
+export const I18nProvider = ({
+  children,
+  initialLocale,
+  persistLocale = true,
+}: I18nProviderProps) => {
   const [locale, setLocaleState] = useState<Locale>(() => {
+    if (initialLocale) return initialLocale;
     try {
       const saved = getLocalStorage()?.getItem(LOCALE_KEY);
       return resolveStoredLocale(saved ?? DEFAULT_LOCALE);
@@ -197,14 +208,18 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     [loadNamespace],
   );
 
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    try {
-      getLocalStorage()?.setItem(LOCALE_KEY, next);
-    } catch {
-      // UI language still switches for this session if browser storage is unavailable.
-    }
-  }, []);
+  const setLocale = useCallback(
+    (next: Locale) => {
+      setLocaleState(next);
+      if (!persistLocale) return;
+      try {
+        getLocalStorage()?.setItem(LOCALE_KEY, next);
+      } catch {
+        // UI language still switches for this session if browser storage is unavailable.
+      }
+    },
+    [persistLocale],
+  );
 
   const t = useCallback(
     <K extends string>(key: TranslationKey | K, vars?: Interpolations) => {
