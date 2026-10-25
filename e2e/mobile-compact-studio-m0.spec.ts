@@ -405,10 +405,14 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
       orderRows.evaluateAll((rows) => rows.map((row) => (row as HTMLElement).dataset.sectionKey)),
     )
     .toEqual(beforeOrder);
-  const firstSectionToggle = page.locator('.m0-management-screen button[aria-pressed]').first();
-  await firstSectionToggle.click();
-  await expect(firstSectionToggle).toHaveAttribute('aria-pressed', 'false');
-  await page.getByRole('button', { name: '开启', exact: true }).first().click();
+  const experienceToggle = page
+    .locator('.m0-management-screen label')
+    .filter({ hasText: '工作经历' })
+    .getByRole('button');
+  await experienceToggle.click();
+  await expect(experienceToggle).toHaveAttribute('aria-pressed', 'false');
+  await experienceToggle.click();
+  await expect(experienceToggle).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '新增模块', exact: true }).click();
   await expect(page.getByText('新的演示模块')).toBeVisible();
   await page.getByRole('button', { name: '跳转到工作经历' }).click();
