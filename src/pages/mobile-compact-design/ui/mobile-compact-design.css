@@ -897,6 +897,38 @@
   background: var(--m0-danger);
   color: white;
 }
+.m0-provider-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m0-provider-fields {
+  display: grid;
+  gap: 10px;
+  margin-block: 16px;
+}
+.m0-provider-fields .m0-field {
+  display: grid;
+  gap: 6px;
+  color: var(--m0-muted);
+  font-size: calc(12px * var(--m0-font-scale, 1));
+}
+.m0-provider-fields input,
+.m0-provider-fields select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--m0-line);
+  border-radius: 11px;
+  background: var(--m0-surface-soft);
+  color: var(--m0-muted);
+}
+.m0-provider-fields input:disabled,
+.m0-provider-fields select:disabled {
+  opacity: 1;
+  -webkit-text-fill-color: var(--m0-muted);
+}
 .m0-toast {
   position: fixed;
   z-index: 60;

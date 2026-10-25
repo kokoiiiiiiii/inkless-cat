@@ -158,11 +158,11 @@ M0 原型 DOM 测量，正常字号：
 | 编辑 → 模板 → 编辑         | 模板只影响样式；返回编辑入口并恢复焦点/滚动            | M0 使用 `TemplateSelector`、合成模板；生产沿用 controller                   |
 | 模板创建、编辑、删除       | 只有确认后删除；删除当前模板回退到内置模板             | M0 原生 alertdialog，取消/Escape 焦点返回；生产沿用现有确认业务             |
 | 编辑 → 模块 → 编辑         | 显隐、排序、自定义模块保留；返回焦点到入口             | M0 通过 `SectionManager` 演示；生产不复制排序/Undo                          |
-| 模块按钮重复点击           | 当前管理面板可收起；模板/模块入口互斥                  | 当前 UI Store 已实现；M0 两入口分别返回编辑                                 |
+| 模块按钮重复点击           | 当前管理面板可收起；模板/模块入口互斥                  | M0 用正式 `SectionManager` 展开/收起；正式 UI Store 继续管理面板互斥         |
 | 更多按钮重复点击           | 打开/关闭 Sheet                                        | M0 自动化与浏览器手动验证                                                   |
 | 点遮罩 / Escape / 关闭按钮 | 关闭 Sheet 并将焦点还给触发器                          | M0 原生 modal + 焦点循环；E2E 覆盖                                          |
 | Tab / Shift+Tab            | 在 Sheet 或确认 Dialog 内循环，不落入背后页面          | M0 Action Sheet、清空与模板删除 Dialog 覆盖                                 |
-| Sheet → AI 设置            | 关闭 Sheet；不读取或保存 API Key；焦点回到触发器       | M0 只展示说明 Toast，不构造 Provider 客户端                                 |
+| Sheet → AI 设置            | 先关闭 Sheet，再打开设置 Dialog；退出后焦点回到触发器 | M0 合成 Dialog、焦点循环及单 Dialog 交接；禁用密钥字段，无 Provider 客户端  |
 | Sheet → 导入               | 关闭 Sheet，打开系统文件选择器；返回后保留编辑内容     | M0 文件选择器只确认返回，不读取文件内容；正式接现有 import callback         |
 | Sheet → 导出/打印          | 每次只触发一次正式回调；不重复生成下载                 | M0 明确不执行真实下载或打印；正式沿用 controller 回调                       |
 | Sheet → 清空               | 先走原有确认，不直接清空                               | M0 alertdialog 后确认才清空本页合成内容                                     |
@@ -250,7 +250,7 @@ M0 实验使用正式 `ResumePreview` 和 `createM0Resume` 合成 Fixture。包�
 
 ### M0 覆盖
 
-`e2e/mobile-compact-studio-m0.spec.ts` 生成 `test-results/mobile-compact-studio-m0/`：390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图、`geometry.json`、`performance.json`。测试同时确认 M0 路由未请求生产 `App` 模块。工作流将该目录作为 GitHub Actions Artifact 上传 14 天。
+`e2e/mobile-compact-studio-m0.spec.ts` 生成 `test-results/mobile-compact-studio-m0/`：390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图、`geometry.json`、`performance.json`。测试同时确认 M0 路由未请求生产 `App` 模块。工作流将该目录作为 GitHub Actions Artifact 上传 14 天。
 
 Before/After 对照使用 PR #17 [现有 Preview](https://8e2aeec3.inkless-cat.pages.dev/) 的旧 UI 几何表，与 M0 GitHub Actions Artifact 中同尺寸的合成数据截图和 DOM 几何表。旧 Preview 的截图没有复制进 Artifact：该浏览器配置中存在简历联系信息，保留只读几何证据，避免将其上传到 CI。M0 Artifact 截图只包含本地合成 Fixture；用户此前提供的 iPhone 截图未出现在本任务上下文中，仍为 Pending。
 
@@ -262,8 +262,8 @@ M0 源码仅新增设计路由与独立 CSS/Fixture/测试。`src/main.tsx` 将�
 
 | 资源                                         |  原始大小 |     gzip |
 | -------------------------------------------- | --------: | -------: |
-| M0 动态入口 chunk                            |  39.02 KB | 13.04 KB |
-| M0 独立 CSS                                  |  21.69 KB |  4.73 KB |
+| M0 动态入口 chunk                            |  41.55 KB | 13.55 KB |
+| M0 独立 CSS                                  |  22.30 KB |  4.82 KB |
 | 共用 index CSS（原本已有）                   |  80.84 KB | 12.53 KB |
 | `App` chunk（不由 M0 route 引入）            |  92.68 KB | 23.90 KB |
 | `ResumePreview` 所需 `section-manager` chunk | 199.41 KB | 58.64 KB |

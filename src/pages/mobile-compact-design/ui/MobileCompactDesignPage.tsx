@@ -101,7 +101,9 @@ const M0Experience = () => {
   const [templates, setTemplates] = useState<ReturnType<typeof createM0Templates>>(() =>
     createM0Templates(locale, createM0Resume(locale)),
   );
+  const [sectionManagerOpen, setSectionManagerOpen] = useState(true);
   const [actionOpen, setActionOpen] = useState(() => prototypeQuery.get('screen') === 'actions');
+  const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [pendingTemplateDelete, setPendingTemplateDelete] = useState<Pick<
     ResumeTemplate,
@@ -131,9 +133,12 @@ const M0Experience = () => {
   const previewContentRef = useRef<HTMLDivElement | null>(null);
   const previewViewportRef = useRef<HTMLDivElement | null>(null);
   const actionDialogRef = useRef<HTMLDialogElement | null>(null);
+  const providerDialogRef = useRef<HTMLDialogElement | null>(null);
   const confirmDialogRef = useRef<HTMLDialogElement | null>(null);
   const deleteTemplateDialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const providerReturnFocus = useRef<HTMLElement | null>(null);
+  const moreActionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const clearReturnFocus = useRef<HTMLElement | null>(null);
   const deleteTemplateReturnFocus = useRef<HTMLElement | null>(null);
   const deleteTemplateConfirmed = useRef(false);
@@ -194,6 +199,21 @@ const M0Experience = () => {
     document.addEventListener('keydown', handleFocusCycle, true);
     return () => document.removeEventListener('keydown', handleFocusCycle, true);
   }, [confirmClear]);
+
+  useEffect(() => {
+    const dialog = providerDialogRef.current;
+    if (!dialog) return;
+    if (providerDialogOpen && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector<HTMLElement>('[data-provider-autofocus]')?.focus();
+    } else if (!providerDialogOpen && dialog.open) {
+      dialog.close();
+    }
+    if (!providerDialogOpen) return;
+    const handleFocusCycle = (event: KeyboardEvent) => cycleDialogFocus(dialog, event);
+    document.addEventListener('keydown', handleFocusCycle, true);
+    return () => document.removeEventListener('keydown', handleFocusCycle, true);
+  }, [providerDialogOpen]);
 
   useEffect(() => {
     const dialog = deleteTemplateDialogRef.current;
@@ -411,7 +431,8 @@ const M0Experience = () => {
         break;
       }
       case 'provider': {
-        say(strings.demoNoProvider);
+        providerReturnFocus.current = moreActionTriggerRef.current ?? previousFocus.current;
+        globalThis.setTimeout(() => setProviderDialogOpen(true), 120);
         break;
       }
       case 'ai': {
@@ -492,6 +513,7 @@ const M0Experience = () => {
             <span>{strings.aiCreate}</span>
           </button>
           <button
+            ref={moreActionTriggerRef}
             className="m0-icon-button m0-more-trigger"
             type="button"
             aria-haspopup="dialog"
@@ -967,7 +989,8 @@ const M0Experience = () => {
                   }));
                   setActiveSections((current) => current.filter((key) => key !== `custom:${id}`));
                 }}
-                isOpen
+                isOpen={sectionManagerOpen}
+                onToggle={() => setSectionManagerOpen((open) => !open)}
                 onReorderSections={reorderSections}
               />
             </div>
@@ -1094,6 +1117,53 @@ const M0Experience = () => {
         <p className="m0-sheet-footer">
           {strings.demoLabel} · {strings.noExport}
         </p>
+      </dialog>
+
+      <dialog
+        ref={providerDialogRef}
+        className="m0-confirm-dialog m0-provider-dialog"
+        aria-labelledby="m0-provider-title"
+        aria-describedby="m0-provider-description"
+        onCancel={(event) => {
+          event.preventDefault();
+          setProviderDialogOpen(false);
+        }}
+        onClose={() => requestAnimationFrame(() => providerReturnFocus.current?.focus())}
+      >
+        <header>
+          <h2 id="m0-provider-title">{strings.providerDialogTitle}</h2>
+          <button
+            type="button"
+            data-provider-autofocus
+            aria-label={strings.providerDialogClose}
+            onClick={() => setProviderDialogOpen(false)}
+          >
+            ×
+          </button>
+        </header>
+        <p id="m0-provider-description">{strings.providerDialogDescription}</p>
+        <div className="m0-provider-fields">
+          <label className="m0-field">
+            <span>{strings.providerName}</span>
+            <select value="demo" disabled>
+              <option value="demo">{strings.providerExample}</option>
+            </select>
+          </label>
+          <label className="m0-field">
+            <span>{strings.providerKey}</span>
+            <input
+              type="password"
+              defaultValue=""
+              placeholder={strings.providerKeyPlaceholder}
+              disabled
+            />
+          </label>
+        </div>
+        <div>
+          <button type="button" onClick={() => setProviderDialogOpen(false)}>
+            {strings.providerDialogReturn}
+          </button>
+        </div>
       </dialog>
 
       <dialog

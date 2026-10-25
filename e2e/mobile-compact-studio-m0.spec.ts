@@ -295,6 +295,24 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.getByRole('button', { name: '关闭更多操作' }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
+
+  await page.getByRole('button', { name: '更多操作' }).click();
+  await page.getByRole('button', { name: 'AI Provider 设置' }).click();
+  const providerDialog = page.getByRole('dialog', { name: 'AI Provider 设置（演示）' });
+  await expect(sheet).toBeHidden();
+  await expect(providerDialog).toBeVisible();
+  await expect(page.locator('dialog[open]')).toHaveCount(1);
+  await expect(page.getByLabel('API Key')).toBeDisabled();
+  await expect(page.getByRole('button', { name: '关闭设置' })).toBeFocused();
+  await capture(page, '390-ai-provider-dialog-demo');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: '返回编辑原型' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: '关闭设置' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(providerDialog).toBeHidden();
+  await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
+
   await page.getByRole('button', { name: '更多操作' }).click();
   const fileChooserPromise = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: '导入' }).click();
@@ -358,6 +376,10 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(page.getByRole('heading', { name: '模块管理' })).toBeVisible();
   await capture(page, '390-module-management');
   geometry.push(await measure(page, '390x844-module-management'));
+  await page.getByRole('button', { name: '收起模块管理' }).click();
+  await expect(page.getByTestId('section-sort-list')).toBeHidden();
+  await page.getByRole('button', { name: '展开模块管理' }).click();
+  await expect(page.getByTestId('section-sort-list')).toBeVisible();
   const orderRows = page.locator('[data-testid="section-sort-list"] > li');
   const beforeOrder = await orderRows.evaluateAll((rows) =>
     rows.map((row) => (row as HTMLElement).dataset.sectionKey),
