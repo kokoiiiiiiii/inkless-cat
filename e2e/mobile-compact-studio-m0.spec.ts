@@ -422,6 +422,8 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.locator('summary').filter({ hasText: '原型实验控制' }).click();
   await page.getByLabel('界面语言').selectOption('en');
   await expect(page.getByLabel('Name')).toHaveValue('Morgan Lee');
+  await page.locator('.m0-lab summary').click();
+  await expect(page.locator('.m0-lab-controls')).toBeHidden();
   await page.getByRole('button', { name: 'Preview' }).click();
   await page.getByRole('button', { name: '~3-page content' }).click();
   await capture(page, '390-preview-english-three-page-content');
