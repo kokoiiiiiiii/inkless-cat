@@ -1,0 +1,22 @@
+{
+  "browser": "Playwright Chromium",
+  "browserVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "measurement": "DOM click to next animation-frame; 220ms frame window per mode change; synthetic click, local fixture only",
+  "viewSwitchSamples": 24,
+  "firstFrameMs": {
+    "median": 7.799999982118607,
+    "p95": 14.800000011920929
+  },
+  "animationFrameDeltasMs": {
+    "frames": 331,
+    "median": 16.699999999999818,
+    "p95": 18.59999999999991,
+    "max": 33.30199999999991,
+    "over50ms": 0
+  },
+  "longTasksOver50ms": []
+}
