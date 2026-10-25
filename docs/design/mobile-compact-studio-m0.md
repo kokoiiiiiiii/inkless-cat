@@ -289,6 +289,7 @@ M0 路由需要 React 公共运行时、i18n、section-manager、TemplateSelecto
 
 | 项目                                                     | 当前状态                                                                                                                            |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                                 | 本地与 Actions PASS；460 packages，0 vulnerabilities                                                                              |
 | `npm run typecheck`                                      | 本地 PASS                                                                                                                           |
 | 变更文件 ESLint                                          | 本地 PASS                                                                                                                           |
 | 全仓 `npm run lint`                                      | PASS，0 errors；371 条既有 Tailwind classname-order warnings                                                                        |
@@ -296,9 +297,11 @@ M0 路由需要 React 公共运行时、i18n、section-manager、TemplateSelecto
 | `npm run build`                                          | 本地 PASS；M0 动态 chunk 和 CSS 已生成                                                                                              |
 | `npm audit --omit=dev --audit-level=moderate`            | 本地 PASS：0 vulnerabilities                                                                                                        |
 | `git diff --check`                                       | 本地 PASS                                                                                                                           |
-| 完整 Chromium E2E（含既有打印回归）                      | 需 GitHub Actions Linux Chromium 结果；本机 Playwright headless 浏览器曾在 macOS bootstrap 阶段被系统拒绝，不用系统 Chrome GUI 重试 |
-| Linux Firefox acceptance                                 | 需 GitHub Actions                                                                                                                   |
-| Cloudflare Pages M0 Preview                              | 创建 Draft PR 后核验                                                                                                                |
+| GitHub Actions #96（实现 head `f785617`）                | PASS：quality、Linux Firefox acceptance 均 SUCCESS；`visual-parity` 按工作流条件跳过；后续仅报告文字更新需以 PR 最新检查为准          |
+| 完整 Chromium E2E（含既有打印回归）                      | PASS：87 passed；含现有 `e2e/pdf-print.spec.ts`；[run #96](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40172754897)       |
+| Linux Firefox acceptance                                 | PASS：[run #96](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40172754897)                                                |
+| Cloudflare Pages M0 Preview                              | PASS：[稳定分支 Preview](https://design-mobile-compact-studio.inkless-cat.pages.dev/design/mobile-compact)，已在官方 IAB 打开核验      |
+| 截图与几何 Artifact                                      | PASS：[mobile-compact-studio-m0-visual-review](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40172754897/artifacts/12590509643)；3.2 MB，保留至 2026-11-08 |
 | 原生 iPhone Safari/Chrome、键盘、动态岛、safe area、回弹 | Pending；不能由 WebKit/Chromium 代替                                                                                                |
 | 用户提供的既有 iPhone 截图逐张审计                       | Pending；当前消息未附截图                                                                                                           |
 | 完整 WCAG 2.2 AA / VoiceOver                             | Pending 专项审计                                                                                                                    |
@@ -318,4 +321,4 @@ M0 路由需要 React 公共运行时、i18n、section-manager、TemplateSelecto
 | P2   | 当前 PDF E2E 未发现 1.5pt 明确阈值                                 | 维持现有断言；要建立数值容差需另行审计基线，不在 M0 放宽 |
 | P3   | M0 设计截图来自 Chromium，不等同 Safari 字体和系统表单视觉         | 以原生手机验收补齐                                       |
 
-**M0 结论：CONDITIONAL PASS。** 原型、交互和 A4 候选可供评审；最终条件是 GitHub Actions、Cloudflare Preview 通过，并由用户评审视觉方向。原生设备与完整辅助技术项目仍 Pending。M0 Draft PR 不合并；M1～M3 不在本阶段开始。
+**M0 结论：CONDITIONAL PASS。** 高保真原型、交互、A4 可行性、设计/兼容性报告和自动化门禁已完成，PR #18 的 Draft Preview 可供手机设计评审。原生 iPhone 实机、未附的旧 iPhone 截图审计及完整 VoiceOver/WCAG 2.2 AA 仍为 Pending；这些结果不以 Chromium/Firefox 替代。PR 保持 Draft，不合并；M1～M3 不在本阶段开始。
