@@ -1,0 +1,60 @@
+{
+  "environment": "Chromium E2E; Vite dev server; CSS viewport 390×844",
+  "navigation": {
+    "responseStartMs": 1.4,
+    "domContentLoadedMs": 88.2,
+    "loadEventMs": 88.8
+  },
+  "firstContentfulPaintMs": 104,
+  "editorPreviewPaintResponseMs": [
+    22.9,
+    33.3,
+    33.3,
+    33.3
+  ],
+  "previewModePaintResponse": [
+    {
+      "mode": "responsive",
+      "responseMs": 33.6,
+      "horizontalOverflow": 0
+    },
+    {
+      "mode": "fixed",
+      "responseMs": 32.9,
+      "horizontalOverflow": 0
+    },
+    {
+      "mode": "reader",
+      "responseMs": 33.3,
+      "horizontalOverflow": 0
+    }
+  ],
+  "longPreviewScrollFrameGapsMs": [
+    16.8,
+    16.6,
+    16.6,
+    16.8,
+    16.6,
+    16.7,
+    16.6,
+    16.7,
+    16.6,
+    16.7,
+    16.8,
+    16.7,
+    16.6,
+    16.7,
+    16.6,
+    15.8,
+    17.6,
+    16.6,
+    15.6,
+    16.8
+  ],
+  "longPreviewScrollFrameGapP95Ms": 16.8,
+  "resourceTiming": {
+    "count": 11,
+    "transferSizeBytes": 5877462,
+    "encodedBodyBytes": 5874162
+  }
+}

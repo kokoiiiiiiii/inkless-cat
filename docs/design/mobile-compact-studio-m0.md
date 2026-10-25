@@ -302,14 +302,14 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 
 | 资源                                         |  原始大小 |     gzip |
 | -------------------------------------------- | --------: | -------: |
-| M0 动态入口 chunk                            |  42.26 KB | 13.66 KB |
+| M0 动态入口 chunk                            |  42.70 KB | 13.80 KB |
 | M0 独立 CSS                                  |  22.93 KB |  4.90 KB |
 | 复用的正式 `PhotoUpload` chunk               |  68.71 KB | 19.78 KB |
 | Resume/template 共用 chunk                   | 110.61 KB | 32.20 KB |
 | 共用 index CSS（原本已有）                   |  80.84 KB | 12.53 KB |
 | `App` chunk（不由 M0 route 引入）            | 112.36 KB | 31.01 KB |
 | `TemplateSelector` chunk                     |  19.14 KB |  4.78 KB |
-| 公共入口 `index` JS                          | 222.02 KB | 70.56 KB |
+| 公共入口 `index` JS                          | 222.02 KB | 70.55 KB |
 
 表中是 Vite 本次构建输出中与原型和共享入口有关的 chunk 大小，不是路由累计下载量；`App` chunk 不由 M0 路由请求。M0 初始入口没有静态导入正式 `App`，而正式 `PhotoUpload` 被原型动态路由使用。CI 的 `performance.json` 记录相同 Chromium E2E 中的资源计时、FCP、编辑/预览绘制响应和合成长预览 rAF 帧间隔。计时受 CI 主机、字体和网络影响，不设预算门槛；生产体验仍需在 PR Preview 复核。
 
@@ -317,13 +317,14 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 
 | 项目                                                     | 当前状态                                                                                                                            |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `npm ci`                                                 | 本地与 Actions PASS；460 packages，0 vulnerabilities                                                                              |
+| `npm ci`                                                 | Node 24.22.1 本地 PASS；460 packages                                                                                              |
 | `npm run typecheck`                                      | 本地 PASS                                                                                                                           |
 | 全仓 `npm run lint`                                      | 本地 PASS：0 errors，379 条 warning（主要为 Tailwind classname-order / 自定义 CSS 类规则）                                           |
 | `npm test`                                               | 本地 PASS：49 files / 418 tests                                                                                                     |
 | `npm run build`                                          | 本地 PASS；M0 动态入口 42.26 KB / 13.66 KB gzip，CSS 22.93 KB / 4.90 KB gzip                                                        |
-| M0 Playwright 专项                                      | 本地 PASS：2/2 tests；8 首屏视口、10 Lab 字体/视口组合、Action Sheet 首开/键盘/到底部截图与交互                                  |
-| `npm audit --omit=dev --audit-level=moderate`            | 本轮未重跑；基线 PR 工作流仍为 PASS                                                                                                  |
+| M0 / 全量 Chromium Playwright                            | 本地 PASS：92/92 E2E；含 4 个 M0 专项和 2 个 M0 smoke 用例，含正式 PDF 回归                                                        |
+| `npm audit --omit=dev --audit-level=moderate`            | Node 24.22.1 本地 PASS；0 vulnerabilities                                                                                          |
+| Firefox Acceptance + M0 Smoke                            | 本机 macOS Firefox 被系统沙盒拦截启动；Linux PR CI 等待本轮 Head 验收                                                             |
 | `git diff --check`                                       | 本地 PASS                                                                                                                           |
 | PR #18 原 Head Actions `40186003284`                     | quality、Linux Firefox、Cloudflare Pages SUCCESS；`visual-parity` SKIPPED；该结果属于加固前 Head                                       |
 | 本轮提交 GitHub Actions                                  | 推送后以 PR #18 最新 Head 的实际 Checks 更新                                                                                          |
@@ -347,3 +348,90 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 | P3   | M0 设计截图来自 Chromium，不等同 Safari 字体和系统表单视觉         | 以原生手机验收补齐                                       |
 
 **M0 结论：CONDITIONAL PASS。** 高保真可交互原型、UX/架构审计、A/B/C A4 技术实验、交互契约、M1～M3 计划和自动化门禁均已完成。PR #18 仍为 Draft，等待手机设计评审，不合并；本阶段未开始 M1～M3。原生 iPhone Safari/Chrome、软键盘、安全区、地址栏、VoiceOver、完整 WCAG 2.2 AA 以及本任务未附的旧 iPhone 截图审计仍为 Pending；Chromium/Firefox 结果不替代实机结论。
+
+## G. M0 Hardening Round 2 独立审计整改
+
+审计基准为 PR #18 Head `52ca9aae01f6731032240c5210ac018b51f3b7e4`，目标分支为 `design/mobile-compact-studio-m0`，Base 为 `main`。开始时远程 Head 与该审计基准一致；Round 2 的所有源码和证据在独立 worktree 内产生。此章节记录整改原因、影响、策略、文件、测试和剩余风险；不包含 M1/M2/M3 开发。
+
+### P2-01 — 预览 Fixture 不再覆盖编辑数据
+
+- **原因**：原 `changeLength` 在切换单页/长文时以 Fixture 重建 `resume` 并重置启用模块，编辑中的字段因此被样例替换。
+- **实际影响**：从编辑进入预览并切换长文后，姓名、头衔、邮箱等原型内修改可能丢失。
+- **修复策略**：当前合成简历仍是唯一可编辑状态；`previewResume` 只在长文技术实验时读取独立只读 Fixture，配套实验模块也独立选择。A/B/C 仅改变展示。语言变化不重建编辑数据；载入本地示例仍是用户明确触发的独立动作。
+- **涉及文件**：`src/pages/mobile-compact-design/ui/MobileCompactDesignPage.tsx`、`e2e/mobile-compact-studio-m0.spec.ts`。
+- **新增测试**：编辑姓名/头衔/邮箱；切换单页与长文及 A/B/C；在中文和英文之间切换；返回编辑后逐项校验；拦截并断言 resume/UI browser Store 没有写入且 sentinel 原样保留。
+- **验证结果**：本地 Chromium 全量 E2E 通过；对应 M0 编辑状态测试通过。展示 Fixture 不进入 Store 或业务编辑器。
+- **剩余风险**：无已知 M0 原型数据丢失风险；实际生产简历 Store 未接入本原型，也未作修改。
+
+### P2-02 — 当前自定义模板变更同步到实际预览
+
+- **原因**：原回调只更新 `templates.customTemplates` 列表，而 ResumePreview 读取另一个 `template` 当前选中对象。
+- **实际影响**：编辑当前自定义模板时，卡片值已变，当前预览可能仍使用旧配置。
+- **修复策略**：最小双状态同步修复：更新列表项；仅当当前选中项 id 相同时，合并更新当前 `template`。更改未选中项只更新模板列表。删除后沿用现有内置模板 fallback。
+- **涉及文件**：`src/pages/mobile-compact-design/ui/MobileCompactDesignPage.tsx`、`e2e/mobile-compact-studio-m0.spec.ts`。
+- **新增测试**：创建并选中自定义模板；修改强调色、背景与标题主题色、名称和样式；断言正式 `ResumePreview` 的实际 class、背景色、标题色和强调色；修改其他未选模板后验证当前预览样式未变；删除选中模板后验证内置模板接管渲染。
+- **验证结果**：本地 Chromium 模板专项及全量 E2E 通过；留存模板修改后的实际 renderer 截图。
+- **剩余风险**：模板操作继续位于原型局部内存；未触碰正式模板持久化或模板业务逻辑。
+
+### P2-03 — Firefox 增加独立 M0 Smoke 验收
+
+- **原因**：原 `playwright.firefox.config.ts` 只匹配既有 `firefox-acceptance.spec.ts`，原有 Linux Firefox 通过不能代表 M0 已通过 Firefox。
+- **实际影响**：M0 路由、紧凑编辑视图和原型 Action Sheet 缺少 Firefox 专项证据。
+- **修复策略**：新增轻量 `firefox-m0-smoke.spec.ts`，并在保留既有 Acceptance 的同时扩展 Firefox 配置匹配；Linux Firefox workflow 继续执行原 5 个测试，并增加 Firefox M0 两个用例和 Smoke PNG Artifact。没有关闭沙盒或添加规避参数。
+- **涉及文件**：`e2e/firefox-m0-smoke.spec.ts`、`playwright.firefox.config.ts`、`.github/workflows/quality.yml`。
+- **新增测试**：M0 路由和真实姓名输入、编辑/预览切换、390×844 与 320×568 横向溢出、Action Sheet Escape 与焦点返回、模板选择；独立 Lab 页面、200% 控件滚动、内容保留和溢出。
+- **验证结果**：本地 Chromium 套件中的两条 Smoke 用例通过；macOS 本机 Firefox 因 `plugin-container` 沙盒错误未能启动，未据此宣称 Firefox 通过。Linux PR CI 结果以本轮 Head 的实际 Run 为准，并在推送后补录。
+- **剩余风险**：在对应 Linux Firefox CI 成功完成前，Firefox M0 验收保持 Pending。自动化通过后仍不代表原生 iPhone Safari。
+
+### P2-04 — 首屏几何断言和交互命中测量加严
+
+- **原因**：原测试矩阵只对横向溢出建门禁，helper 记录的完整/部分/遮挡字段数量未锁定到确认基线；可交互性主要检查元素中心，Lab 初始/滚动/键盘状态区分不足。
+- **实际影响**：首屏密度回退、控件被遮挡或控件不可命中时，测试可能仍然通过。
+- **修复策略**：保留既有可见性、裁剪及遮挡定义；增加命中区域 20%/50%/80% 的 3×3 网格采样，排除固定遮挡区域，并对可见区域中每个样本点作 `elementFromPoint`。遮挡面积继续由矩形分割并集去重。8 个视口锁定完整字段不少于基线、部分字段等于基线、遮挡为 0、文档横向溢出为 0；首输入框需可见、可编辑、聚焦且多点命中。Lab 将记录初始、明确滚动后、键盘导航后和关闭返回编辑四种状态。
+- **涉及文件**：`e2e/helpers/mobile-compact-geometry.ts`、`e2e/mobile-compact-studio-m0.spec.ts`、`.github/workflows/quality.yml`。
+- **新增测试**：基线为 320×568（1/1/0）、320×844（4/1/0）、360×800（4/1/0）、390×844（4/1/0）、393×852（4/1/0）、430×932（5/0/0）、768×1024（6/0/0）、844×390（2/0/0）；每组依次代表完整/部分/遮挡。320×568、200% Lab 初始态明确断言主区仍在 scrollTop 0、内容确实需要纵向滚动、控件尚不可命中；滚动后语言控件必须进入视口并通过多点命中。其余 Lab 初始态须有可见且可命中控件，键盘路径独立断言焦点顺序和退出行为。
+- **验证结果**：几何专项通过；最终本地 Chromium 全量 E2E 92/92 通过。几何 JSON 保留全部视口和 Lab 状态；GitHub quality 步骤将把当前 `$GITHUB_SHA` 写入本轮几何证据。
+- **剩余风险**：坐标和字体度量仍可能受浏览器版本影响；断言集中于当前已确认基线和可交互性，不增加非关键像素坐标阈值。
+
+### P3 — 重置与载入示例语义一致
+
+- **原因**：“清空简历”实际重建初始合成简历；“载入示例”之前只提示而不更换内容。
+- **实际影响**：操作名称和 Toast 无法准确说明状态变化。
+- **修复策略**：把破坏性入口改为“重置演示内容”，确认文案说明恢复本页初始合成数据且只影响原型内存；保留确认 Dialog。载入示例现在实际载入本地单页合成 Fixture，重置演示模块和预览长度，不触发正式导入/导出/打印。
+- **涉及文件**：`src/pages/mobile-compact-design/model/strings.ts`、`src/pages/mobile-compact-design/ui/MobileCompactDesignPage.tsx`、`e2e/mobile-compact-studio-m0.spec.ts`。
+- **新增测试**：重置 Dialog 取消后内容不变且焦点回到 Action Sheet 触发按钮；确认后恢复初始合成内容、Toast 正确且焦点返回；载入示例后姓名恢复 Fixture 值并显示真实载入提示。
+- **验证结果**：本地 Chromium M0 交互和全量 E2E 通过。
+- **剩余风险**：无真实用户简历或真实文件操作；Lab 和操作均只修改当前原型页面状态。
+
+### Round 2 工程与浏览器验证
+
+| 验收面 | 结果 |
+| --- | --- |
+| Chromium 全量既有 E2E + M0 专项 | 本地 PASS，92/92；含 A4 单页/长页/照片与自定义模块 PDF 回归。M0 归属测试 6 条（4 条 M0 专项、2 条新增 Firefox Smoke 在 Chromium 下执行）。 |
+| Firefox 既有 Acceptance | 原 5 条保持在配置中；等待本轮 Linux Actions 实际结果。 |
+| Firefox M0 Smoke | 两条用例已新增；本机 Firefox 启动受系统沙盒阻断；Linux Actions 结果待补录。 |
+| 单元测试 | `npm test` PASS：49 个文件、418 tests。 |
+| 工程质量 | `npm ci` PASS（Node 24.22.1、460 packages）；`typecheck` PASS；`lint` PASS（0 errors、379 warnings）；`build` PASS；`npm audit --omit=dev --audit-level=moderate` PASS（0 vulnerabilities）；`git diff --check` PASS。 |
+| 浏览器视觉证据 | 以下 PNG 与 JSON 来自本轮最终本地 Chromium 全量运行；推送后的 Actions Artifact 才是最终 GitHub Head 的权威记录。Firefox Smoke PNG 由新增 Linux CI job 单独上传。 |
+| 原生 iPhone Safari | **Pending**；自动化 Chromium/Firefox 不作为真机测试。 |
+| VoiceOver / 完整 WCAG 2.2 AA | **Pending**；尚未进行完整无障碍审计。 |
+
+Round 2 本地截图与几何数据：
+
+| 390px 编辑首屏 | 390px 模板主题修改后的真实预览 |
+| --- | --- |
+| ![Round 2 390px 编辑首屏](mobile-compact-studio-m0/evidence/round2/round2-390-editor-first-screen.png) | ![Round 2 390px 自定义模板更新后的 ResumePreview](mobile-compact-studio-m0/evidence/round2/round2-390-template-modified-preview.png) |
+
+| 390px Action Sheet | 320px 编辑首屏 |
+| --- | --- |
+| ![Round 2 390px Action Sheet](mobile-compact-studio-m0/evidence/round2/round2-390-action-sheet.png) | ![Round 2 320px 编辑首屏](mobile-compact-studio-m0/evidence/round2/round2-320-editor-first-screen.png) |
+
+| 390px / 200% Lab | 320px / 200% Lab |
+| --- | --- |
+| ![Round 2 390px 200% Lab](mobile-compact-studio-m0/evidence/round2/round2-390-lab-200.png) | ![Round 2 320px 200% Lab](mobile-compact-studio-m0/evidence/round2/round2-320-lab-200.png) |
+
+完整数据：[8 个基线视口与 10 组 Lab 状态](mobile-compact-studio-m0/evidence/round2/round2-geometry-current.json)、[全部页面几何记录](mobile-compact-studio-m0/evidence/round2/round2-geometry-all.json)、[Chromium performance 记录](mobile-compact-studio-m0/evidence/round2/round2-performance.json)。
+
+### Round 2 裁决
+
+P2-01、P2-02、P2-04、P3 的代码修复与 Chromium 验证完成。P2-03 的测试、配置和 CI 接线已完成，但需等本轮 Linux Firefox Acceptance 与 M0 Smoke 实际完成后才能标记最终验收。M0 仍保持 **CONDITIONAL PASS**：iPhone Safari 与 VoiceOver/WCAG 2.2 AA 是后续真实验收，不由自动化 CI 替代。PR #18 应继续保持 Open / Draft；本轮不合并，也不开始 M1 实现。
