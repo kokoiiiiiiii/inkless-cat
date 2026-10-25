@@ -38,6 +38,13 @@ jobs:
           path: test-results/**/phase4b-*.png
           if-no-files-found: ignore
           retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/mobile-compact-studio-m0') }}
+        with:
+          name: mobile-compact-studio-m0-visual-review
+          path: test-results/mobile-compact-studio-m0/**
+          if-no-files-found: warn
+          retention-days: 14
 
   linux-firefox-acceptance:
     if: github.event_name == 'pull_request'
