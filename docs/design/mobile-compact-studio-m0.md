@@ -380,8 +380,8 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 - **修复策略**：新增轻量 `firefox-m0-smoke.spec.ts`，并在保留既有 Acceptance 的同时扩展 Firefox 配置匹配；Linux Firefox workflow 继续执行原 5 个测试，并增加 Firefox M0 两个用例和 Smoke PNG Artifact。没有关闭沙盒或添加规避参数。
 - **涉及文件**：`e2e/firefox-m0-smoke.spec.ts`、`playwright.firefox.config.ts`、`.github/workflows/quality.yml`。
 - **新增测试**：M0 路由和真实姓名输入、编辑/预览切换、390×844 与 320×568 横向溢出、Action Sheet Escape 与焦点返回、模板选择；独立 Lab 页面、200% 控件滚动、内容保留和溢出。
-- **验证结果**：本地 Chromium 套件中的两条 Smoke 用例通过；macOS 本机 Firefox 因 `plugin-container` 沙盒错误未能启动，未据此宣称 Firefox 通过。Linux PR CI 结果以本轮 Head 的实际 Run 为准，并在推送后补录。
-- **剩余风险**：在对应 Linux Firefox CI 成功完成前，Firefox M0 验收保持 Pending。自动化通过后仍不代表原生 iPhone Safari。
+- **验证结果**：GitHub Actions [Run 40211942695](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40211942695) 在代码 Head `138d2d43732c02bc5c0c3b9e142880246fb3bfc7` 上通过，Linux Firefox Acceptance 与新增 M0 Smoke 共 **7/7**（既有 5 条 + M0 2 条）；Firefox Smoke PNG 已上传到 [Firefox Artifact](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40211942695/artifacts/12605364212)。本地 macOS Firefox 因 `plugin-container` 沙盒错误未能启动，但没有关闭沙盒或添加规避参数。
+- **剩余风险**：Linux Firefox 自动化通过不代表原生 iPhone Safari，软键盘、安全区、地址栏和 VoiceOver 仍须实机验收。
 
 ### P2-04 — 首屏几何断言和交互命中测量加严
 
@@ -408,11 +408,12 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 | 验收面 | 结果 |
 | --- | --- |
 | Chromium 全量既有 E2E + M0 专项 | 本地 PASS，92/92；含 A4 单页/长页/照片与自定义模块 PDF 回归。M0 归属测试 6 条（4 条 M0 专项、2 条新增 Firefox Smoke 在 Chromium 下执行）。 |
-| Firefox 既有 Acceptance | 原 5 条保持在配置中；等待本轮 Linux Actions 实际结果。 |
-| Firefox M0 Smoke | 两条用例已新增；本机 Firefox 启动受系统沙盒阻断；Linux Actions 结果待补录。 |
+| Firefox 既有 Acceptance | Linux PR CI PASS，5/5；配置及既有用例保持。 |
+| Firefox M0 Smoke | Linux PR CI PASS，2/2；与既有 Acceptance 合计 7/7。macOS 本地启动受系统沙盒阻断，不作为通过依据。 |
 | 单元测试 | `npm test` PASS：49 个文件、418 tests。 |
 | 工程质量 | `npm ci` PASS（Node 24.22.1、460 packages）；`typecheck` PASS；`lint` PASS（0 errors、379 warnings）；`build` PASS；`npm audit --omit=dev --audit-level=moderate` PASS（0 vulnerabilities）；`git diff --check` PASS。 |
-| 浏览器视觉证据 | 以下 PNG 与 JSON 来自本轮最终本地 Chromium 全量运行；推送后的 Actions Artifact 才是最终 GitHub Head 的权威记录。Firefox Smoke PNG 由新增 Linux CI job 单独上传。 |
+| 浏览器视觉证据 | 以下 PNG 与 JSON 来自本轮最终本地 Chromium 全量运行；代码 Head `138d2d43732c02bc5c0c3b9e142880246fb3bfc7` 的 [Chromium Artifact](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40211942695/artifacts/12606292397) 和 [Firefox Smoke Artifact](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40211942695/artifacts/12605364212) 保留 GitHub CI 对应证据。 |
+| GitHub Actions | [Run 40211942695](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40211942695)；Cloudflare Pages、quality、Linux Firefox 均成功，`visual-parity` 因条件不满足而跳过。 |
 | 原生 iPhone Safari | **Pending**；自动化 Chromium/Firefox 不作为真机测试。 |
 | VoiceOver / 完整 WCAG 2.2 AA | **Pending**；尚未进行完整无障碍审计。 |
 
@@ -434,4 +435,4 @@ Round 2 本地截图与几何数据：
 
 ### Round 2 裁决
 
-P2-01、P2-02、P2-04、P3 的代码修复与 Chromium 验证完成。P2-03 的测试、配置和 CI 接线已完成，但需等本轮 Linux Firefox Acceptance 与 M0 Smoke 实际完成后才能标记最终验收。M0 仍保持 **CONDITIONAL PASS**：iPhone Safari 与 VoiceOver/WCAG 2.2 AA 是后续真实验收，不由自动化 CI 替代。PR #18 应继续保持 Open / Draft；本轮不合并，也不开始 M1 实现。
+P2-01、P2-02、P2-03、P2-04、P3 均为 **FIXED**。P2-03 已由本轮 Linux Firefox CI 的 Acceptance 5/5 与 M0 Smoke 2/2 验证；P2-04 的几何门禁及 Chromium 全量 E2E 通过。M0 仍为 **CONDITIONAL PASS**：iPhone Safari 与 VoiceOver/WCAG 2.2 AA 是后续真实验收，不由自动化 CI 替代。PR #18 应继续保持 Open / Draft；本轮不合并，也不开始 M1 实现。
