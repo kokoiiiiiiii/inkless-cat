@@ -2,15 +2,16 @@
 
 ## 状态与评审边界
 
-**当前状态：CONDITIONAL。** 两套方向、推荐方向原型、截图和 Cloudflare Preview 已完成。Draft PR #19 首轮 Chromium/Firefox CI 找到两项测试测量问题，已修正并等待最终 Head 复跑；浏览器 UI 的 200% Zoom 在本机自动化环境无法驱动，真实 iPhone Safari 与软键盘仍为设备验收 Pending。这些不是 Pass。用户尚未接受任何设计方向。
+**当前状态：CONDITIONAL。** 两套方向、推荐方向原型、截图、Cloudflare Preview 及主要工程/浏览器验证已完成。代码 Head `1e09ec1` 的 GitHub Actions Chromium 为 95/95、Linux Firefox 为 13/13；Cloudflare Pages Preview 部署成功。报告文档与性能证据随后产生的 docs-only commit 会触发最终 PR Head 复跑。实际浏览器 UI 的 200% Zoom 未能在本机自动化环境驱动；真实 iPhone Safari 与软键盘仍为设备验收 Pending。这些不是 Pass。用户尚未接受任何设计方向。
 
 - 确认的 `main` 基线 SHA：`7eac5487caf25610f5edcaf87524027595cfc754`
 - 独立开发分支：`codex/inkless-cat-v3-d0`
 - 原型代码 commit / PR 初始 Head SHA：`056b591057be7135e20ee2bca4f2e441dedb8017`；后续仅补齐本报告的文档 commit 会改变最终 PR Head，不改变原型运行时代码。
 - Draft PR：[#19](https://github.com/kokoiiiiiiii/inkless-cat/pull/19)，保持 Draft，未合并。
-- 首轮 GitHub Actions：[run 40230436678](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40230436678)；首轮证据包：[inkless-cat-v3-d0-evidence](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40230436678/artifacts/12613001763)。该 run 有两项测试测量失败，不能当成整套 CI 通过；修正后会由 PR Checks 复跑。
-- Cloudflare branch Preview：[打开 `/design/v3-d0`](https://codex-inkless-cat-v3-d0.inkless-cat.pages.dev/design/v3-d0?direction=a)；本次内置浏览器复核实际加载并可切换 A/B。原型 commit 部署：[commit Preview](https://1cb732b8.inkless-cat.pages.dev/design/v3-d0?direction=a)。报告文档 commit 推送后应等待 branch Preview 更新到最终 Head。
-- CI evidence artifact 在 Actions job 完成后生成；最终 artifact URL 将随最终 PR Checks 一并提供。
+- 首轮 GitHub Actions：[run 40230436678](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40230436678)；首轮证据包：[inkless-cat-v3-d0-evidence](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40230436678/artifacts/12613001763)。该 run 有两项测量测试失败，不能当成整套 CI 通过。
+- 修正后 GitHub Actions：[run 40232146235](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40232146235)，Chromium quality 95/95、Linux Firefox 13/13 均通过；production audit、typecheck、lint、416 个单测和 build 均通过。`visual-parity` 因 PR 未带该专用 label 被条件跳过，不计作 Pass。
+- Cloudflare branch Preview：[打开 `/design/v3-d0`](https://codex-inkless-cat-v3-d0.inkless-cat.pages.dev/design/v3-d0?direction=a)；commit `1e09ec1` 的 Preview 已部署，内置浏览器已复核最新版本且 A/B 可切换：[commit Preview](https://5a4dd77b.inkless-cat.pages.dev/design/v3-d0?direction=a)。
+- 修正后 CI evidence artifact：[inkless-cat-v3-d0-evidence](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40232146235/artifacts/12613104666)。该 run 对应原型代码 Head `1e09ec1`；其后的提交只更新报告与性能测量证据。
 - 原工作区中原有 AI interview 未提交更改留在原 checkout；本工作只在独立 managed worktree 进行。
 - PR #17 / #18 不修改、不合并；正式编辑器、业务 Store、Controller、Print CSS、生产 Provider/key 路径均不修改。
 
@@ -82,7 +83,7 @@ Base UI 1.6.0 与 React 19 的受控 Dialog 在 Chromium/WebKit 中完成键盘�
 | 200% 浏览器 Zoom | Pending；本机 Playwright Headless Chromium 的 Control+Plus 与 IAB tab 均不能改变 DPR / visual scale / viewport。CSS `zoom` 不等价，未用其冒充浏览器缩放 |
 | Reduced Motion | Chromium Passed：模拟 `prefers-reduced-motion: reduce`，检查 demo loading 标记切换至 0.01ms |
 | Chromium | Playwright 1.61.1 / Chromium 149.0.7827.55；完整现有生产 E2E + D0 + Print 路径通过 |
-| Firefox | 本机 Playwright Firefox 1532 无法启动 content helper（`sandbox_extension_issue_file_to_process ... Operation not permitted`，之后 `RenderCompositorSWGL failed mapping default framebuffer`）；不是页面断言结果。首轮 Linux Firefox 12/13 通过、1 条几何检测失败；修正后等待完整复跑 |
+| Firefox | 本机 Playwright Firefox 1532 无法启动 content helper（`sandbox_extension_issue_file_to_process ... Operation not permitted`，之后 `RenderCompositorSWGL failed mapping default framebuffer`）；不是页面断言结果。修正后 GitHub Linux Firefox 复跑 13/13 通过 |
 | WebKit desktop | Playwright WebKit 26.5 / macOS 27.0.0 arm64：完整 D0 套件通过。该结果不等于原生 iOS Safari |
 | iPhone Safari | Pending 真实设备测试；包括软键盘、地址栏动态视口和安全区 |
 | 软键盘、安全区 | CSS 使用动态视口与 safe-area inset；自动浏览器不能表示 iPhone 真实软键盘/Safari 地址栏，仍为设备验收项 |
@@ -100,19 +101,20 @@ OS：macOS 27.0.0 arm64；Node 24.22.1；npm 11.20.0。Chromium 149 / WebKit 26.
 | `npm run build` | Passed; Vite 8.3.5 transformed 949 modules |
 | `npm audit --omit=dev --audit-level=moderate` | Passed; 0 production vulnerabilities |
 | `git diff --check` | Passed |
-| Full Chromium Playwright (existing E2E + D0 + production print) | Passed; 95 tests |
-| Firefox Playwright local (existing acceptance + D0) | Environment failure before browser context; 4 launch timeouts, 2 interrupted at runner stop, 7 not run. Linux CI job Pending; not counted Pass |
+| Full Chromium Playwright (existing E2E + D0 + production print) | GitHub Actions Passed; 95/95 tests on code Head `1e09ec1` |
+| Corrected GitHub Linux Firefox acceptance (existing paths + D0) | Passed; 13/13 tests on code Head `1e09ec1` |
+| Firefox Playwright local (existing acceptance + D0) | Environment failure before browser context; 4 launch timeouts, 2 interrupted at runner stop, 7 not run. This local process-start failure is superseded by the successful Linux CI browser run, not reported as a local pass |
 | WebKit Playwright (D0) | Passed; 8 tests。与 Chromium 并行的一次复核出现 1 个移动导出 Dialog 间歇未打开；独立 targeted case 与 serial full suite 均通过，当前无可复现失败 |
 | D0 screenshot matrix | Passed; 19 screenshots across A/B, PC/Mobile, templates, modules, preview, narrow and landscape |
-| D0 interaction/frame probe | Passed; 24 view switches: median next-frame 7.8ms, p95 14.8ms; frame delta median 16.7ms, p95 18.6ms, max 33.3ms; 0 frames >50ms; 0 Long Tasks ≥50ms. See [performance.json](evidence/performance.json) |
+| D0 interaction/frame probe | GitHub Actions Linux / Chromium; 24 view switches: first-frame median 14.9ms, p95 20.1ms; 333 observed animation frames, frame-delta median/p95 16.7ms, max 50ms, 0 frames >50ms; 0 Long Tasks ≥50ms in interaction window. See [performance.json](evidence/performance.json) |
 
 ### 首轮 GitHub CI 失败与修正
 
 [首轮 run 40230436678](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40230436678) 的基础审计、类型检查、Lint、单测和构建均通过；Chromium E2E 为 94/95。失败的性能断言是 observer 使用 `buffered: true`，把导航/初始挂载时、切换计时器开始之前的一次 70ms Long Task 收入视图切换样本；trace 显示该条目早于 `page.goto()` 完成。现已改为仅观察页面就绪后的交互窗口，不放宽性能阈值。首轮 artifact 保存了该 run 的原始证据。
 
-首轮 Linux Firefox E2E 为 12/13。失败点在 390×844：测试遍历几何节点时，把默认关闭的原生 `<details>` 章节选择器中的 `nav` 与 4 个按钮也当作可见的越界内容；同轮 `documentElement.scrollWidth <= clientWidth` 与 Studio 宽度检查均通过。现增加菜单关闭时的 `toBeHidden()` 断言，并只从可见内容溢出检查中排除关闭 `<details>` 的后代。最终 Head 必须由 Linux Firefox 完整复跑验证，首轮结果不计为通过。
+首轮 Linux Firefox E2E 为 12/13。失败点在 390×844：测试遍历几何节点时，把默认关闭的原生 `<details>` 章节选择器中的 `nav` 与 4 个按钮也当作可见的越界内容；同轮 `documentElement.scrollWidth <= clientWidth` 与 Studio 宽度检查均通过。现增加菜单关闭时的 `toBeHidden()` 断言，并只从可见内容溢出检查中排除关闭 `<details>` 的后代。修正后的 Linux Firefox acceptance 在 Head `1e09ec1` 完整 13/13 通过。
 
-浏览器测试明确区分 Passed、Failed、Interrupted 与 Not run。本机 Firefox failure is a local process-start limitation; Linux Firefox's first run failed at the hidden-details geometry assertion and now awaits rerun with the corrected visibility check. Cloudflare Pages branch Preview has been opened in the built-in browser; A/B route switching worked on the deployed prototype commit. Report-only changes trigger a new build and deployment, whose final Head will be linked in PR checks and final delivery. 200% browser Zoom remains a separate validation gap.
+浏览器测试明确区分 Passed、Failed、Interrupted 与 Not run。本机 Firefox failure 是本机启动限制；GitHub Linux Firefox 最终为 13/13，通过。Cloudflare Pages branch Preview 已在内置浏览器打开，commit `1e09ec1` 上 A/B 路由切换可用。Chromium quality 同一代码 Head 为 95/95，通过。之后仅报告/测量证据变更会触发最终 PR Head 复跑。200% 浏览器 Zoom 与真实 iPhone Safari 仍是单独的设备/浏览器验证缺口。
 
 ## 第二轮视觉与交互复核
 
@@ -123,7 +125,7 @@ OS：macOS 27.0.0 arm64；Node 24.22.1；npm 11.20.0。Chromium 149 / WebKit 26.
 | 状态 | 严重度 | 说明 |
 |---|---|---|
 | Headless Chromium 不支持真实 browser UI zoom 操作 | P2 / Pending | app root font-size 模拟不等价；需要真实浏览器用户级 200% Zoom 验收 |
-| Firefox Linux 复跑 | P2 / Pending | 本机进程启动受操作系统限制；首轮 Linux Firefox 有 12/13 通过，几何检测已修正，需等待最终 Head 的完整 Firefox 套件 |
 | 浏览器文字放大 / 页面 Zoom | P2 / Pending | 仅完成 CSS root 字号模拟；需要可以控制用户级文字缩放与 200% 页面缩放的真实浏览器复核 |
 | 真实 iPhone Safari / 软键盘 / 地址栏 | P2 / Pending | 设备验收，不以 Chromium/WebKit 代替 |
-| GitHub CI / Cloudflare Pages Preview | 发布前阻断 READY | 必须等 PR CI 和可打开 Preview 出结果后定 D0 状态 |
+
+GitHub Actions 和 Cloudflare Pages Preview 已在原型代码 Head `1e09ec1` 完成验证；报告/证据文档提交后仍需核对最终 PR Head 的复跑结果。`visual-parity` 为仅在带专用 PR label 时才运行的可选 job，本次被条件跳过；手工的同视口截图对照和交互复核另见 [设计探索](design-exploration.md) 与 `evidence/`，不能把该跳过 job 记作通过。
