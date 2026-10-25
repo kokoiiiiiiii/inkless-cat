@@ -487,6 +487,9 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(page.locator('.m0-keyboard-sim')).toBeVisible();
   await expect(page.locator('.m0-dock')).toBeHidden();
   await capture(page, '390-keyboard-occupancy-simulation');
+  await page.locator('.m0-lab-controls').getByRole('checkbox').first().uncheck();
+  await expect(page.locator('.m0-keyboard-sim')).toBeHidden();
+  await expect(page.locator('.m0-dock')).toBeVisible();
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   expect(
     await page.locator('.m0-summary-card').evaluate((card) => {
@@ -520,7 +523,6 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   ];
   for (const [width, height] of editorViewports) {
     await page.setViewportSize({ width, height });
-    await page.getByLabel('软键盘占用模拟（非 iPhone）').uncheck();
     await page.locator('.m0-dock button').first().click();
     if (width === 320 && height === 568) await capture(page, '320-editor-320x568');
     if (width === 320 && height === 844) await capture(page, '320-editor-320x844');
