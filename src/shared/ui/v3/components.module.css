@@ -1,0 +1,309 @@
+@reference "../../../index.css";
+
+.button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: var(--studio-v3-radius-sm, 8px);
+  padding: 0 15px;
+  color: var(--studio-v3-ink, #1f2822);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+@media (max-width: 700px) {
+  .button {
+    min-height: 44px;
+  }
+}
+
+.button:focus-visible,
+.dialogClose:focus-visible {
+  outline: 3px solid var(--studio-v3-focus, #2c6c4c);
+  outline-offset: 3px;
+}
+
+.button:disabled {
+  color: var(--studio-v3-disabled-ink, #78827b);
+  background: var(--studio-v3-disabled-bg, #e8ebe8);
+  border-color: var(--studio-v3-divider, #d8ded9);
+  cursor: not-allowed;
+}
+
+.primary {
+  color: var(--studio-v3-on-accent, #fff);
+  background: var(--studio-v3-accent, #285a40);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--studio-v3-accent-hover, #204b35);
+}
+
+.secondary {
+  background: var(--studio-v3-surface, #fff);
+  border-color: var(--studio-v3-divider, #d8ded9);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--studio-v3-surface-quiet, #f2f5f1);
+  border-color: var(--studio-v3-divider-strong, #b8c2ba);
+}
+
+.quiet {
+  color: var(--studio-v3-muted, #5d6b62);
+  background: transparent;
+}
+
+.quiet:hover:not(:disabled) {
+  color: var(--studio-v3-ink, #1f2822);
+  background: var(--studio-v3-surface-quiet, #f2f5f1);
+}
+
+.danger {
+  color: var(--studio-v3-danger, #a43e32);
+  background: transparent;
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--studio-v3-danger-wash, #fbefec);
+}
+
+.field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  color: var(--studio-v3-ink-soft, #34423a);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.requiredMark {
+  margin-left: 4px;
+  color: var(--studio-v3-danger, #a43e32);
+}
+
+.control {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--studio-v3-control-border, var(--studio-v3-divider, #d8ded9));
+  border-radius: var(--studio-v3-radius-xs, 5px);
+  padding: 11px 13px;
+  color: var(--studio-v3-ink, #1f2822);
+  background: var(--studio-v3-control, #fff);
+  box-shadow: 0 1px 0 rgb(20 34 26 / 2%);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+textarea.control {
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.control::placeholder {
+  color: var(--studio-v3-placeholder, #89948d);
+  opacity: 1;
+}
+
+.control:hover {
+  border-color: var(--studio-v3-divider-strong, #b8c2ba);
+}
+
+.control:focus-visible {
+  border-color: var(--studio-v3-focus, #2c6c4c);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--studio-v3-focus-wash, rgb(44 108 76 / 16%));
+}
+
+.control[aria-invalid='true'] {
+  border-color: var(--studio-v3-danger, #a43e32);
+}
+
+.fieldHint,
+.fieldError {
+  color: var(--studio-v3-muted, #5d6b62);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.fieldError {
+  color: var(--studio-v3-danger, #a43e32);
+}
+
+.dialogBackdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  background: rgb(10 18 13 / 42%);
+  animation: v3-backdrop-in 140ms ease-out both;
+}
+
+.dialogViewport {
+  position: fixed;
+  z-index: 41;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.dialogViewport[data-kind='editor'] {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.dialogPopup {
+  position: relative;
+  display: flex;
+  width: min(560px, 100%);
+  max-height: min(82dvh, 760px);
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid var(--studio-v3-divider, #d8ded9);
+  border-radius: var(--studio-v3-radius-lg, 14px);
+  color: var(--studio-v3-ink, #1f2822);
+  background: var(--studio-v3-surface, #fff);
+  box-shadow: 0 24px 72px rgb(12 25 17 / 22%);
+  pointer-events: auto;
+  animation: v3-dialog-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.dialogPopup[data-kind='editor'] {
+  width: min(560px, 100%);
+  height: 100dvh;
+  max-height: 100dvh;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  animation-name: v3-editor-in;
+}
+
+.dialogPopup[data-kind='command'] {
+  width: min(640px, 100%);
+  align-self: flex-start;
+  margin-top: min(13vh, 116px);
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--studio-v3-divider, #d8ded9);
+  padding: 22px 24px 18px;
+}
+
+.dialogTitle {
+  margin: 0;
+  color: var(--studio-v3-ink, #1f2822);
+  font-size: 1.13rem;
+  font-weight: 720;
+  line-height: 1.3;
+}
+
+.dialogDescription {
+  display: block;
+  margin-top: 6px;
+  color: var(--studio-v3-muted, #5d6b62);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.dialogClose {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--studio-v3-muted, #5d6b62);
+  background: transparent;
+  cursor: pointer;
+}
+
+.dialogClose:hover {
+  color: var(--studio-v3-ink, #1f2822);
+  background: var(--studio-v3-surface-quiet, #f2f5f1);
+}
+
+.dialogBody {
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 24px 26px;
+  overscroll-behavior: contain;
+}
+
+@keyframes v3-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes v3-dialog-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes v3-editor-in {
+  from { opacity: 0.86; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 700px) {
+  .dialogViewport {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .dialogPopup {
+    width: 100%;
+    max-height: min(88dvh, 820px);
+    border-radius: 12px;
+  }
+
+  .dialogPopup[data-kind='editor'] {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .dialogHeader {
+    padding: 18px 16px 14px;
+  }
+
+  .dialogBody {
+    padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .control {
+    transition-duration: 0.01ms;
+  }
+
+  .dialogBackdrop,
+  .dialogPopup {
+    animation-duration: 0.01ms;
+  }
+}

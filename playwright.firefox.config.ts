@@ -5,7 +5,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'firefox-acceptance.spec.ts',
+  testMatch: ['firefox-acceptance.spec.ts', 'studio-v3-d0.spec.ts'],
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,

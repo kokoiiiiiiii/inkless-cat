@@ -1,0 +1,25 @@
+{
+  "platform": "GitHub Actions Ubuntu 26.04",
+  "sourceCommit": "1e09ec1e6f6745e0bd99788adcb1c43bffe1ee0b",
+  "sourceRun": "https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40232146235",
+  "browser": "Playwright Chromium",
+  "browserVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "measurement": "DOM click to next animation-frame; 220ms frame window per mode change; synthetic click, local fixture only",
+  "viewSwitchSamples": 24,
+  "firstFrameMs": {
+    "median": 14.900000000023283,
+    "p95": 20.100000000034925
+  },
+  "animationFrameDeltasMs": {
+    "frames": 333,
+    "median": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "max": 50,
+    "over50ms": 0
+  },
+  "longTasksOver50ms": []
+}

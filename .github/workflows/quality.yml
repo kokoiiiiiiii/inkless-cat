@@ -38,6 +38,15 @@ jobs:
           path: test-results/**/phase4b-*.png
           if-no-files-found: ignore
           retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && github.event_name == 'pull_request' && github.head_ref == 'codex/inkless-cat-v3-d0' }}
+        with:
+          name: inkless-cat-v3-d0-evidence
+          path: |
+            docs/design/v3-d0/evidence/**
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
 
   linux-firefox-acceptance:
     if: github.event_name == 'pull_request'
