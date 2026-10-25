@@ -30,17 +30,17 @@ EditorPage
             └── MobileSwitcherBar
 ```
 
-| 层                                                                    | M1～M3 可复用方式                                                      | 必须保护的边界                                                                                                                 |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| 层                                                                   | M1～M3 可复用方式                                                      | 必须保护的边界                                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `EditorPageShell`、`useEditorPageController`、`ProductionStudioShell` | 保留为正式装配和业务控制层                                             | 不复制导入、导出、打印、AI、存储或撤销回调                                                                                     |
-| `Topbar` / `ActionButtons`                                            | 复用正式 action callbacks；新增紧凑展示层，只把低频项移入 Action Sheet | AI、文件、主题、语言、清空等仍走原有 controller                                                                                |
-| `MobileSwitcherBar`、`useMobileLayout`、`useMobileSwitcher`           | 可改为两项 Floating Dock 的视觉与布局                                  | 唯一状态仍是 `setMobileView('editor'                                                                                           | 'preview')`；断点切换仍服从现有布局 Hook |
-| `EditorSidebarPane`、`SectionManager` / ModulesPanel                  | 增加移动入口或展示适配；保留原组件与排序机制                           | 显隐、拖动、键盘排序、Undo、自定义模块和跳转继续走现有业务状态                                                                 |
-| `TemplateSelector`                                                    | 保留完整模板选择、创建、编辑和删除流程；移动端按需展开                 | built-in/custom 模板由 controller 提供；删除确认和当前模板回退不复制实现                                                       |
-| `ResumePreview` / `ResumePreviewView`                                 | 复用正式渲染器，在 `EditorPreviewPane` 周围实验容器                    | 不改正式渲染组件或 print CSS；变换后的滚动坐标需专门适配                                                                       |
-| `PhotoUpload`                                                         | 保留正式文件输入和 `@shared/lib/limits` 校验；仅调整手机展示           | 文件类型、大小、宽高、像素和数据 URL 处理不变                                                                                  |
-| `StudioDialog` / `StudioPopover`                                      | Dialog 可复用正式回调；Action Sheet 需有独立的移动展示容器             | Popover 不是模态对话框；要验证 Tab 行为，避免 Action Sheet 与子 Dialog 双重陷阱                                                |
-| `useScrollSync`                                                       | controller 不重写；先确认容器和几何是否一致                            | 它依赖 section 的 `offsetTop` / `offsetHeight` 与视口位置，scale transform 会改变 `getBoundingClientRect()` 却不改变 offset 值 |
+| `Topbar` / `ActionButtons`                                           | 复用正式 action callbacks；新增紧凑展示层，只把低频项移入 Action Sheet | AI、文件、主题、语言、清空等仍走原有 controller                                                                                |
+| `MobileSwitcherBar`、`useMobileLayout`、`useMobileSwitcher`          | 可改为两项 Floating Dock 的视觉与布局                                  | 唯一状态由 `setMobileView` 设置为 `editor` 或 `preview`；断点切换仍服从现有布局 Hook                                          |
+| `EditorSidebarPane`、`SectionManager` / ModulesPanel                 | 增加移动入口或展示适配；保留原组件与排序机制                           | 显隐、拖动、键盘排序、Undo、自定义模块和跳转继续走现有业务状态                                                                 |
+| `TemplateSelector`                                                   | 保留完整模板选择、创建、编辑和删除流程；移动端按需展开                 | built-in/custom 模板由 controller 提供；删除确认和当前模板回退不复制实现                                                       |
+| `ResumePreview` / `ResumePreviewView`                                | 复用正式渲染器，在 `EditorPreviewPane` 周围实验容器                    | 不改正式渲染组件或 print CSS；变换后的滚动坐标需专门适配                                                                       |
+| `PhotoUpload`                                                        | 保留正式文件输入和 `@shared/lib/limits` 校验；仅调整手机展示           | 文件类型、大小、宽高、像素和数据 URL 处理不变                                                                                  |
+| `StudioDialog` / `StudioPopover`                                     | Dialog 可复用正式回调；Action Sheet 需有独立的移动展示容器             | Popover 不是模态对话框；要验证 Tab 行为，避免 Action Sheet 与子 Dialog 双重陷阱                                                |
+| `useScrollSync`                                                      | controller 不重写；先确认容器和几何是否一致                            | 它依赖 section 的 `offsetTop` / `offsetHeight` 与视口位置，scale transform 会改变 `getBoundingClientRect()` 却不改变 offset 值 |
 
 `ui.store.tsx` 中 `mobileView` 初值为 `editor`，`templatePanelOpen` 与 `modulePanelOpen` 互斥；重复调用 toggle 会收起当前面板。`partialize` 只持久化主题、模板 ID 与自定义模板，面板开合和移动视图不会持久化。`useMobileLayout` 在宽屏切换到编辑视图。M1 必须沿用这些状态，不可另建生产移动模式 Store。
 
@@ -60,7 +60,7 @@ Topbar 使用 sticky；页面滚动后没有紧凑折叠，仍占 117px（320px 
 | 优先级 / 区域           | 用户影响与证据                                                                       | M0 建议                                                                         | 阶段                             |
 | ----------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | -------------------------------- |
 | P1 顶栏                 | 320～430px 高 117～167px；低频打印、导入导出常驻，挤压简历字段；滚动后不收起         | 56～64px 单行 Compact Header；AI 与更多操作常驻，低频项入 Sheet；不以小字换单行 | M0 定稿、M1 实现                 |
-| P1 Dock / 键盘          | 390px Dock 宽 370、高 66；地址栏、软键盘和 visualViewport 的真实 iPhone 生命周期未知 | 220～270px 双模式胶囊；安全区避让；对焦点与视觉视口分状态处理                   | M0 验证、M1 实现；iPhone Pending |
+| P1 Dock / 键盘          | 390px Dock 宽 370、高 66；真实 iPhone 键盘、地址栏未知；`index.html` 未声明 `viewport-fit=cover` | 220～270px 双模式胶囊；先验证 viewport meta 与 safe-area，再处理键盘/视觉视口状态 | M0 验证、M1 实现；iPhone Pending |
 | P1 操作菜单             | 长 Popover 在 320px 需要滚动；`StudioPopover` 没有 modal Focus Trap 契约             | 分类 Action Sheet；Escape、遮罩、重复触发、Tab 循环、文件选择器和 Dialog 交接   | M0 定稿、M1 实现                 |
 | P2 编辑密度             | 多层外壳、卡片与字段容器首屏占高；照片 tile 过大；字段间需长距离滚动                 | 当前模块和保存状态紧凑呈现；16px 输入；56px 紧凑头像；移除重复标题              | M0 定稿、M2 实现                 |
 | P2 模板入口             | 完整选择面板展开会打断编辑并占据纵向空间；面板开合不持久化                           | 当前模板摘要 + “查看全部”按需进入；返回原滚动位置和焦点                         | M0 定稿、M2 实现                 |
@@ -118,7 +118,7 @@ M0 原型 DOM 测量，正常字号：
 - 从 Header 更多按钮打开；原生 `<dialog>.showModal()`，底部圆角面板，最大 88dvh，内容区独立滚动。横屏最大 96dvh。
 - 分组：文件（导入、三种导出、打印/PDF）；AI（创建、Provider 设置）；编辑工具（示例、清空）；偏好（主题、语言、GitHub）。菜单常规动作高度至少 48px，链接至少 44px。
 - 背景轻遮罩；只在导航和浮层使用玻璃。Reduced Transparency 时关闭 blur。
-- 触发器再次点击、关闭按钮、遮罩、Escape 都关闭；Tab/Shift+Tab 在 Sheet 内循环；关闭后返回触发器焦点。
+- 原生 modal 打开时，底下的触发器不可交互；再次点它的屏幕位置会命中遮罩并关闭。关闭按钮与 Escape 也可用；Tab/Shift+Tab 在 Sheet 内循环，关闭后焦点返回触发器。
 
 ### 模板与模块入口
 
@@ -177,13 +177,27 @@ M0 原型 DOM 测量，正常字号：
 
 | 场景                   | 目标状态                                    | M1 处理与当前验证                                                                                                     |
 | ---------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 普通浏览               | Dock 显示，safe area 内可点                 | M0 CSS viewport 已测；原生 safe area Pending                                                                          |
+| 普通浏览               | Dock 显示，safe area 内可点                 | M0 CSS viewport 已测；`index.html` 未声明 `viewport-fit=cover`，原生 safe area Pending，M1 应优先核对 viewport meta       |
 | 输入框聚焦、键盘未出现 | 保留 Dock，不因焦点直接误隐藏               | focus 是候选信号之一，不独立代表键盘                                                                                  |
 | 软键盘出现             | Dock 隐藏或移到键盘上方；焦点输入滚入可见区 | M0 用“非 iPhone”模拟隐藏 Dock；实际 Safari Pending                                                                    |
 | Safari 地址栏收放      | 不误判成键盘，不改变编辑/预览状态           | PR #17 `useMobileLayout` 没有此问题；Shell 视口 Hook 使用焦点+高度差约 120px 的启发式，需改为 visualViewport 状态判定 |
 | 软键盘关闭             | Dock 平稳恢复，滚动位置保持                 | 原生 Pending；E2E 模拟恢复                                                                                            |
 | 横屏                   | Header/Dock 保留关键操作；Sheet 内部可滚动  | M0 844×390，前两个输入完整可见；Sheet 最高 96dvh 且内容滚动                                                           |
 | 字体放大               | 允许 Header 变高，不裁切操作和字段          | M0 150%/200% Chromium 测量，无横向溢出；VoiceOver/Safari Pending                                                      |
+
+### iPhone 实机验收步骤（Pending）
+
+本轮没有可操作的真实 iPhone；以下步骤供评审时逐项执行，完成前原生 Safari/VoiceOver 结论保持 Pending：
+
+1. 在 iPhone Safari 打开 M0 Preview 的 `/design/mobile-compact`，记录设备型号、iOS/Safari 版本和网页 CSS viewport；竖屏检查顶部安全区、60px Header、底部 Dock 与浏览器地址栏是否重叠。
+2. 依次聚焦姓名、邮箱和多行简介输入框；确认输入为 16px 且 Safari 不自动放大，键盘出现后光标、字段标签和错误/状态提示仍在可见区域。
+3. 键盘显示时滚动到另一个字段，确认 Dock 隐藏或避让输入；关闭键盘后观察 Dock 是否平稳恢复、编辑滚动位置是否保留。
+4. 分别在键盘关闭和打开时收放 Safari 地址栏，确认它不会被误判为键盘；记录 visual viewport 高度和 Dock 状态。
+5. 打开 Action Sheet，滚动到最底部；逐一试遮罩、右上关闭按钮和 Escape（外接键盘），确认关闭后焦点回到更多按钮，菜单滚动不会带动页面。
+6. 从 Action Sheet 打开 Provider 演示 Dialog，检查只显示禁用的合成字段、不调用 Provider；确认焦点只在上层 Dialog、关闭后返回更多按钮。
+7. 旋转横屏，重复检查 Header、Dock、菜单滚动与输入可见性。用 VoiceOver 逐项读出按钮名称、选中状态、Dialog 标题和关闭操作；录入发现的问题及截图后再评估 WCAG 2.2 AA。
+
+保存截图前确认只包含 M0 合成数据；不要把正式简历或联系方式放入评审 Artifact。
 
 ## D. A4 预览技术实验
 
@@ -216,7 +230,7 @@ M0 实验使用正式 `ResumePreview` 和 `createM0Resume` 合成 Fixture。包�
 ### M1 — Mobile Shell
 
 - **范围**：Compact Header、两项 Floating Dock、Action Sheet、safe area、键盘/visualViewport 状态。生产 Dock 只调用 `setMobileView`。
-- **目录**：`src/pages/editor/ui/`、`src/pages/editor/model/`、`src/features/editor-shell/model/`、`src/widgets/topbar/`、`src/shared/ui/studio/`、`e2e/`。
+- **目录**：`src/pages/editor/ui/`、`src/pages/editor/model/`、`src/features/editor-shell/model/`、`src/widgets/topbar/`、`src/shared/ui/studio/`、`e2e/`；只有真实 iPhone 验证需要时才调整 `index.html` 的 viewport meta。
 - **复用/新增**：复用 `ProductionStudioShell`、`Topbar` callbacks、`MobileSwitcherBar`、`useMobileLayout`、`useEditorPageController`、`StudioDialog`；新增 `CompactHeader`、`FloatingDock`、`MobileActionSheet` 展示适配；必要时增加窄范围 `useVisualViewportState`。
 - **状态接入**：使用现有 `mobileView`、`setMobileView`；Sheet 只控制展示状态。模板/模块互斥由现有 UI Store 保持。
 - **保护边界**：不复制 controller 回调，不改 resume store、导入导出数据结构、AI Provider、打印 CSS。

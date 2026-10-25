@@ -353,7 +353,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(page.getByRole('heading', { name: '模板与样式' })).toBeVisible();
   await capture(page, '390-template-management');
   geometry.push(await measure(page, '390x844-template-management'));
-  await page.locator('.m0-management-screen form input[type="text"]').fill('M0 试验模板');
+  await page.getByPlaceholder('例如：深色商务模板').fill('M0 试验模板');
   await page.getByRole('button', { name: '保存当前简历为模板' }).click();
   const demoTemplate = page.locator('[data-template-id]').filter({ hasText: 'M0 试验模板' });
   await expect(demoTemplate.getByRole('radio')).toBeChecked();
