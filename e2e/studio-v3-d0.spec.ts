@@ -405,6 +405,10 @@ test.describe('Inkless-Cat V3 D0 prototype', () => {
     await enterStudio(page, 'a');
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
+      if (viewport.width <= 700) {
+        const chapterPicker = page.locator('details[class*="mobileChapterPicker"]');
+        await expect(chapterPicker.locator('nav')).toBeHidden();
+      }
       const metrics = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
         scrollWidth: document.documentElement.scrollWidth,
@@ -413,6 +417,8 @@ test.describe('Inkless-Cat V3 D0 prototype', () => {
           ...(document.querySelector('[data-studio-v3]')?.querySelectorAll<HTMLElement>('*') ?? []),
         ]
           .filter((element) => !element.closest('[class*="canvasIndex"]'))
+          // The closed native details picker is intentionally not rendered in the mobile view.
+          .filter((element) => !element.closest('details:not([open])'))
           .filter((element) => {
             const rectangle = element.getBoundingClientRect();
             return rectangle.left < -1 || rectangle.right > innerWidth + 1;

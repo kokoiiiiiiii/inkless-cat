@@ -30,7 +30,9 @@ test('records representative view-switch and animation performance', async ({
           });
         }
       });
-      studioWindow.__studioV3LongTaskObserver.observe({ type: 'longtask', buffered: true });
+      // The route has already loaded. Do not include buffered navigation or hydration tasks in
+      // the view-switch window; those happened before this interaction measurement begins.
+      studioWindow.__studioV3LongTaskObserver.observe({ type: 'longtask' });
     }
   });
 
