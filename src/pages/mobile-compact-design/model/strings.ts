@@ -121,6 +121,10 @@ const strings = {
     keyboard: '键盘模拟',
     keyboardLabel: '软键盘占用模拟（非 iPhone）',
     simulationTools: '原型实验控制',
+    labDescription:
+      '这些设置只改变当前原型的展示环境。关闭实验控制后，会回到原来的编辑或预览状态。',
+    openLab: '实验控制',
+    closeLab: '返回原型',
     fontScale: '字体缩放',
     fontNormal: '正常',
     font150: '150%',
@@ -254,6 +258,10 @@ const strings = {
     keyboard: 'Keyboard simulation',
     keyboardLabel: 'Software keyboard preview (not iPhone Safari)',
     simulationTools: 'Prototype controls',
+    labDescription:
+      'These settings change the prototype display only. Close the controls to return to the same editing or preview state.',
+    openLab: 'Lab controls',
+    closeLab: 'Return to prototype',
     fontScale: 'Text scaling',
     fontNormal: 'Normal',
     font150: '150%',

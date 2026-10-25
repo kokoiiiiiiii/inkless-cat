@@ -6,6 +6,7 @@
 
 - M0 基线：远程 `main` `7eac5487caf25610f5edcaf87524027595cfc754`。PR #17 当前为 Draft，head `91a86df78af12666b5bdfd1ba6eb230d1660a195`，Cloudflare Preview：[8e2aeec3.inkless-cat.pages.dev](https://8e2aeec3.inkless-cat.pages.dev/)。远程分支和 PR 状态在创建 M0 分支前重新读取。
 - M0 当前交付：Draft PR [#18](https://github.com/kokoiiiiiiii/inkless-cat/pull/18)，分支 `design/mobile-compact-studio-m0`，base SHA `7eac5487caf25610f5edcaf87524027595cfc754`；M0 实现提交 `3839db1`。当前分支 Preview：[design-mobile-compact-studio.inkless-cat.pages.dev/design/mobile-compact](https://design-mobile-compact-studio.inkless-cat.pages.dev/design/mobile-compact)。
+- 本轮加固开始时重新读取 GitHub：PR #18 为 Open / Draft，head `790062b55ad31db6078fbd8d943371e61825232c`、base `7eac5487caf25610f5edcaf87524027595cfc754`；Cloudflare Pages、Linux Firefox acceptance 与 quality checks 均通过。加固只在隔离 Worktree 中针对该 Head 准备追加提交。
 - M0 原型入口：`/design/mobile-compact`，在 `src/main.tsx` 中独立懒加载。`/` 继续渲染 `App`。
 - 源码审计覆盖主分支、PR #17 的编辑器壳层、Preview 页面、模块与模板组件、移动端 Hook、打印样式和 E2E。PR #17 尚未合并的文件以其 head SHA 读取，不把它们当作 main 现状。
 - 视觉证据来自 PR #17 Preview 的 DOM/视口测量、当前 M0 本地原型的浏览器测量，以及 M0 Playwright 几何和截图产物。用户提到的 iPhone 实机截图未附在本任务中，标记为 Pending。
@@ -74,22 +75,22 @@ Topbar 使用 sticky；页面滚动后没有紧凑折叠，仍占 117px（320px 
 
 ### M0 编辑首屏几何
 
-M0 原型 DOM 测量，正常字号：
+以下数据来自 Playwright Chromium 对 PR #18 原始 Head 与本轮工作树的同一套 DOM 几何采集。字段必须完整位于视口与实际滚动容器的交集内，允许 1 CSS px 的取整误差；部分可见字段另计，并在 JSON 中保留可见高度/面积比例。固定或浮层 UI 的遮挡单独计数；Main 的自然滚动裁剪不会被误记为遮挡。完整字段数不通过缩小字体、隐藏字段或压低触控区来追求。
 
-| 视口         | Header | Main                   | 编辑卡片                  | 首屏输入字段 |                Dock | 横向溢出 |
-| ------------ | -----: | ---------------------- | ------------------------- | -----------: | ------------------: | -------: |
-| 320×568      |   60px | y=60～450              | x=12，w=296               |            2 |   x=31，w=258，h=60 |      0px |
-| 320×844      |   60px | y=60～726              | x=12，w=296               |            5 |   x=31，w=258，h=60 |      0px |
-| 360×800      |   60px | y=60～682              | x=12，w=336               |            5 |   x=51，w=258，h=60 |      0px |
-| 390×844      |   60px | y=60～726              | x=16，w=358               |            5 |   x=66，w=258，h=60 |      0px |
-| 393×852      |   60px | y=60～734              | x=16，w=361               |            5 | x=67.5，w=258，h=60 |      0px |
-| 430×932      |   60px | y=60～814              | x=16，w=398               |            5 |   x=86，w=258，h=60 |      0px |
-| 768×1024     |   60px | y=60～921              | x=20，w=728               |            6 |  x=255，w=258，h=60 |      0px |
-| 844×390 横屏 |   54px | y=54～287              | 两个姓名/头衔输入完整可见 |            2 |         y=318，h=60 |      0px |
-| 1024×768     |   60px | y=60～1204，页面可滚动 | x=148，w=728              |            5 |  x=383，w=258，h=60 |      0px |
-| 1440×900     |   60px | y=60～1204，页面可滚动 | x=356，w=728              |            6 |  x=591，w=258，h=60 |      0px |
+| 视口 | Before 完整 / 部分 | After 完整 / 部分 | 首个输入框 Y / 相对 Header 间距 | Header；Main Y | Dock Y | After 遮挡 / 横向溢出 |
+| --- | ---: | ---: | --- | --- | --- | ---: |
+| 320×568 | 1 / 1 | 1 / 1 | 359.69–405.69 / 299.69px | 60px；60–450 | 496–556 | 0 / 0px |
+| 320×844 | 4 / 1 | 4 / 1 | 359.69–405.69 / 299.69px | 60px；60–726 | 772–832 | 0 / 0px |
+| 360×800 | 4 / 1 | 4 / 1 | 359.69–405.69 / 299.69px | 60px；60–682 | 728–788 | 0 / 0px |
+| 390×844 | 4 / 1 | 4 / 1 | 362.69–408.69 / 302.69px | 60px；60–726 | 772–832 | 0 / 0px |
+| 393×852 | 4 / 1 | 4 / 1 | 362.69–408.69 / 302.69px | 60px；60–734 | 780–840 | 0 / 0px |
+| 430×932 | 5 / 0 | 5 / 0 | 347.84–393.84 / 287.84px | 60px；60–814 | 860–920 | 0 / 0px |
+| 768×1024 | 6 / 0 | 6 / 0 | 347.84–393.84 / 287.84px | 60px；60–921 | 952–1012 | 0 / 0px |
+| 844×390 横屏 | 2 / 0 | 2 / 0 | 207.34–253.34 / 153.34px | 54px；54–287 | 318–378 | 0 / 0px |
 
-390px 左右留白各 16px，误差 0px；320px 左右留白各 12px，误差 0px。Dock 与编辑区之间至少留 31px；普通竖屏 Main 保留 46px 间隔。横屏首屏曾经看不到输入字段，M0 将实验工具与重复上下文收起，并把标题压成单行；当前姓名、头衔输入完整位于 Main 内，Dock 不盖住它们。CI 会断言这一点。
+旧报告把 390×844 的“有交集”误写成 5 个首屏字段；真实值是 4 个完整字段和 1 个部分可见字段。320×844、360×800、393×852 同样是 4 个完整、1 个部分字段；430×932 是 5 个完整字段。全部 After 视口横向溢出为 0，完整或部分首屏字段没有被固定 UI 遮挡。完整 Before / After 矩形、每个字段的可见比例、命中目标、滚动容器、Header/Dock 及 Lab 控件矩形见 [geometry-before.json](mobile-compact-studio-m0/evidence/geometry-before.json) 与 [geometry-after.json](mobile-compact-studio-m0/evidence/geometry-after.json)。
+
+Lab 实验覆盖 390×844、320×568 的 100%/150%/200%，320×844 与 430×932 的 200%，以及 844×390 横屏的 100%/150%。默认路由不展示实验入口；Lab 页面不渲染编辑字段或 Dock，控件进入独立可滚动 Main。截图与几何区分初次进入、键盘导航后和调节控件后的状态，避免把滚动后的矩形当成首次打开状态。
 
 150%/200% 字号允许 Header 按内容增高：390×844 时 150% Header 约 110px，200% 约 130px；320×568、200% Header 约 120px。两种字体放大下文档宽度不超过视口，Dock 两个按钮各不小于 44×44px。这个设计明确允许换行，不会强行维持单行。
 
@@ -107,6 +108,12 @@ M0 原型 DOM 测量，正常字号：
 - 标签在输入上方；输入正文按 16px；左右间距成对；长文本 textarea 保留足够行数。保存状态靠近当前模块，不重复展示整页标题。
 - 头像预览 56×56px；M0 复用正式 `PhotoUpload`，保留类型、大小、像素、尺寸和 Data URL 校验。照片只写入原型的局部合成状态，不写 Workspace 或持久化 Store。
 - 表单、照片、模块入口都复用原有正式业务组件或真实展示组件；M0 页面仅用局部合成状态演示。
+
+### M0 实验控制 Lab
+
+- 默认设计评审入口 `/design/mobile-compact` 不展示开发实验工具；添加 `?lab=1` 后，Header 的 `Aa` 入口打开独立 Lab 页面。Lab 保留 Header 返回按钮，控件在普通文档滚动流中；编辑表单、原型状态条与 Dock 在 Lab 页面不渲染，因此实验工具不会盖住字段或 Dock。
+- Lab 控件可调字体缩放、软键盘占用模拟、主题和界面语言。关闭后恢复进入前的编辑/预览/模板/模块屏幕、Main 滚动位置及焦点；切换语言只换文案，不重置合成简历、选中模板或活动模块。
+- 仅使用页面局部 React state，没有新增全局 Store 或 UI 依赖。键盘 Tab 顺序覆盖全部控制和关闭按钮；聚焦会把控件滚入可视 Main 区域，Shift+Tab 可逆向返回。
 
 ### Floating Dock
 
@@ -265,7 +272,7 @@ M0 实验使用正式 `ResumePreview` 和 `createM0Resume` 合成 Fixture。包�
 
 ### M0 覆盖
 
-`e2e/mobile-compact-studio-m0.spec.ts` 新增 1 个 M0 专项 E2E 流程，生成 54 个 DOM 几何场景和 `performance.json`。覆盖 390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、AI 快捷入口焦点、导出不产生下载、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图。测试确认 M0 路由不请求正式 `App`，并监测到它没有读取 `inkless-cat/resume-store` 或 `inkless-cat/ui-store`。GitHub Actions 的全套 Chromium E2E 为 87/87 passed；`mobile-compact-studio-m0-visual-review` Artifact 有 35 个文件，保留 14 天。
+`e2e/mobile-compact-studio-m0.spec.ts` 包含首屏几何/Lab 可达性和 M0 主交互两个专项 E2E。几何用例覆盖 8 个首屏视口和 10 个字体/Lab 组合，主流程生成 `geometry.json` 与 `performance.json`。覆盖 390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、AI 快捷入口焦点、导出不产生下载、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图。测试确认 M0 路由不请求正式 `App`，并监测到它没有读取 `inkless-cat/resume-store` 或 `inkless-cat/ui-store`。本轮 P3 只将 Lab 页面与 DOM 几何采集器分别拆到 `M0LabControlsScreen.tsx` 和 `e2e/helpers/mobile-compact-geometry.ts`；没有把原型整理成正式编辑器模板，也没有启动 M1～M3。
 
 Before/After 截图只包含合成数据；PR #17 [Preview](https://8e2aeec3.inkless-cat.pages.dev/) 的几何表与本地旧 UI 截图用于基线，M0 截图和 DOM 几何由同尺寸 Playwright Artifact 提供。旧 Preview 的预览截图没有复制：当时浏览器载入了联系信息，因此只保留只读几何测量。用户此前提到的 iPhone 实机截图没有附在本任务中，仍为 Pending。
 
@@ -275,20 +282,28 @@ Before/After 截图只包含合成数据；PR #17 [Preview](https://8e2aeec3.ink
 
 | Before：390px 更多操作 | After：390px Action Sheet |
 | --- | --- |
-| ![旧版 390px 更多操作，合成数据](mobile-compact-studio-m0/evidence/before-390-actions.png) | ![M0 390px Action Sheet，合成数据](mobile-compact-studio-m0/evidence/after-390-action-sheet.png) |
+| ![旧版 390px 更多操作，合成数据](mobile-compact-studio-m0/evidence/before-390-actions.png) | ![M0 390px Action Sheet 首次打开，合成数据](mobile-compact-studio-m0/evidence/after-390-action-sheet.png) |
 
-旧版 390px 编辑滚动和 320px 首屏：[390px 滚动](mobile-compact-studio-m0/evidence/before-390-edit-scroll.png)、[320px 首屏](mobile-compact-studio-m0/evidence/before-320-edit-first.png)。After 的 320px 编辑/菜单/预览、390px 预览/模板/模块、主题、横屏、键盘占用模拟及 1024/1440 桌面截图见本 PR 最新 Actions Artifact；其中 390px 编辑卡片左右各 16px，Header 60px，Dock 258×60px，首屏可见 5 个字段，document 横向溢出 0px。旧版 390px Preview 只使用 DOM 几何比较，不上传含联系信息的截图。
+实验工具 Before / After 对照：
+
+| Before：390×844、200% 浮层覆盖照片区 | After：390×844、200% 独立 Lab 页面 |
+| --- | --- |
+| ![旧实验浮层遮挡 M0 照片上传区](mobile-compact-studio-m0/evidence/before-390-font-200-lab-overlay.png) | ![Lab 页面将实验控件与编辑字段分离](mobile-compact-studio-m0/evidence/after-390-font-200-lab.png) |
+
+Action Sheet 的三种状态分别留图：[首次打开](mobile-compact-studio-m0/evidence/after-390-action-sheet-first-open.png)、[键盘导航后](mobile-compact-studio-m0/evidence/after-390-action-sheet-after-keyboard.png)、[滚动到底部](mobile-compact-studio-m0/evidence/after-390-action-sheet-bottom.png)。首次截图在任何 Tab 操作之前采集；原生 Dialog 打开时底层 Header 按钮不可点，测试通过真实关闭按钮、遮罩、Escape 和 Dialog 焦点交接完成重复开关验证。每次重开时 `.m0-sheet-scroll.scrollTop` 回到 0。
+
+旧版 390px 编辑滚动和 320px 首屏：[390px 滚动](mobile-compact-studio-m0/evidence/before-390-edit-scroll.png)、[320px 首屏](mobile-compact-studio-m0/evidence/before-320-edit-first.png)、[320px/200% Lab 遮挡](mobile-compact-studio-m0/evidence/before-320-font-200-lab-overlay.png)。After 的 320px 编辑/菜单/预览、390px 预览/模板/模块、主题、横屏、键盘占用模拟及 1024/1440 桌面截图见本 PR 最新 Actions Artifact；390px 首屏为 4 个完整和 1 个部分字段，document 横向溢出 0px。所有截图只含合成数据；旧版 390px Preview 只使用 DOM 几何比较，不上传含联系信息的截图。
 
 测试在隔离浏览器上下文写入三项 storage sentinel，并包装 `Storage.getItem` 断言原型没有读取 resume/UI Store；页面不会改写 sentinel。有效 1×1 PNG 由正式 `PhotoUpload` 文件输入读取为 Data URL，显示后可移除；导入只打开系统选择器，不读取文件内容；原型不会调用 AI、不读写 API Key、不下载、不打印。
 
-M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将原 `App` 改成懒加载并保留 `/` 路由；纯 factory 入口让缩略图和合成模板不会经 `@entities/resume` barrel 评估持久化 Store；`I18nProvider` 只增加可选 `initialLocale`/`persistLocale`，默认值保持生产行为。没有改动正式 Editor controller、ResumePreview renderer、模块/模板业务回调或打印样式。
+M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将原 `App` 改成懒加载并保留 `/` 路由；纯 factory 入口让缩略图和合成模板不会经 `@entities/resume` barrel 评估持久化 Store。M0 直接复用正式 `ResumePreview` renderer、`TemplateSelector`、`SectionManager` 和 `PhotoUpload`，但向它们传入合成简历/模板和原型局部 state 回调；`I18nProvider` 使用 `persistLocale={false}`，本轮删除了语言切换时重置简历/模板/模块的 effect。没有改动上述正式组件、Editor controller、业务回调、正式 Store 或打印样式。浏览器复现证据是原 M0 `?font=2&lab=1` 的 Lab 浮层在 390×844 被裁切到 x=-118，并覆盖照片上传区；M0 编辑字段测量中没有字段被它覆盖。默认页面移除 Lab 入口、Lab 页面更换主内容并移除 Dock 后，字段遮挡数与横向溢出均为 0。代码边界来自上述源码审计；像素/遮挡判断来自 Playwright 的 DOM 矩形、命中测试和截图。
 
 ### 构建体积（Node 24 / Vite 生产 build）
 
 | 资源                                         |  原始大小 |     gzip |
 | -------------------------------------------- | --------: | -------: |
-| M0 动态入口 chunk                            |  39.92 KB | 13.07 KB |
-| M0 独立 CSS                                  |  22.42 KB |  4.85 KB |
+| M0 动态入口 chunk                            |  42.26 KB | 13.66 KB |
+| M0 独立 CSS                                  |  22.93 KB |  4.90 KB |
 | 复用的正式 `PhotoUpload` chunk               |  68.71 KB | 19.78 KB |
 | Resume/template 共用 chunk                   | 110.61 KB | 32.20 KB |
 | 共用 index CSS（原本已有）                   |  80.84 KB | 12.53 KB |
@@ -304,20 +319,17 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `npm ci`                                                 | 本地与 Actions PASS；460 packages，0 vulnerabilities                                                                              |
 | `npm run typecheck`                                      | 本地 PASS                                                                                                                           |
-| 变更文件 ESLint                                          | 本地 PASS                                                                                                                           |
-| 全仓 `npm run lint`                                      | PASS，0 errors；368 条 Tailwind classname-order warnings                                                                            |
+| 全仓 `npm run lint`                                      | 本地 PASS：0 errors，379 条 warning（主要为 Tailwind classname-order / 自定义 CSS 类规则）                                           |
 | `npm test`                                               | 本地 PASS：49 files / 418 tests                                                                                                     |
-| `npm run build`                                          | 本地 PASS；M0 动态 chunk 和 CSS 已生成                                                                                              |
-| `npm audit --omit=dev --audit-level=moderate`            | 本地 PASS：0 vulnerabilities                                                                                                        |
+| `npm run build`                                          | 本地 PASS；M0 动态入口 42.26 KB / 13.66 KB gzip，CSS 22.93 KB / 4.90 KB gzip                                                        |
+| M0 Playwright 专项                                      | 本地 PASS：2/2 tests；8 首屏视口、10 Lab 字体/视口组合、Action Sheet 首开/键盘/到底部截图与交互                                  |
+| `npm audit --omit=dev --audit-level=moderate`            | 本轮未重跑；基线 PR 工作流仍为 PASS                                                                                                  |
 | `git diff --check`                                       | 本地 PASS                                                                                                                           |
-| GitHub Actions #98（M0 实现提交 `3839db1`）               | PASS：[quality、Linux Firefox acceptance](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40185235274) 均 SUCCESS；`visual-parity` 按现有工作流条件跳过 |
-| 完整 Chromium E2E（含既有打印回归）                      | PASS：87/87 passed（5.9 分钟）；包含 `e2e/pdf-print.spec.ts`，未放宽打印断言                                                         |
-| Linux Firefox acceptance                                 | PASS：run #98 SUCCESS                                                                                                                 |
-| Cloudflare Pages M0 Preview                              | PASS：[实现提交 Preview](https://78a3c7de.inkless-cat.pages.dev/design/mobile-compact)，官方 IAB 打开核验；当前分支 Preview 使用上方稳定 URL |
-| 截图与几何 Artifact                                      | PASS：[mobile-compact-studio-m0-visual-review](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40185235274/artifacts/12596386480)，3.14 MB / 35 files，保留至 2026-11-08 |
+| PR #18 原 Head Actions `40186003284`                     | quality、Linux Firefox、Cloudflare Pages SUCCESS；`visual-parity` SKIPPED；该结果属于加固前 Head                                       |
+| 本轮提交 GitHub Actions                                  | 推送后以 PR #18 最新 Head 的实际 Checks 更新                                                                                          |
 | 原生 iPhone Safari/Chrome、键盘、动态岛、safe area、回弹 | Pending；不能由 WebKit/Chromium 代替                                                                                                |
-| 用户提供的既有 iPhone 截图逐张审计                       | Pending；当前消息未附截图                                                                                                           |
-| 完整 WCAG 2.2 AA / VoiceOver                             | Pending 专项审计                                                                                                                    |
+| 用户提供的既有 iPhone 截图逐张审计                       | Pending；当前消息未附截图                                                                                                            |
+| 完整 WCAG 2.2 AA / VoiceOver                             | Pending 专项审计                                                                                                                      |
 
 已有 `e2e/pdf-print.spec.ts` 会在 Chromium 门禁继续跑单页、长页、含照片与自定义模块的正式 PDF 测试；M0 没有修改或放宽它。
 

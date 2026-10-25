@@ -13,12 +13,14 @@ import { type CSSProperties, useCallback, useEffect, useRef, useState } from 're
 
 import { createM0Resume, createM0Templates, M0_ACTIVE_SECTIONS } from '../model/fixtures';
 import { useM0Strings } from '../model/strings';
+import { M0LabControlsScreen } from './M0LabControlsScreen';
 
 type View = 'edit' | 'preview';
-type Screen = 'workspace' | 'templates' | 'modules';
+type Screen = 'workspace' | 'templates' | 'modules' | 'lab';
 type PreviewMode = 'responsive' | 'fixed' | 'reader';
 
 const prototypeQuery = new URLSearchParams(globalThis.location.search);
+const labEnabled = prototypeQuery.get('lab') === '1';
 const brandMark = new URL('../../../assets/inkless-cat-256.webp', import.meta.url).href;
 const firstBuiltInTemplate = (locale: 'zh-CN' | 'en', resume: ResumeData) => {
   const first = createM0Templates(locale, resume).builtInTemplates[0];
@@ -132,6 +134,13 @@ const M0Experience = () => {
   const actionFocusTarget = useRef<'first' | 'ai'>('first');
   const providerReturnFocus = useRef<HTMLElement | null>(null);
   const moreActionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const labTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const labReturn = useRef<{
+    screen: Exclude<Screen, 'lab'>;
+    view: View;
+    scrollTop: number;
+  }>({ screen: 'workspace', view: 'edit', scrollTop: 0 });
+  const previousScreen = useRef<Screen>(screen);
   const clearReturnFocus = useRef<HTMLElement | null>(null);
   const deleteTemplateReturnFocus = useRef<HTMLElement | null>(null);
   const deleteTemplateConfirmed = useRef(false);
@@ -141,20 +150,32 @@ const M0Experience = () => {
     screen: 'templates',
     scrollTop: 0,
   });
-  const resetForLocale = useCallback(
-    (nextLocale: 'zh-CN' | 'en') => {
-      const nextResume = createM0Resume(nextLocale, resumeLength);
-      const nextTemplates = createM0Templates(nextLocale, nextResume);
-      setResume(nextResume);
-      setTemplates(nextTemplates);
-      setTemplate(firstBuiltInTemplate(nextLocale, nextResume));
-    },
-    [resumeLength],
-  );
+  const openLab = () => {
+    labReturn.current = {
+      screen: screen === 'lab' ? labReturn.current.screen : screen,
+      view,
+      scrollTop: document.querySelector<HTMLElement>('.m0-main')?.scrollTop ?? 0,
+    };
+    setActionOpen(false);
+    setScreen('lab');
+  };
+  const closeLab = () => {
+    setScreen(labReturn.current.screen);
+    setView(labReturn.current.view);
+  };
 
   useEffect(() => {
-    resetForLocale(locale);
-  }, [locale, resetForLocale]);
+    if (screen === 'lab') {
+      previousScreen.current = 'lab';
+      return;
+    }
+    if (previousScreen.current === 'lab') {
+      const main = document.querySelector<HTMLElement>('.m0-main');
+      if (main) main.scrollTop = labReturn.current.scrollTop;
+      requestAnimationFrame(() => labTriggerRef.current?.focus());
+    }
+    previousScreen.current = screen;
+  }, [screen]);
 
   useEffect(
     () => () => {
@@ -169,6 +190,8 @@ const M0Experience = () => {
     if (actionOpen && !dialog.open) {
       previousFocus.current = document.activeElement as HTMLElement;
       dialog.showModal();
+      const sheetScroll = dialog.querySelector<HTMLElement>('.m0-sheet-scroll');
+      if (sheetScroll) sheetScroll.scrollTop = 0;
       const focusTarget =
         actionFocusTarget.current === 'ai' ? '[data-action-ai]' : '[data-action-first]';
       dialog.querySelector<HTMLElement>(focusTarget)?.focus();
@@ -444,6 +467,7 @@ const M0Experience = () => {
     <div
       className={`m0-app ${dark ? 'is-dark' : ''} ${keyboardSimulation ? 'keyboard-is-simulated' : ''}`}
       data-font-scale={fontScale}
+      data-lab-screen={screen === 'lab' ? 'true' : undefined}
       style={{ '--m0-font-scale': fontScale } as CSSProperties}
     >
       <header className="m0-header" data-testid="m0-header">
@@ -460,84 +484,77 @@ const M0Experience = () => {
           </span>
         </a>
         <div className="m0-header-actions">
-          <button
-            className="m0-icon-button m0-ai"
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={actionOpen}
-            onClick={() => {
-              actionFocusTarget.current = 'ai';
-              setActionOpen(true);
-            }}
-            aria-label={strings.aiCreate}
-          >
-            <Icon name="spark" />
-            <span>{strings.aiCreate}</span>
-          </button>
-          <button
-            ref={moreActionTriggerRef}
-            className="m0-icon-button m0-more-trigger"
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={actionOpen}
-            aria-label={actionOpen ? strings.closeActions : strings.more}
-            onClick={() => setActionOpen((open) => !open)}
-          >
-            <Icon name="more" />
-          </button>
+          {screen === 'lab' ? (
+            <button type="button" className="m0-icon-button m0-lab-return" onClick={closeLab}>
+              <Icon name="back" />
+              <span>{strings.closeLab}</span>
+            </button>
+          ) : (
+            <>
+              <button
+                className="m0-icon-button m0-ai"
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={actionOpen}
+                onClick={() => {
+                  actionFocusTarget.current = 'ai';
+                  setActionOpen(true);
+                }}
+                aria-label={strings.aiCreate}
+              >
+                <Icon name="spark" />
+                <span>{strings.aiCreate}</span>
+              </button>
+              {labEnabled && (
+                <button
+                  ref={labTriggerRef}
+                  className="m0-icon-button m0-lab-trigger"
+                  type="button"
+                  aria-label={strings.openLab}
+                  onClick={openLab}
+                >
+                  <span aria-hidden="true">Aa</span>
+                </button>
+              )}
+              <button
+                ref={moreActionTriggerRef}
+                className="m0-icon-button m0-more-trigger"
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={actionOpen}
+                aria-label={actionOpen ? strings.closeActions : strings.more}
+                onClick={() => setActionOpen((open) => !open)}
+              >
+                <Icon name="more" />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
-      <main className="m0-main">
-        <div className="m0-prototype-bar">
-          <div>
-            <span className="m0-live-dot" />
-            {strings.syntheticData}
-          </div>
-          <details className="m0-lab">
-            <summary>{strings.simulationTools}</summary>
-            <div className="m0-lab-controls">
-              <label>
-                {strings.fontScale}
-                <select
-                  value={fontScale}
-                  onChange={(event) => setFontScale(Number(event.target.value))}
-                >
-                  <option value={1}>{strings.fontNormal}</option>
-                  <option value={1.5}>{strings.font150}</option>
-                  <option value={2}>{strings.font200}</option>
-                </select>
-              </label>
-              <label className="m0-check">
-                <input
-                  type="checkbox"
-                  checked={keyboardSimulation}
-                  onChange={(event) => setKeyboardSimulation(event.target.checked)}
-                />
-                {strings.keyboardLabel}
-              </label>
-              <label className="m0-check">
-                <input
-                  type="checkbox"
-                  checked={dark}
-                  onChange={(event) => setDark(event.target.checked)}
-                />
-                {strings.dark}
-              </label>
-              <label>
-                {strings.language}
-                <select
-                  value={locale}
-                  onChange={(event) => setLocale(event.target.value as 'zh-CN' | 'en')}
-                >
-                  <option value="zh-CN">简体中文</option>
-                  <option value="en">English</option>
-                </select>
-              </label>
+      <main className={screen === 'lab' ? 'm0-main m0-main--lab' : 'm0-main'}>
+        {screen !== 'lab' && (
+          <div className="m0-prototype-bar">
+            <div>
+              <span className="m0-live-dot" />
+              {strings.syntheticData}
             </div>
-          </details>
-        </div>
-
+          </div>
+        )}
+        {screen === 'lab' && (
+          <M0LabControlsScreen
+            strings={strings}
+            locale={locale}
+            setLocale={setLocale}
+            fontScale={fontScale}
+            setFontScale={setFontScale}
+            keyboardSimulation={keyboardSimulation}
+            setKeyboardSimulation={setKeyboardSimulation}
+            dark={dark}
+            setDark={setDark}
+            onClose={closeLab}
+          />
+        )}
         {screen === 'workspace' && view === 'edit' ? (
           <div className="m0-screen-context">
             <span className="m0-eyebrow">
@@ -548,7 +565,7 @@ const M0Experience = () => {
               {strings.saved}
             </span>
           </div>
-        ) : (
+        ) : screen === 'lab' ? null : (
           <div className="m0-screen-heading">
             <div>
               <p className="m0-eyebrow">
@@ -928,26 +945,28 @@ const M0Experience = () => {
         )}
       </main>
 
-      <nav className="m0-dock" aria-label={strings.editor} data-testid="m0-dock">
-        <button
-          type="button"
-          className={view === 'edit' && screen === 'workspace' ? 'is-selected' : ''}
-          aria-current={view === 'edit' && screen === 'workspace' ? 'page' : undefined}
-          onClick={openEdit}
-        >
-          <Icon name="edit" />
-          <span>{strings.editor}</span>
-        </button>
-        <button
-          type="button"
-          className={view === 'preview' && screen === 'workspace' ? 'is-selected' : ''}
-          aria-current={view === 'preview' && screen === 'workspace' ? 'page' : undefined}
-          onClick={openPreview}
-        >
-          <Icon name="preview" />
-          <span>{strings.preview}</span>
-        </button>
-      </nav>
+      {screen !== 'lab' && (
+        <nav className="m0-dock" aria-label={strings.editor} data-testid="m0-dock">
+          <button
+            type="button"
+            className={view === 'edit' && screen === 'workspace' ? 'is-selected' : ''}
+            aria-current={view === 'edit' && screen === 'workspace' ? 'page' : undefined}
+            onClick={openEdit}
+          >
+            <Icon name="edit" />
+            <span>{strings.editor}</span>
+          </button>
+          <button
+            type="button"
+            className={view === 'preview' && screen === 'workspace' ? 'is-selected' : ''}
+            aria-current={view === 'preview' && screen === 'workspace' ? 'page' : undefined}
+            onClick={openPreview}
+          >
+            <Icon name="preview" />
+            <span>{strings.preview}</span>
+          </button>
+        </nav>
+      )}
 
       <dialog
         ref={actionDialogRef}

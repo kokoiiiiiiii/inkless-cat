@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 import { expect, type Page, test } from '@playwright/test';
 
+import { measureM0Page } from './helpers/mobile-compact-geometry';
+
 const artifactRoot = 'test-results/mobile-compact-studio-m0';
 
 const capture = async (page: Page, name: string) => {
@@ -13,82 +15,6 @@ const capture = async (page: Page, name: string) => {
     fullPage: true,
     animations: 'disabled',
   });
-};
-
-const measure = async (page: Page, label: string) => {
-  return page.evaluate((scenario) => {
-    const box = (selector: string) => {
-      const element = document.querySelector<HTMLElement>(selector);
-      if (!element) return null;
-      const rect = element.getBoundingClientRect();
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, bottom: rect.bottom };
-    };
-    const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const header = box('.m0-header');
-    const dock = box('.m0-dock');
-    const mainRect = document.querySelector<HTMLElement>('.m0-main')?.getBoundingClientRect();
-    const visibleFields = [
-      ...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-        '.m0-field input, .m0-field textarea',
-      ),
-    ].filter((field) => {
-      const rect = field.getBoundingClientRect();
-      return (
-        rect.height > 0 &&
-        rect.top < Math.min(viewport.height, mainRect?.bottom ?? viewport.height) &&
-        rect.bottom > Math.max(0, mainRect?.top ?? 0)
-      );
-    }).length;
-    return {
-      scenario,
-      viewport,
-      visualViewport: window.visualViewport
-        ? {
-            width: window.visualViewport.width,
-            height: window.visualViewport.height,
-            scale: window.visualViewport.scale,
-            offsetTop: window.visualViewport.offsetTop,
-          }
-        : null,
-      document: {
-        clientWidth: document.documentElement.clientWidth,
-        scrollWidth: document.documentElement.scrollWidth,
-        scrollHeight: document.documentElement.scrollHeight,
-      },
-      header,
-      dock,
-      visibleFields,
-      editor: box('.m0-summary-card'),
-      paperViewport: box('.m0-paper-viewport'),
-      paperCanvas: box('.m0-paper-measure'),
-      paperLayout: box('.m0-paper-scale'),
-      paper: box('.m0-paper'),
-      previewContentHeight:
-        document.querySelector<HTMLElement>('.m0-preview-content')?.scrollHeight ?? null,
-      sectionExperience: box('[data-m0-section="experience"]'),
-      selectedMode:
-        document.querySelector<HTMLElement>('[data-preview-mode]')?.dataset.previewMode ?? null,
-      paperScroll: document.querySelector<HTMLElement>('.m0-paper-viewport')
-        ? {
-            top: document.querySelector<HTMLElement>('.m0-paper-viewport')?.scrollTop,
-            scrollWidth: document.querySelector<HTMLElement>('.m0-paper-viewport')?.scrollWidth,
-            scrollHeight: document.querySelector<HTMLElement>('.m0-paper-viewport')?.scrollHeight,
-            clientWidth: document.querySelector<HTMLElement>('.m0-paper-viewport')?.clientWidth,
-            clientHeight: document.querySelector<HTMLElement>('.m0-paper-viewport')?.clientHeight,
-          }
-        : null,
-      experienceLayout: document.querySelector<HTMLElement>('[data-m0-section="experience"]')
-        ? {
-            offsetTop: document.querySelector<HTMLElement>('[data-m0-section="experience"]')
-              ?.offsetTop,
-            offsetHeight: document.querySelector<HTMLElement>('[data-m0-section="experience"]')
-              ?.offsetHeight,
-          }
-        : null,
-      theme: document.querySelector('.m0-app')?.className ?? null,
-      activeElement: document.activeElement?.tagName ?? null,
-    };
-  }, label);
 };
 
 const measurePerformance = (page: Page) =>
@@ -198,6 +124,216 @@ const measurePerformance = (page: Page) =>
     };
   });
 
+const geometryViewports: Array<[number, number]> = [
+  [320, 568],
+  [320, 844],
+  [360, 800],
+  [390, 844],
+  [393, 852],
+  [430, 932],
+  [768, 1024],
+  [844, 390],
+];
+const fontLabCases: Array<[number, number, number]> = [
+  [390, 844, 1],
+  [390, 844, 1.5],
+  [390, 844, 2],
+  [320, 568, 1],
+  [320, 568, 1.5],
+  [320, 568, 2],
+  [320, 844, 2],
+  [430, 932, 2],
+  [844, 390, 1],
+  [844, 390, 1.5],
+];
+
+test('M0 first-screen fields and Lab geometry use complete visibility measurements', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await mkdir(artifactRoot, { recursive: true });
+  const evidence = {
+    sourceHead: process.env.M0_GEOMETRY_HEAD ?? 'local-unrecorded',
+    editorFirstScreen: [] as Awaited<ReturnType<typeof measureM0Page>>[],
+    fontLabMatrix: [] as Array<{
+      viewport: { width: number; height: number };
+      fontScale: number;
+      labOnEntry: Awaited<ReturnType<typeof measureM0Page>>;
+      labAfterKeyboard: Awaited<ReturnType<typeof measureM0Page>>;
+      labOpen: Awaited<ReturnType<typeof measureM0Page>>;
+      editorAfterLab: Awaited<ReturnType<typeof measureM0Page>>;
+    }>,
+  };
+
+  for (const [width, height] of geometryViewports) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/design/mobile-compact');
+    await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
+    expect(await page.locator('.m0-lab-trigger').count()).toBe(0);
+    const measurement = await measureM0Page(page, width + 'x' + height + '-editor-100%');
+    expect(measurement.document.horizontalOverflow).toBe(0);
+    evidence.editorFirstScreen.push(measurement);
+    if (width === 320 && height === 568) {
+      await page.screenshot({
+        path: artifactRoot + '/geometry-editor-320x568-100.png',
+        fullPage: false,
+        animations: 'disabled',
+      });
+    }
+    if (width === 390 && height === 844) {
+      await page.screenshot({
+        path: artifactRoot + '/geometry-editor-390x844-100.png',
+        fullPage: false,
+        animations: 'disabled',
+      });
+    }
+  }
+
+  for (const [width, height, fontScale] of fontLabCases) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/design/mobile-compact?lab=1&font=' + fontScale);
+    await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
+    const legacyLab = page.locator('.m0-lab');
+    const shouldCapture =
+      fontScale === 2 && ((width === 390 && height === 844) || (width === 320 && height === 568));
+    let labOnEntry: Awaited<ReturnType<typeof measureM0Page>>;
+    let labAfterKeyboard: Awaited<ReturnType<typeof measureM0Page>>;
+    let labOpen: Awaited<ReturnType<typeof measureM0Page>>;
+    let editorAfterLab: Awaited<ReturnType<typeof measureM0Page>>;
+
+    if ((await legacyLab.count()) > 0) {
+      const legacyTrigger = legacyLab.locator('summary');
+      if (await legacyTrigger.isVisible()) {
+        await legacyTrigger.click();
+        labOnEntry = await measureM0Page(
+          page,
+          width + 'x' + height + '-font-' + fontScale + '-lab-on-entry',
+        );
+        labAfterKeyboard = labOnEntry;
+        await page.getByLabel(/字体缩放|Text scaling/).selectOption(String(fontScale));
+        labOpen = await measureM0Page(
+          page,
+          width + 'x' + height + '-font-' + fontScale + '-lab-open',
+        );
+        if (shouldCapture) {
+          await page.screenshot({
+            path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200.png',
+            fullPage: false,
+            animations: 'disabled',
+          });
+        }
+      } else {
+        labOnEntry = await measureM0Page(
+          page,
+          width + 'x' + height + '-font-' + fontScale + '-lab-hidden-by-responsive-style',
+        );
+        labAfterKeyboard = labOnEntry;
+        labOpen = labOnEntry;
+      }
+      editorAfterLab = labOpen;
+    } else {
+      await page.locator('.m0-lab-trigger').click();
+      await expect(page.locator('.m0-lab-screen')).toBeVisible();
+      labOnEntry = await measureM0Page(
+        page,
+        width + 'x' + height + '-font-' + fontScale + '-lab-on-entry',
+      );
+      if (shouldCapture) {
+        await page.screenshot({
+          path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-initial.png',
+          fullPage: false,
+          animations: 'disabled',
+        });
+      }
+      const fontScaleControl = page.getByLabel(/字体缩放|Text scaling/);
+      if (
+        (fontScale === 2 &&
+          ((width === 390 && height === 844) || (width === 320 && height === 568))) ||
+        (width === 844 && height === 390 && fontScale === 1.5)
+      ) {
+        await expect(page.locator('#m0-lab-title')).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(fontScaleControl).toBeFocused();
+        await expect(fontScaleControl).toBeInViewport();
+        await page.keyboard.press('Tab');
+        const keyboardControl = page.getByLabel(/软键盘占用模拟|Software keyboard preview/);
+        await expect(keyboardControl).toBeFocused();
+        await expect(keyboardControl).toBeInViewport();
+        await page.keyboard.press('Tab');
+        const themeControl = page.getByLabel(/深色|Dark/);
+        await expect(themeControl).toBeFocused();
+        await expect(themeControl).toBeInViewport();
+        await page.keyboard.press('Tab');
+        const languageControl = page.getByLabel(/界面语言|Interface language/);
+        await expect(languageControl).toBeFocused();
+        await expect(languageControl).toBeInViewport();
+        await page.keyboard.press('Tab');
+        const closeLabButton = page.locator('.m0-lab-close');
+        await expect(closeLabButton).toBeFocused();
+        await expect(closeLabButton).toBeInViewport();
+        await page.keyboard.press('Shift+Tab');
+        await expect(languageControl).toBeFocused();
+        await expect(languageControl).toBeInViewport();
+        await page.keyboard.press('Tab');
+        await expect(closeLabButton).toBeFocused();
+        await page.keyboard.press('Tab');
+        expect(
+          await page.evaluate(() => Boolean(document.activeElement?.closest('.m0-lab-screen'))),
+        ).toBe(false);
+      }
+      labAfterKeyboard = await measureM0Page(
+        page,
+        width + 'x' + height + '-font-' + fontScale + '-lab-after-keyboard',
+      );
+      if (shouldCapture) {
+        await page.screenshot({
+          path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-keyboard.png',
+          fullPage: false,
+          animations: 'disabled',
+        });
+      }
+      await fontScaleControl.selectOption(String(fontScale));
+      labOpen = await measureM0Page(
+        page,
+        width + 'x' + height + '-font-' + fontScale + '-lab-screen',
+      );
+      expect(labOpen.document.horizontalOverflow).toBe(0);
+      expect(await page.locator('.m0-dock').isVisible()).toBe(false);
+      expect(labOpen.fields).toHaveLength(0);
+      for (const control of labOpen.lab.controlRects) {
+        if (control.centerWithinVisibleRegion) expect(control.centerHitTest).toBe(true);
+      }
+      if (shouldCapture) {
+        await page.screenshot({
+          path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-final.png',
+          fullPage: false,
+          animations: 'disabled',
+        });
+      }
+      await page.locator('.m0-lab-close').click();
+      await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
+      editorAfterLab = await measureM0Page(
+        page,
+        width + 'x' + height + '-font-' + fontScale + '-editor-after-lab',
+      );
+    }
+
+    expect(editorAfterLab.document.horizontalOverflow).toBe(0);
+    expect(editorAfterLab.main?.scrollTop).toBe(0);
+    evidence.fontLabMatrix.push({
+      viewport: { width, height },
+      fontScale,
+      labOnEntry,
+      labAfterKeyboard,
+      labOpen,
+      editorAfterLab,
+    });
+  }
+
+  const label = process.env.M0_GEOMETRY_LABEL ?? 'current';
+  await writeFile(artifactRoot + '/geometry-' + label + '.json', JSON.stringify(evidence, null, 2));
+});
+
 test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence', async ({
   page,
 }) => {
@@ -222,7 +358,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
       return Reflect.apply(originalGetItem, this, [key]);
     };
   });
-  await page.goto('/design/mobile-compact');
+  await page.goto('/design/mobile-compact?lab=1');
   expect(productionAppRequests).toEqual([]);
   expect(
     await page.evaluate(
@@ -260,38 +396,46 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.getByRole('button', { name: '移除照片' }).click();
   await expect(page.locator('.m0-avatar-upload img')).toHaveCount(0);
 
-  const geometry: Awaited<ReturnType<typeof measure>>[] = [];
-  geometry.push(await measure(page, '390x844-editor-first-screen'));
+  const geometry: Awaited<ReturnType<typeof measureM0Page>>[] = [];
+  geometry.push(await measureM0Page(page, '390x844-editor-first-screen'));
   await page
     .locator('.m0-main')
     .evaluate((node) => node.scrollTo({ top: 560, behavior: 'instant' }));
   await capture(page, '390-editor-scrolled');
-  geometry.push(await measure(page, '390x844-editor-scrolled'));
+  geometry.push(await measureM0Page(page, '390x844-editor-scrolled'));
   await page.getByRole('button', { name: '预览' }).click();
   await expect(page.getByText(/A4 风格边界/)).toBeVisible();
   await capture(page, '390-preview-responsive');
-  geometry.push(await measure(page, '390x844-preview-responsive'));
+  geometry.push(await measureM0Page(page, '390x844-preview-responsive'));
 
   const modeSelect = page.getByLabel('预览实验方案');
   await modeSelect.selectOption('fixed');
   await expect(page.locator('.m0-paper-scale')).toHaveCSS('width', '794px');
   await capture(page, '390-preview-fixed-a4-scale');
-  geometry.push(await measure(page, '390x844-preview-fixed-a4-scale'));
+  geometry.push(await measureM0Page(page, '390x844-preview-fixed-a4-scale'));
   await modeSelect.selectOption('reader');
   await page.getByRole('button', { name: '放大阅读' }).click();
   await capture(page, '390-preview-reader-zoom');
-  geometry.push(await measure(page, '390x844-preview-reader-zoom'));
+  geometry.push(await measureM0Page(page, '390x844-preview-reader-zoom'));
   await page.getByRole('button', { name: '单页' }).click();
   await page.getByRole('button', { name: '约三页内容' }).click();
   await capture(page, '390-preview-approx-three-page-resume');
-  geometry.push(await measure(page, '390x844-preview-long-resume'));
+  geometry.push(await measureM0Page(page, '390x844-preview-long-resume'));
 
   await page.getByRole('button', { name: '编辑', exact: true }).click();
-  await page.getByRole('button', { name: '更多操作' }).click();
+  const moreTriggerForSheet = page.getByRole('button', { name: '更多操作' });
+  await moreTriggerForSheet.click();
   const sheet = page.getByRole('dialog', { name: '更多操作' });
+  const sheetScroll = sheet.locator('.m0-sheet-scroll');
   await expect(sheet).toBeVisible();
-  await expect(page.getByRole('button', { name: '导出 JSON' })).toBeAttached();
+  await expect(sheet.getByRole('heading', { name: '更多操作' })).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: '文件' })).toBeVisible();
   await expect(page.locator('[data-action-first]')).toBeFocused();
+  await expect(page.locator('[data-action-first]')).toBeInViewport();
+  expect(await sheetScroll.evaluate((node) => node.scrollTop)).toBe(0);
+  await capture(page, '390-action-sheet-first-open');
+  geometry.push(await measureM0Page(page, '390x844-action-sheet-first-open'));
+
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: '导出 JSON' })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
@@ -302,11 +446,36 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(sheet.getByRole('link', { name: 'GitHub 项目' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(sheet.getByRole('button', { name: '关闭' })).toBeFocused();
-  await capture(page, '390-action-sheet-top');
-  geometry.push(await measure(page, '390x844-action-sheet'));
+  await expect(sheet.locator(':focus')).toBeInViewport();
+  expect(await page.evaluate(() => Boolean(document.activeElement?.closest('dialog[open]')))).toBe(
+    true,
+  );
+  await capture(page, '390-action-sheet-after-keyboard');
+  geometry.push(await measureM0Page(page, '390x844-action-sheet-after-keyboard'));
+
+  await sheetScroll.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect.poll(() => sheetScroll.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  await expect(sheet.getByRole('link', { name: 'GitHub 项目' })).toBeInViewport();
+  await capture(page, '390-action-sheet-bottom');
+  geometry.push(await measureM0Page(page, '390x844-action-sheet-bottom'));
+
+  await sheet.getByRole('button', { name: '关闭' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(moreTriggerForSheet).toBeFocused();
+  await moreTriggerForSheet.click();
+  await expect(sheet).toBeVisible();
+  await expect.poll(() => sheetScroll.evaluate((node) => node.scrollTop)).toBe(0);
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(moreTriggerForSheet).toBeFocused();
+  await moreTriggerForSheet.click();
+  await expect(sheet).toBeVisible();
+  await expect.poll(() => sheetScroll.evaluate((node) => node.scrollTop)).toBe(0);
   await page.mouse.click(8, 80);
   await expect(sheet).toBeHidden();
-  await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
+  await expect(moreTriggerForSheet).toBeFocused();
 
   let downloadCount = 0;
   page.on('download', () => {
@@ -398,7 +567,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.locator('.m0-entry-card').first().click();
   await expect(page.getByRole('heading', { name: '模板与样式' })).toBeVisible();
   await capture(page, '390-template-management');
-  geometry.push(await measure(page, '390x844-template-management'));
+  geometry.push(await measureM0Page(page, '390x844-template-management'));
   await page.getByPlaceholder('例如：深色商务模板').fill('M0 试验模板');
   await page.getByRole('button', { name: '保存当前简历为模板' }).click();
   const demoTemplate = page.locator('[data-template-id]').filter({ hasText: 'M0 试验模板' });
@@ -425,13 +594,13 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.getByRole('button', { name: '预览' }).click();
   await expect(page.locator('.m0-paper')).toBeVisible();
   await capture(page, '390-preview-classic-template');
-  geometry.push(await measure(page, '390x844-preview-classic-template'));
+  geometry.push(await measureM0Page(page, '390x844-preview-classic-template'));
   await page.getByRole('button', { name: '编辑', exact: true }).click();
 
   await page.locator('.m0-entry-card').nth(1).click();
   await expect(page.getByRole('heading', { name: '模块管理', level: 2 })).toBeVisible();
   await capture(page, '390-module-management');
-  geometry.push(await measure(page, '390x844-module-management'));
+  geometry.push(await measureM0Page(page, '390x844-module-management'));
   await page.getByRole('button', { name: '收起模块管理' }).click();
   await expect(page.getByTestId('section-sort-list')).toBeHidden();
   await page.getByRole('button', { name: '展开模块管理' }).click();
@@ -465,30 +634,44 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(page.getByLabel('姓名')).toBeVisible();
   await expect(page.getByLabel('公司')).toBeFocused();
 
-  await page.locator('summary').filter({ hasText: '原型实验控制' }).click();
+  const nameBeforeLab = await page.getByLabel('姓名').inputValue();
+  const templateBeforeLab =
+    (await page.locator('.m0-entry-card').first().locator('small').textContent()) ?? '';
+  const moduleCountBeforeLab =
+    (await page.locator('.m0-entry-card').nth(1).locator('small').textContent()) ?? '';
+  await page.locator('.m0-lab-trigger').click();
+  await expect(page.locator('.m0-lab-screen')).toBeVisible();
   await page.getByLabel('界面语言').selectOption('en');
-  await expect(page.getByLabel('Name')).toHaveValue('Morgan Lee');
-  await page.locator('.m0-lab summary').click();
-  await expect(page.locator('.m0-lab-controls')).toBeHidden();
+  await page.locator('.m0-lab-close').click();
+  await expect(page.getByLabel('Name')).toHaveValue(nameBeforeLab);
+  const templateAfterLab =
+    (await page.locator('.m0-entry-card').first().locator('small').textContent()) ?? '';
+  const moduleCountAfterLab =
+    (await page.locator('.m0-entry-card').nth(1).locator('small').textContent()) ?? '';
+  expect(templateAfterLab.split(' · ')[0]).toBe(templateBeforeLab.split(' · ')[0]);
+  expect(moduleCountAfterLab.match(/\d+/)?.[0]).toBe(moduleCountBeforeLab.match(/\d+/)?.[0]);
   await page.getByRole('button', { name: 'Preview' }).click();
   await page.getByRole('button', { name: '~3-page content' }).click();
   await capture(page, '390-preview-english-three-page-content');
-  geometry.push(await measure(page, '390x844-preview-english-long'));
+  geometry.push(await measureM0Page(page, '390x844-preview-english-long'));
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.locator('.m0-lab summary').click();
+  const englishNameBeforeSwitch = await page.getByLabel('Name').inputValue();
+  await page.locator('.m0-lab-trigger').click();
   await expect(page.getByLabel('Interface language')).toBeVisible();
   await page.getByLabel('Interface language').selectOption('zh-CN');
-  await expect(page.getByLabel('姓名')).toHaveValue('林岚');
-  await expect(page.getByLabel('字体缩放')).toBeVisible();
   await page.getByLabel('字体缩放').selectOption('1.5');
   await expect(page.locator('.m0-app')).toHaveAttribute('data-font-scale', '1.5');
+  await page.locator('.m0-lab-close').click();
+  await expect(page.getByLabel('姓名')).toHaveValue(englishNameBeforeSwitch);
   await expect(page.locator('.m0-brand-copy strong')).toHaveCSS('white-space', 'normal');
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth),
   ).toBe(true);
   await capture(page, '390-font-scale-150');
+  await page.locator('.m0-lab-trigger').click();
   await page.getByLabel('字体缩放').selectOption('2');
   await expect(page.locator('.m0-app')).toHaveAttribute('data-font-scale', '2');
+  await page.locator('.m0-lab-close').click();
   expect(
     await page.locator('.m0-header').evaluate((header) => header.getBoundingClientRect().height),
   ).toBeGreaterThan(60);
@@ -509,7 +692,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
     await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth),
   ).toBe(true);
   await capture(page, '320-font-scale-200');
-  geometry.push(await measure(page, '320x844-editor-font-200'));
+  geometry.push(await measureM0Page(page, '320x844-editor-font-200'));
   await page.setViewportSize({ width: 320, height: 568 });
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth),
@@ -523,17 +706,23 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
     ),
   ).toBe(true);
   await capture(page, '320-font-scale-200-568');
-  geometry.push(await measure(page, '320x568-editor-font-200'));
+  geometry.push(await measureM0Page(page, '320x568-editor-font-200'));
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.m0-lab-trigger').click();
   await page.getByLabel('字体缩放').selectOption('1');
   await page.getByLabel('深色').check();
+  await page.locator('.m0-lab-close').click();
   await capture(page, '390-dark-theme');
+  await page.locator('.m0-lab-trigger').click();
   await page.getByLabel('深色').uncheck();
   await page.getByLabel('软键盘占用模拟（非 iPhone）').check();
+  await page.locator('.m0-lab-close').click();
   await expect(page.locator('.m0-keyboard-sim')).toBeVisible();
   await expect(page.locator('.m0-dock')).toBeHidden();
   await capture(page, '390-keyboard-occupancy-simulation');
-  await page.locator('.m0-lab-controls').getByRole('checkbox').first().uncheck();
+  await page.locator('.m0-lab-trigger').click();
+  await page.getByLabel('软键盘占用模拟（非 iPhone）').uncheck();
+  await page.locator('.m0-lab-close').click();
   await expect(page.locator('.m0-keyboard-sim')).toBeHidden();
   await expect(page.locator('.m0-dock')).toBeVisible();
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
@@ -551,8 +740,6 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   ).toBeLessThanOrEqual(0.001);
   await capture(page, '390-forced-colors-reduced-motion');
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
-  await page.locator('.m0-lab summary').click();
-  await expect(page.locator('.m0-lab-controls')).toBeHidden();
 
   const editorViewports: Array<[number, number]> = [
     [320, 568],
@@ -574,8 +761,8 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
     if (width === 320 && height === 844) await capture(page, '320-editor-320x844');
     if (width === 844 && height === 390) {
       await capture(page, '844-landscape-editor');
-      const landscapeGeometry = await measure(page, '844x390-landscape-editor');
-      expect(landscapeGeometry.visibleFields).toBeGreaterThan(0);
+      const landscapeGeometry = await measureM0Page(page, '844x390-landscape-editor');
+      expect(landscapeGeometry.completeVisibleFieldCount).toBeGreaterThan(0);
       expect(
         await page
           .locator('.m0-field input')
@@ -589,7 +776,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
     }
     if (width === 1024) await capture(page, '1024-desktop-editor');
     if (width === 1440) await capture(page, '1440-desktop-editor');
-    geometry.push(await measure(page, `${width}x${height}-editor`));
+    geometry.push(await measureM0Page(page, `${width}x${height}-editor`));
   }
 
   const previewViewports: Array<[number, number]> = [
@@ -628,12 +815,12 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
       }
       if (width === 320 && mode === 'responsive') await capture(page, '320-preview');
       if (width === 390) await capture(page, `390-preview-${mode}`);
-      geometry.push(await measure(page, `${width}x${height}-preview-${mode}-single`));
+      geometry.push(await measureM0Page(page, `${width}x${height}-preview-${mode}-single`));
 
       await experienceSection.evaluate((element) =>
         element.scrollIntoView({ behavior: 'instant', block: 'start' }),
       );
-      geometry.push(await measure(page, `${width}x${height}-preview-${mode}-section-jump`));
+      geometry.push(await measureM0Page(page, `${width}x${height}-preview-${mode}-section-jump`));
 
       await page.getByRole('button', { name: '约三页内容' }).click();
       await expect.poll(() => experienceItems.count()).toBe(6);
@@ -646,7 +833,9 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
         )
         .toBe(true);
       if (width === 390) await capture(page, `390-preview-${mode}-three-page-content`);
-      geometry.push(await measure(page, `${width}x${height}-preview-${mode}-three-page-content`));
+      geometry.push(
+        await measureM0Page(page, `${width}x${height}-preview-${mode}-three-page-content`),
+      );
       await page.getByRole('button', { name: '单页' }).click();
 
       if (mode === 'reader' && width === 390) {
@@ -660,7 +849,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
           )
           .toBe(true);
         await capture(page, '390-preview-reader-zoom');
-        geometry.push(await measure(page, '390x844-preview-reader-zoom'));
+        geometry.push(await measureM0Page(page, '390x844-preview-reader-zoom'));
         await page.getByRole('button', { name: '恢复适宽' }).click();
       }
     }
@@ -670,7 +859,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.setViewportSize({ width: 320, height: 568 });
   await expect(page.getByRole('dialog', { name: '更多操作' })).toBeVisible();
   await capture(page, '320-action-sheet-320x568');
-  geometry.push(await measure(page, '320x568-action-sheet'));
+  geometry.push(await measureM0Page(page, '320x568-action-sheet'));
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 844, height: 390 });
   await page.getByRole('button', { name: '更多操作' }).click();
@@ -680,10 +869,10 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
     await landscapeSheet.evaluate((dialog) => dialog.getBoundingClientRect().height),
   ).toBeLessThanOrEqual(390);
   await capture(page, '844-landscape-action-sheet');
-  geometry.push(await measure(page, '844x390-action-sheet'));
+  geometry.push(await measureM0Page(page, '844x390-action-sheet'));
   await page.keyboard.press('Escape');
 
   await writeFile(`${artifactRoot}/geometry.json`, JSON.stringify(geometry, null, 2));
   await writeFile(`${artifactRoot}/performance.json`, JSON.stringify(performanceEvidence, null, 2));
-  await expect(page).toHaveURL(/\/design\/mobile-compact$/);
+  await expect(page).toHaveURL(/\/design\/mobile-compact\?lab=1$/);
 });
