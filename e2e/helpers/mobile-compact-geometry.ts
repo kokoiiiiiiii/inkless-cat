@@ -73,6 +73,38 @@ export const measureM0Page = async (page: Page, scenario: string) =>
       }
       return result;
     };
+    const probeHitTargets = (
+      element: HTMLElement,
+      visibleBounds: Rect | null,
+      blockers: Rect[] = [],
+    ) => {
+      if (!visibleBounds)
+        return { candidatePoints: 0, testedPoints: 0, hitPoints: 0, passed: false };
+      const samples = [0.2, 0.5, 0.8].flatMap((xRatio) =>
+        [0.2, 0.5, 0.8].map((yRatio) => ({
+          x: visibleBounds.left + visibleBounds.width * xRatio,
+          y: visibleBounds.top + visibleBounds.height * yRatio,
+        })),
+      );
+      const unblockedSamples = samples.filter(
+        ({ x, y }) =>
+          !blockers.some(
+            (blocker) =>
+              x >= blocker.left && x < blocker.right && y >= blocker.top && y < blocker.bottom,
+          ),
+      );
+      const hitPoints = unblockedSamples.filter(({ x, y }) => {
+        if (x < 0 || x >= viewport.width || y < 0 || y >= viewport.height) return false;
+        const hit = document.elementFromPoint(x, y);
+        return Boolean(hit && (hit === element || element.contains(hit)));
+      }).length;
+      return {
+        candidatePoints: samples.length,
+        testedPoints: unblockedSamples.length,
+        hitPoints,
+        passed: unblockedSamples.length > 0 && hitPoints === unblockedSamples.length,
+      };
+    };
     const viewport = { width: window.innerWidth, height: window.innerHeight };
     const viewportRect: Rect = {
       x: 0,
@@ -142,6 +174,11 @@ export const measureM0Page = async (page: Page, scenario: string) =>
       });
       const blockedArea = unionArea(blockerRects);
       const visibleArea = Math.max(0, area(clippedRect) - blockedArea);
+      const hitTesting = probeHitTargets(
+        field,
+        clippedRect,
+        occluders.map(({ rect: blocker }) => blocker),
+      );
       const withinClip =
         Boolean(editorClip) &&
         fieldRect.left >= editorClip!.left - 1 &&
@@ -183,6 +220,7 @@ export const measureM0Page = async (page: Page, scenario: string) =>
             .map(({ name }) => name),
           centerPointWithinVisibleRegion,
           centerHitTest: Boolean(hit && (hit === field || field.contains(hit))),
+          hitTesting,
           centerHitTarget: hit
             ? { tag: hit.tagName.toLowerCase(), className: (hit as HTMLElement).className }
             : null,
@@ -246,6 +284,7 @@ export const measureM0Page = async (page: Page, scenario: string) =>
             visibleAreaRatio: firstEditableField.visibleAreaRatio,
             obscuredBy: firstEditableField.obscuredBy,
             centerHitTest: firstEditableField.centerHitTest,
+            hitTesting: firstEditableField.hitTesting,
             centerHitTarget: firstEditableField.centerHitTarget,
           }
         : null,
@@ -273,12 +312,17 @@ export const measureM0Page = async (page: Page, scenario: string) =>
               centerY <= visibleMainRect.bottom,
           );
           const hit = centerWithinViewport ? document.elementFromPoint(centerX, centerY) : null;
+          const visibleControlRect = visibleMainRect
+            ? intersection(controlRect, visibleMainRect)
+            : null;
+          const hitTesting = probeHitTargets(control, visibleControlRect);
           return {
             label: control.closest('label')?.textContent?.trim() ?? control.tagName.toLowerCase(),
             rect: controlRect,
             centerWithinViewport,
             centerWithinVisibleRegion,
             centerHitTest: Boolean(hit && (hit === control || control.contains(hit))),
+            hitTesting,
             centerHitTarget: hit
               ? { tag: hit.tagName.toLowerCase(), className: (hit as HTMLElement).className }
               : null,

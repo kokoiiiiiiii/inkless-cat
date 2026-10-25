@@ -134,6 +134,19 @@ const geometryViewports: Array<[number, number]> = [
   [768, 1024],
   [844, 390],
 ];
+const geometryBaselines: Record<
+  string,
+  { completeVisibleFieldCount: number; partialVisibleFieldCount: number }
+> = {
+  '320x568': { completeVisibleFieldCount: 1, partialVisibleFieldCount: 1 },
+  '320x844': { completeVisibleFieldCount: 4, partialVisibleFieldCount: 1 },
+  '360x800': { completeVisibleFieldCount: 4, partialVisibleFieldCount: 1 },
+  '390x844': { completeVisibleFieldCount: 4, partialVisibleFieldCount: 1 },
+  '393x852': { completeVisibleFieldCount: 4, partialVisibleFieldCount: 1 },
+  '430x932': { completeVisibleFieldCount: 5, partialVisibleFieldCount: 0 },
+  '768x1024': { completeVisibleFieldCount: 6, partialVisibleFieldCount: 0 },
+  '844x390': { completeVisibleFieldCount: 2, partialVisibleFieldCount: 0 },
+};
 const fontLabCases: Array<[number, number, number]> = [
   [390, 844, 1],
   [390, 844, 1.5],
@@ -159,6 +172,7 @@ test('M0 first-screen fields and Lab geometry use complete visibility measuremen
       viewport: { width: number; height: number };
       fontScale: number;
       labOnEntry: Awaited<ReturnType<typeof measureM0Page>>;
+      labAfterScroll: Awaited<ReturnType<typeof measureM0Page>> | null;
       labAfterKeyboard: Awaited<ReturnType<typeof measureM0Page>>;
       labOpen: Awaited<ReturnType<typeof measureM0Page>>;
       editorAfterLab: Awaited<ReturnType<typeof measureM0Page>>;
@@ -168,10 +182,28 @@ test('M0 first-screen fields and Lab geometry use complete visibility measuremen
   for (const [width, height] of geometryViewports) {
     await page.setViewportSize({ width, height });
     await page.goto('/design/mobile-compact');
-    await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
+    const firstNameField = page.getByLabel(/姓名|Name/);
+    await expect(firstNameField).toBeVisible();
+    await expect(firstNameField).toBeEnabled();
+    await expect(firstNameField).toBeEditable();
+    await expect(firstNameField).toBeInViewport();
+    await firstNameField.click();
+    await expect(firstNameField).toBeFocused();
     expect(await page.locator('.m0-lab-trigger').count()).toBe(0);
     const measurement = await measureM0Page(page, width + 'x' + height + '-editor-100%');
+    const baseline = geometryBaselines[`${width}x${height}`];
+    expect(baseline, `Missing geometry baseline for ${width}x${height}`).toBeDefined();
+    expect(measurement.completeVisibleFieldCount).toBeGreaterThanOrEqual(
+      baseline!.completeVisibleFieldCount,
+    );
+    expect(measurement.partialVisibleFieldCount).toBe(baseline!.partialVisibleFieldCount);
+    expect(measurement.obscuredFieldCount).toBe(0);
     expect(measurement.document.horizontalOverflow).toBe(0);
+    expect(measurement.firstEditableField).not.toBeNull();
+    expect(measurement.firstEditableField?.complete).toBe(true);
+    expect(measurement.firstEditableField?.relativeToHeaderPx).toBeGreaterThanOrEqual(0);
+    expect(measurement.firstEditableField?.visibleAreaRatio).toBeGreaterThanOrEqual(0.99);
+    expect(measurement.firstEditableField?.hitTesting.passed).toBe(true);
     evidence.editorFirstScreen.push(measurement);
     if (width === 320 && height === 568) {
       await page.screenshot({
@@ -193,130 +225,137 @@ test('M0 first-screen fields and Lab geometry use complete visibility measuremen
     await page.setViewportSize({ width, height });
     await page.goto('/design/mobile-compact?lab=1&font=' + fontScale);
     await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
-    const legacyLab = page.locator('.m0-lab');
     const shouldCapture =
       fontScale === 2 && ((width === 390 && height === 844) || (width === 320 && height === 568));
-    let labOnEntry: Awaited<ReturnType<typeof measureM0Page>>;
-    let labAfterKeyboard: Awaited<ReturnType<typeof measureM0Page>>;
-    let labOpen: Awaited<ReturnType<typeof measureM0Page>>;
-    let editorAfterLab: Awaited<ReturnType<typeof measureM0Page>>;
+    const shouldExerciseScroll = width === 320 && height === 568 && fontScale === 2;
+    let labAfterScroll: Awaited<ReturnType<typeof measureM0Page>> | null = null;
 
-    if ((await legacyLab.count()) > 0) {
-      const legacyTrigger = legacyLab.locator('summary');
-      if (await legacyTrigger.isVisible()) {
-        await legacyTrigger.click();
-        labOnEntry = await measureM0Page(
-          page,
-          width + 'x' + height + '-font-' + fontScale + '-lab-on-entry',
-        );
-        labAfterKeyboard = labOnEntry;
-        await page.getByLabel(/字体缩放|Text scaling/).selectOption(String(fontScale));
-        labOpen = await measureM0Page(
-          page,
-          width + 'x' + height + '-font-' + fontScale + '-lab-open',
-        );
-        if (shouldCapture) {
-          await page.screenshot({
-            path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200.png',
-            fullPage: false,
-            animations: 'disabled',
-          });
-        }
-      } else {
-        labOnEntry = await measureM0Page(
-          page,
-          width + 'x' + height + '-font-' + fontScale + '-lab-hidden-by-responsive-style',
-        );
-        labAfterKeyboard = labOnEntry;
-        labOpen = labOnEntry;
-      }
-      editorAfterLab = labOpen;
+    await expect(page.locator('.m0-lab')).toHaveCount(0);
+    await page.locator('.m0-lab-trigger').click();
+    await expect(page.locator('.m0-lab-screen')).toBeVisible();
+    const labOnEntry = await measureM0Page(
+      page,
+      width + 'x' + height + '-font-' + fontScale + '-lab-on-entry',
+    );
+    await expect(page.locator('#m0-lab-title')).toBeFocused();
+    expect(labOnEntry.lab.controlRects).toHaveLength(4);
+    const initiallyVisibleControls = labOnEntry.lab.controlRects.filter(
+      (control) => control.centerWithinVisibleRegion,
+    );
+    if (shouldExerciseScroll) {
+      expect(labOnEntry.main?.scrollTop).toBe(0);
+      expect(labOnEntry.main?.scrollHeight).toBeGreaterThan(labOnEntry.main?.clientHeight ?? 0);
+      expect(initiallyVisibleControls).toHaveLength(0);
+      expect(labOnEntry.lab.controlRects.every((control) => !control.hitTesting.passed)).toBe(true);
     } else {
-      await page.locator('.m0-lab-trigger').click();
-      await expect(page.locator('.m0-lab-screen')).toBeVisible();
-      labOnEntry = await measureM0Page(
-        page,
-        width + 'x' + height + '-font-' + fontScale + '-lab-on-entry',
-      );
-      if (shouldCapture) {
-        await page.screenshot({
-          path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-initial.png',
-          fullPage: false,
-          animations: 'disabled',
-        });
-      }
-      const fontScaleControl = page.getByLabel(/字体缩放|Text scaling/);
-      if (
-        (fontScale === 2 &&
-          ((width === 390 && height === 844) || (width === 320 && height === 568))) ||
-        (width === 844 && height === 390 && fontScale === 1.5)
-      ) {
-        await expect(page.locator('#m0-lab-title')).toBeFocused();
-        await page.keyboard.press('Tab');
-        await expect(fontScaleControl).toBeFocused();
-        await expect(fontScaleControl).toBeInViewport();
-        await page.keyboard.press('Tab');
-        const keyboardControl = page.getByLabel(/软键盘占用模拟|Software keyboard preview/);
-        await expect(keyboardControl).toBeFocused();
-        await expect(keyboardControl).toBeInViewport();
-        await page.keyboard.press('Tab');
-        const themeControl = page.getByLabel(/深色|Dark/);
-        await expect(themeControl).toBeFocused();
-        await expect(themeControl).toBeInViewport();
-        await page.keyboard.press('Tab');
-        const languageControl = page.getByLabel(/界面语言|Interface language/);
-        await expect(languageControl).toBeFocused();
-        await expect(languageControl).toBeInViewport();
-        await page.keyboard.press('Tab');
-        const closeLabButton = page.locator('.m0-lab-close');
-        await expect(closeLabButton).toBeFocused();
-        await expect(closeLabButton).toBeInViewport();
-        await page.keyboard.press('Shift+Tab');
-        await expect(languageControl).toBeFocused();
-        await expect(languageControl).toBeInViewport();
-        await page.keyboard.press('Tab');
-        await expect(closeLabButton).toBeFocused();
-        await page.keyboard.press('Tab');
-        expect(
-          await page.evaluate(() => Boolean(document.activeElement?.closest('.m0-lab-screen'))),
-        ).toBe(false);
-      }
-      labAfterKeyboard = await measureM0Page(
-        page,
-        width + 'x' + height + '-font-' + fontScale + '-lab-after-keyboard',
-      );
-      if (shouldCapture) {
-        await page.screenshot({
-          path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-keyboard.png',
-          fullPage: false,
-          animations: 'disabled',
-        });
-      }
-      await fontScaleControl.selectOption(String(fontScale));
-      labOpen = await measureM0Page(
-        page,
-        width + 'x' + height + '-font-' + fontScale + '-lab-screen',
-      );
-      expect(labOpen.document.horizontalOverflow).toBe(0);
-      expect(await page.locator('.m0-dock').isVisible()).toBe(false);
-      expect(labOpen.fields).toHaveLength(0);
-      for (const control of labOpen.lab.controlRects) {
-        if (control.centerWithinVisibleRegion) expect(control.centerHitTest).toBe(true);
-      }
-      if (shouldCapture) {
-        await page.screenshot({
-          path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-final.png',
-          fullPage: false,
-          animations: 'disabled',
-        });
-      }
-      await page.locator('.m0-lab-close').click();
-      await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
-      editorAfterLab = await measureM0Page(
-        page,
-        width + 'x' + height + '-font-' + fontScale + '-editor-after-lab',
-      );
+      expect(initiallyVisibleControls.length).toBeGreaterThan(0);
+      expect(initiallyVisibleControls.every((control) => control.hitTesting.passed)).toBe(true);
     }
+    if (shouldCapture) {
+      await page.screenshot({
+        path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-initial.png',
+        fullPage: false,
+        animations: 'disabled',
+      });
+    }
+
+    const fontScaleControl = page.getByLabel(/字体缩放|Text scaling/);
+    const languageControl = page.getByLabel(/界面语言|Interface language/);
+    if (shouldExerciseScroll) {
+      await page.locator('.m0-main').evaluate((main) => {
+        main.scrollTo({ top: main.scrollHeight, behavior: 'instant' });
+      });
+      await expect
+        .poll(() => page.locator('.m0-main').evaluate((main) => main.scrollTop))
+        .toBeGreaterThan(0);
+      labAfterScroll = await measureM0Page(
+        page,
+        width + 'x' + height + '-font-' + fontScale + '-lab-after-scroll',
+      );
+      await expect(languageControl).toBeVisible();
+      await expect(languageControl).toBeInViewport();
+      expect(labAfterScroll.main?.scrollTop).toBeGreaterThan(0);
+      const languageControlMeasurement = labAfterScroll.lab.controlRects.find((control) =>
+        control.label.includes('界面语言'),
+      );
+      expect(languageControlMeasurement?.centerWithinVisibleRegion).toBe(true);
+      expect(languageControlMeasurement?.hitTesting.passed).toBe(true);
+      expect(labAfterScroll.document.horizontalOverflow).toBe(0);
+    }
+
+    if (
+      (fontScale === 2 &&
+        ((width === 390 && height === 844) || (width === 320 && height === 568))) ||
+      (width === 844 && height === 390 && fontScale === 1.5)
+    ) {
+      await page.locator('#m0-lab-title').focus();
+      await expect(page.locator('#m0-lab-title')).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(fontScaleControl).toBeFocused();
+      await expect(fontScaleControl).toBeInViewport();
+      await page.keyboard.press('Tab');
+      const keyboardControl = page.getByLabel(/软键盘占用模拟|Software keyboard preview/);
+      await expect(keyboardControl).toBeFocused();
+      await expect(keyboardControl).toBeInViewport();
+      await page.keyboard.press('Tab');
+      const themeControl = page.getByLabel(/深色|Dark/);
+      await expect(themeControl).toBeFocused();
+      await expect(themeControl).toBeInViewport();
+      await page.keyboard.press('Tab');
+      await expect(languageControl).toBeFocused();
+      await expect(languageControl).toBeInViewport();
+      await page.keyboard.press('Tab');
+      const closeLabButton = page.locator('.m0-lab-close');
+      await expect(closeLabButton).toBeFocused();
+      await expect(closeLabButton).toBeInViewport();
+      await page.keyboard.press('Shift+Tab');
+      await expect(languageControl).toBeFocused();
+      await expect(languageControl).toBeInViewport();
+      await page.keyboard.press('Tab');
+      await expect(closeLabButton).toBeFocused();
+      await page.keyboard.press('Tab');
+      expect(
+        await page.evaluate(() => Boolean(document.activeElement?.closest('.m0-lab-screen'))),
+      ).toBe(false);
+    }
+    const labAfterKeyboard = await measureM0Page(
+      page,
+      width + 'x' + height + '-font-' + fontScale + '-lab-after-keyboard',
+    );
+    if (shouldCapture) {
+      await page.screenshot({
+        path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-keyboard.png',
+        fullPage: false,
+        animations: 'disabled',
+      });
+    }
+
+    await fontScaleControl.selectOption(String(fontScale));
+    const labOpen = await measureM0Page(
+      page,
+      width + 'x' + height + '-font-' + fontScale + '-lab-screen',
+    );
+    expect(labOpen.document.horizontalOverflow).toBe(0);
+    await expect(page.locator('.m0-dock')).toBeHidden();
+    expect(labOpen.fields).toHaveLength(0);
+    const visibleLabControls = labOpen.lab.controlRects.filter(
+      (control) => control.centerWithinVisibleRegion,
+    );
+    expect(visibleLabControls.length).toBeGreaterThan(0);
+    expect(visibleLabControls.every((control) => control.hitTesting.passed)).toBe(true);
+    if (shouldCapture) {
+      await page.screenshot({
+        path: artifactRoot + '/geometry-lab-' + width + 'x' + height + '-font-200-final.png',
+        fullPage: false,
+        animations: 'disabled',
+      });
+    }
+    await page.locator('.m0-lab-close').click();
+    await expect(page.getByLabel(/姓名|Name/)).toBeVisible();
+    const editorAfterLab = await measureM0Page(
+      page,
+      width + 'x' + height + '-font-' + fontScale + '-editor-after-lab',
+    );
 
     expect(editorAfterLab.document.horizontalOverflow).toBe(0);
     expect(editorAfterLab.main?.scrollTop).toBe(0);
@@ -324,6 +363,7 @@ test('M0 first-screen fields and Lab geometry use complete visibility measuremen
       viewport: { width, height },
       fontScale,
       labOnEntry,
+      labAfterScroll,
       labAfterKeyboard,
       labOpen,
       editorAfterLab,
@@ -332,6 +372,164 @@ test('M0 first-screen fields and Lab geometry use complete visibility measuremen
 
   const label = process.env.M0_GEOMETRY_LABEL ?? 'current';
   await writeFile(artifactRoot + '/geometry-' + label + '.json', JSON.stringify(evidence, null, 2));
+});
+
+test('M0 preserves edited content across preview fixtures, modes, and locale changes', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    const protectedKeys = ['inkless-cat/resume-store', 'inkless-cat/ui-store'];
+    for (const key of protectedKeys) localStorage.setItem(key, `m0-sentinel:${key}`);
+    const state = globalThis as typeof globalThis & { __m0StoreWrites?: string[] };
+    state.__m0StoreWrites = [];
+    const originalSetItem = Storage.prototype.setItem.bind(localStorage);
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (protectedKeys.includes(key)) state.__m0StoreWrites?.push(key);
+      return originalSetItem(key, value);
+    };
+  });
+  await page.goto('/design/mobile-compact?lab=1');
+
+  const edited = {
+    name: 'Round Two Name',
+    title: 'Principal Product Designer',
+    email: 'round-two@example.test',
+  };
+  await page.getByLabel('姓名').fill(edited.name);
+  await page.getByLabel('头衔').fill(edited.title);
+  await page.getByLabel('邮箱').fill(edited.email);
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.locator('.m0-preview-content h1')).toHaveText(edited.name);
+  await expect(page.locator('.m0-preview-content')).toContainText(edited.email);
+
+  await page.getByRole('button', { name: '约三页内容' }).click();
+  await expect(page.locator('.m0-preview-content h1')).toHaveText('林岚');
+  await expect
+    .poll(() =>
+      page.locator('[data-m0-section="experience"]:not([data-m0-item="__section__"])').count(),
+    )
+    .toBe(6);
+  const previewMode = page.getByLabel('预览实验方案');
+  for (const mode of ['responsive', 'fixed', 'reader'] as const) {
+    await previewMode.selectOption(mode);
+    await expect(page.locator('.m0-paper-viewport')).toHaveAttribute('data-preview-mode', mode);
+  }
+
+  await page.locator('.m0-lab-trigger').click();
+  await expect(page.locator('.m0-lab-screen')).toBeVisible();
+  await page.getByLabel('界面语言').selectOption('en');
+  await page.locator('.m0-lab-close').click();
+  await expect(page.locator('.m0-preview-content h1')).toHaveText('Morgan Lee');
+  await page.getByRole('button', { name: 'One page' }).click();
+  await expect(page.locator('.m0-preview-content h1')).toHaveText(edited.name);
+
+  await page.locator('.m0-lab-trigger').click();
+  await page.getByLabel('Interface language').selectOption('zh-CN');
+  await page.locator('.m0-lab-close').click();
+  await expect(page.locator('.m0-preview-content h1')).toHaveText(edited.name);
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await expect(page.getByLabel('姓名')).toHaveValue(edited.name);
+  await expect(page.getByLabel('头衔')).toHaveValue(edited.title);
+  await expect(page.getByLabel('邮箱')).toHaveValue(edited.email);
+
+  expect(
+    await page.evaluate(
+      () => (globalThis as typeof globalThis & { __m0StoreWrites?: string[] }).__m0StoreWrites,
+    ),
+  ).toEqual([]);
+  expect(
+    await page.evaluate(() => ({
+      resume: localStorage.getItem('inkless-cat/resume-store'),
+      ui: localStorage.getItem('inkless-cat/ui-store'),
+    })),
+  ).toEqual({
+    resume: 'm0-sentinel:inkless-cat/resume-store',
+    ui: 'm0-sentinel:inkless-cat/ui-store',
+  });
+});
+
+test('M0 selected custom template updates the real preview and deletion falls back', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/design/mobile-compact');
+  await page.locator('.m0-entry-card').first().click();
+
+  const creationForm = page.locator('.m0-management-screen form');
+  await creationForm.locator('input[type="text"]').first().fill('M0 Round 2 template');
+  await creationForm.locator('select').selectOption('custom');
+  const creationColors = creationForm.locator('input[type="color"]');
+  await creationColors.nth(0).fill('#445566');
+  await creationColors.nth(1).fill('#fefaf0');
+  await creationColors.nth(2).fill('#331122');
+  await creationForm.getByRole('button', { name: '保存当前简历为模板' }).click();
+
+  const activeTemplate = page
+    .locator('[data-template-id]')
+    .filter({ hasText: 'M0 Round 2 template' });
+  await expect(activeTemplate.getByRole('radio')).toBeChecked();
+  const activeTemplateId = await activeTemplate.getAttribute('data-template-id');
+  expect(activeTemplateId).toBeTruthy();
+  const activeTemplateCard = page.locator(`[data-template-id="${activeTemplateId}"]`);
+  await activeTemplateCard.locator('input[type="color"]').nth(0).fill('#123456');
+  await activeTemplateCard.locator('input[type="color"]').nth(1).fill('#fff0e0');
+  await activeTemplateCard.locator('input[type="color"]').nth(2).fill('#112233');
+  const activeTemplateName = activeTemplateCard.locator('input[type="text"]').first();
+  await activeTemplateName.fill('M0 Round 2 selected');
+  await activeTemplateName.press('Tab');
+  await activeTemplateCard.locator('select').selectOption('creative');
+  await expect(activeTemplateCard).toContainText('M0 Round 2 selected');
+  await expect(page.locator('.m0-current-template strong')).toHaveText('M0 Round 2 selected');
+
+  await page.getByRole('button', { name: /返回编辑/ }).click();
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  const renderer = page.locator('.m0-preview-content .resume-preview');
+  await expect(renderer).toHaveClass(/from-rose-50/);
+  await expect(renderer.locator('h1')).toHaveCSS('color', 'rgb(17, 34, 51)');
+  await expect(renderer).toHaveCSS('background-color', 'rgb(255, 240, 224)');
+  await expect(renderer.locator('section > div > span').first()).toHaveCSS(
+    'background-color',
+    'rgb(18, 52, 86)',
+  );
+  await capture(page, '390-template-modified-preview');
+
+  const selectedPreview = await renderer.evaluate((article) => ({
+    className: article.className,
+    backgroundColor: getComputedStyle(article).backgroundColor,
+    headingColor: getComputedStyle(article.querySelector('h1')!).color,
+    accentColor: getComputedStyle(article.querySelector('section > div > span')!).backgroundColor,
+  }));
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.locator('.m0-entry-card').first().click();
+  const unselectedTemplate = page.locator('[data-template-id="m0-custom"]');
+  await expect(unselectedTemplate.getByRole('radio')).not.toBeChecked();
+  await unselectedTemplate.locator('input[type="color"]').first().fill('#00aa88');
+  await page.getByRole('button', { name: /返回编辑/ }).click();
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect
+    .poll(() =>
+      renderer.evaluate((article) => ({
+        className: article.className,
+        backgroundColor: getComputedStyle(article).backgroundColor,
+        headingColor: getComputedStyle(article.querySelector('h1')!).color,
+        accentColor: getComputedStyle(article.querySelector('section > div > span')!)
+          .backgroundColor,
+      })),
+    )
+    .toEqual(selectedPreview);
+
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.locator('.m0-entry-card').first().click();
+  await activeTemplateCard.getByRole('button', { name: '删除', exact: true }).click();
+  const deleteDialog = page.getByRole('alertdialog', { name: '删除这个演示模板？' });
+  await expect(deleteDialog).toBeVisible();
+  await deleteDialog.getByRole('button', { name: '删除模板', exact: true }).click();
+  await expect(activeTemplateCard).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: '现代蓝' })).toBeChecked();
+  await page.getByRole('button', { name: /返回编辑/ }).click();
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.locator('.m0-preview-content .resume-preview')).toHaveClass(/bg-white\/90/);
 });
 
 test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence', async ({
@@ -551,18 +749,35 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(page.getByLabel('姓名')).toHaveValue('林岚');
 
   await page.getByRole('button', { name: '更多操作' }).click();
-  await page.getByRole('button', { name: '清空简历' }).click();
-  const clearDialog = page.getByRole('alertdialog', { name: '清空演示简历？' });
-  await expect(clearDialog).toBeVisible();
-  await expect(page.getByRole('button', { name: '取消', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: '重置演示内容' }).click();
+  const resetDialog = page.getByRole('alertdialog', { name: '重置演示内容？' });
+  await expect(resetDialog).toBeVisible();
+  await expect(resetDialog.getByRole('button', { name: '取消', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: '清空演示内容' })).toBeFocused();
+  await expect(resetDialog.getByRole('button', { name: '重置演示内容' })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
-  await expect(page.getByRole('button', { name: '取消', exact: true })).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(clearDialog).toBeHidden();
+  await expect(resetDialog.getByRole('button', { name: '取消', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(resetDialog).toBeHidden();
   await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
   await expect(page.getByLabel('姓名')).toHaveValue('林岚');
+
+  await page.getByLabel('姓名').fill('待重置的演示姓名');
+  await page.getByRole('button', { name: '更多操作' }).click();
+  await page.getByRole('button', { name: '重置演示内容' }).click();
+  await expect(resetDialog).toBeVisible();
+  await resetDialog.getByRole('button', { name: '重置演示内容' }).click();
+  await expect(resetDialog).toBeHidden();
+  await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
+  await expect(page.getByLabel('姓名')).toHaveValue('林岚');
+  await expect(page.getByRole('status')).toContainText('演示内容已重置');
+
+  await page.getByLabel('姓名').fill('载入示例前的编辑内容');
+  await page.getByRole('button', { name: '更多操作' }).click();
+  await page.getByRole('button', { name: '载入示例' }).click();
+  await expect(page.getByLabel('姓名')).toHaveValue('林岚');
+  await expect(page.getByRole('status')).toContainText('本地合成示例已载入');
+  await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
 
   await page.locator('.m0-entry-card').first().click();
   await expect(page.getByRole('heading', { name: '模板与样式' })).toBeVisible();

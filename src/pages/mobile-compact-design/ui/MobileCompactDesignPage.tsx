@@ -9,7 +9,7 @@ import { I18nProvider, useI18n } from '@shared/i18n';
 import { FeedbackViewport } from '@shared/ui/feedback';
 import PhotoUpload from '@widgets/photo-upload';
 import { TemplateSelector, type TemplateUpdatePayload } from '@widgets/template-selector';
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createM0Resume, createM0Templates, M0_ACTIVE_SECTIONS } from '../model/fixtures';
 import { useM0Strings } from '../model/strings';
@@ -150,6 +150,11 @@ const M0Experience = () => {
     screen: 'templates',
     scrollTop: 0,
   });
+  const previewResume = useMemo(
+    () => (resumeLength === 'long' ? createM0Resume(locale, 'long') : resume),
+    [locale, resume, resumeLength],
+  );
+  const previewSections = resumeLength === 'long' ? M0_ACTIVE_SECTIONS : activeSections;
   const openLab = () => {
     labReturn.current = {
       screen: screen === 'lab' ? labReturn.current.screen : screen,
@@ -349,6 +354,17 @@ const M0Experience = () => {
       ),
     }));
   };
+  const updateCustomTemplate = (id: string, updates: TemplateUpdatePayload) => {
+    setTemplates((current) => ({
+      ...current,
+      customTemplates: current.customTemplates.map((item) =>
+        item.id === id ? ({ ...item, ...updates } as ResumeTemplate) : item,
+      ),
+    }));
+    setTemplate((current) =>
+      current.id === id ? ({ ...current, ...updates } as ResumeTemplate) : current,
+    );
+  };
   const allCustomSections = resume.customSections ?? [];
   const sectionToggle = (key: string, enabled: boolean) =>
     setActiveSections((current) => {
@@ -362,8 +378,6 @@ const M0Experience = () => {
   };
   const changeLength = (next: 'single' | 'long') => {
     setResumeLength(next);
-    setResume(createM0Resume(locale, next));
-    setActiveSections([...M0_ACTIVE_SECTIONS]);
   };
   const registerPreviewSection = useCallback(
     (sectionKey: string, itemKey: string, node: HTMLElement | null) => {
@@ -388,6 +402,9 @@ const M0Experience = () => {
         break;
       }
       case 'sample': {
+        setResume(createM0Resume(locale));
+        setActiveSections([...M0_ACTIVE_SECTIONS]);
+        setResumeLength('single');
         say(strings.sampleDone);
         break;
       }
@@ -452,14 +469,7 @@ const M0Experience = () => {
         const target = templates.customTemplates.find((item) => item.id === id);
         if (target) setPendingTemplateDelete({ id: target.id, name: target.name });
       }}
-      onUpdateTemplate={(id, updates) =>
-        setTemplates((current) => ({
-          ...current,
-          customTemplates: current.customTemplates.map((item) =>
-            item.id === id ? ({ ...item, ...updates } as ResumeTemplate) : item,
-          ),
-        }))
-      }
+      onUpdateTemplate={updateCustomTemplate}
     />
   );
 
@@ -838,10 +848,10 @@ const M0Experience = () => {
                   >
                     <div className="m0-preview-content" ref={previewContentRef}>
                       <ResumePreview
-                        resume={resume}
+                        resume={previewResume}
                         templateStyle={template.previewStyle}
                         accentColor={template.accentColor}
-                        activeSections={activeSections}
+                        activeSections={previewSections}
                         theme={template.theme}
                         registerSectionRef={registerPreviewSection}
                       />
@@ -1034,7 +1044,7 @@ const M0Experience = () => {
             <h3>{strings.toolsGroup}</h3>
             <button type="button" onClick={() => handleAction('sample')}>
               {strings.loadSample}
-              <small>{strings.templateLoadedNote}</small>
+              <small>{strings.loadSampleDescription}</small>
             </button>
             <button
               className="m0-danger-action"
