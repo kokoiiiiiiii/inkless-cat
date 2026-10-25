@@ -383,7 +383,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await page.getByRole('button', { name: '编辑', exact: true }).click();
 
   await page.locator('.m0-entry-card').nth(1).click();
-  await expect(page.getByRole('heading', { name: '模块管理' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '模块管理', level: 2 })).toBeVisible();
   await capture(page, '390-module-management');
   geometry.push(await measure(page, '390x844-module-management'));
   await page.getByRole('button', { name: '收起模块管理' }).click();
