@@ -414,7 +414,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await experienceToggle.click();
   await expect(experienceToggle).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '新增模块', exact: true }).click();
-  await expect(page.getByText('新的演示模块')).toBeVisible();
+  await expect(page.getByTestId('section-sort-list').getByText('新的演示模块')).toBeVisible();
   await page.getByRole('button', { name: '跳转到工作经历' }).click();
   await expect(page.getByLabel('姓名')).toBeVisible();
   await expect(page.getByLabel('公司')).toBeFocused();
