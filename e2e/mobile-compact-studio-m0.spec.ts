@@ -433,8 +433,7 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   await expect(page.getByLabel('Interface language')).toBeVisible();
   await page.getByLabel('Interface language').selectOption('zh-CN');
   await expect(page.getByLabel('姓名')).toHaveValue('林岚');
-  await page.locator('.m0-lab summary').click();
-  await expect(page.locator('.m0-lab-controls')).toBeHidden();
+  await expect(page.getByLabel('字体缩放')).toBeVisible();
   await page.getByLabel('字体缩放').selectOption('1.5');
   await expect(page.locator('.m0-app')).toHaveAttribute('data-font-scale', '1.5');
   await expect(page.locator('.m0-brand-copy strong')).toHaveCSS('white-space', 'normal');
@@ -503,6 +502,8 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   ).toBeLessThanOrEqual(0.001);
   await capture(page, '390-forced-colors-reduced-motion');
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
+  await page.locator('.m0-lab summary').click();
+  await expect(page.locator('.m0-lab-controls')).toBeHidden();
 
   const editorViewports: Array<[number, number]> = [
     [320, 568],
