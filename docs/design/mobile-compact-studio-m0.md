@@ -5,6 +5,7 @@
 ## 范围与证据
 
 - M0 基线：远程 `main` `7eac5487caf25610f5edcaf87524027595cfc754`。PR #17 当前为 Draft，head `91a86df78af12666b5bdfd1ba6eb230d1660a195`，Cloudflare Preview：[8e2aeec3.inkless-cat.pages.dev](https://8e2aeec3.inkless-cat.pages.dev/)。远程分支和 PR 状态在创建 M0 分支前重新读取。
+- M0 当前交付：Draft PR [#18](https://github.com/kokoiiiiiiii/inkless-cat/pull/18)，分支 `design/mobile-compact-studio-m0`，base SHA `7eac5487caf25610f5edcaf87524027595cfc754`；M0 实现提交 `3839db1`。当前分支 Preview：[design-mobile-compact-studio.inkless-cat.pages.dev/design/mobile-compact](https://design-mobile-compact-studio.inkless-cat.pages.dev/design/mobile-compact)。
 - M0 原型入口：`/design/mobile-compact`，在 `src/main.tsx` 中独立懒加载。`/` 继续渲染 `App`。
 - 源码审计覆盖主分支、PR #17 的编辑器壳层、Preview 页面、模块与模板组件、移动端 Hook、打印样式和 E2E。PR #17 尚未合并的文件以其 head SHA 读取，不把它们当作 main 现状。
 - 视觉证据来自 PR #17 Preview 的 DOM/视口测量、当前 M0 本地原型的浏览器测量，以及 M0 Playwright 几何和截图产物。用户提到的 iPhone 实机截图未附在本任务中，标记为 Pending。
@@ -209,17 +210,17 @@ M0 实验使用正式 `ResumePreview` 和 `createM0Resume` 合成 Fixture。包�
 
 | 方案                                      | 实验结果                                                                                                                                                                                                                                                     | A4 一致性                                                                                                           | 滚动与风险                                                                                                                                                                              | 成本                                   |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| A. 响应式 DOM + 纸面框架                  | 视口内自适应，内容自然换行；单页/长简历通过同一 ResumePreview；无页面横向溢出                                                                                                                                                                                | 仅 A4 风格；布局宽度随手机变化，不是固定 A4                                                                         | 不变换坐标，最兼容现有 `useScrollSync`；不会增加打印耦合                                                                                                                                | 低                                     |
-| B. 固定 794px 布局 + 整体 transform scale | 外层按 `ResizeObserver` 的真实预览容器宽度缩放；390×844 scale=0.416，纸面视口 330×538px，长文内容 3334 CSS px（约 2.97×1123px A4 高度），缩放后滚动高度 1386px；无横向溢出。章节原始 `offsetTop=365`、`offsetHeight=2512`，缩放后的视觉高度约 1044px；`scrollIntoView` 后外层 `scrollTop=151.5`，章节视觉顶端约 y=140px | 固定纸宽不等于真实分页；长内容仍是一个约 3334px 的连续画布，没有 A4 页断点。Tailwind `sm:` 仍按全局手机视口计算 | 320px scale 约 0.338，390px 约 0.416；14px 正文字体分别缩到约 4.7px/5.8px，不可作为手机默认阅读。transform 改变可见矩形但不改 offset 坐标；原生 `scrollIntoView` 可定位，现有 `useScrollSync` 仍需映射；双指缩放、文本选取与打印无生产验证 | 中高；需维护 scale、高度预留和坐标映射 |
-| C. 适宽布局 + 独立阅读放大                | 默认适宽；阅读状态 1.28 倍。外层无横向溢出；通过真实内容高度预留滚动长度                                                                                                                                                                                     | 仍为响应式排版；放大时布局宽度收至约 78.1%，所以行宽与换行会变                                                      | 单独阅读状态不写简历数据；section 视觉位置需要 scale 映射。不是系统双指缩放；点击/文本选择需真机再验                                                                                    | 中；需专用阅读状态和 scroll adapter    |
+| A. 响应式 DOM + 纸面框架                  | 使用同一正式 ResumePreview。纸面内容宽度：320px 为 253px、390px 为 315px、768px 为 685px；单页高度依次 1404/1268/1040 CSS px；390px 三页 fixture 高 5354px。无横向溢出                                                                                         | 仅 A4 风格；布局宽度随手机变化，换行和内容高度随之变化，不是固定 A4                                                   | 不变换坐标，最兼容现有 `useScrollSync`；不会增加打印耦合                                                                                                                                | 低                                     |
+| B. 固定 794px 布局 + 整体 transform scale | 固定 CSS 宽度 794px；实测 scale：320px 0.319、390px 0.397、768px 0.863，对应屏幕纸面宽 253/315/685px。390px 三页内容从 3334 CSS px 缩为约 1323px；`offsetTop=365`、`offsetHeight=2512` 的经历段视觉高度约 997px。各尺寸无横向溢出 | 固定布局宽度不等于真实分页；长内容仍是一张连续画布，没有 A4 页断点。Tailwind `sm:` 仍按全局手机视口计算 | 14px 正文在 320/390px 分别缩到约 4.5/5.6px，不可作为手机默认阅读。transform 改变可见矩形而不改 offset 值；E2E 记录到章节定位，但生产 `useScrollSync` 仍需坐标映射；双指缩放、文本选择和打印未验证 | 中高；需维护 scale、高度预留和坐标映射 |
+| C. 适宽布局 + 独立阅读放大                | 默认适宽；独立阅读状态为 1.28 倍。390px fixture 内容高度从 1404px 增至约 1797px，行宽和换行会变化；无横向溢出                                                                                                                                          | 仍为响应式排版；阅读模式不是固定 A4                                                                                 | 展示状态不写简历数据；section 位置要按 scale 映射，原生双指缩放、触控选择需真机验收                                                                                                    | 中；需专用阅读状态和 scroll adapter    |
 
-所有数据来自相同 M0 Fixture 和 Chromium CSS 视口。E2E 保存 `geometry.json`、`performance.json` 和截图，包含 `visualViewport`、纸面、滚动容器、章节 offset 与横向溢出。M0 没有触发 `window.print()` 或编辑正式 print CSS。
+以上来自同一 M0 Fixture 和 Chromium CSS viewport。Artifact 的 `geometry.json` 记录 `visualViewport`、纸面、滚动容器、章节 offset 与横向溢出；`performance.json` 在同一 390×844 Vite/Chromium 环境记录 FCP 240ms、编辑/预览绘制响应 26.9–33.5ms、三种预览模式 26.5–33.4ms、长预览滚动 rAF 间隔 P95 为 16.8ms。资源计时的 5.88MB 是 Vite E2E 环境传输量，不代表生产构建下载量。M0 没有触发 `window.print()` 或编辑正式 print CSS。
 
 ### 决策
 
 1. **M3 默认推荐 A**：用正式响应式 DOM，外加克制的纸张边界和预览工具栏。它保留可读性、自然换行和现有滚动同步。
 2. **C 可作为独立的阅读放大实验**：若评审需要，M3 加 `MobilePreviewMeasurementAdapter` 映射放大比例和视觉位置；先过长文档、section jump、键盘输入、文本选择和真实 Safari 验收。放大只改变展示。
-3. **B 不推荐作为移动默认，也不能称作 A4 所见即所得**：固定 CSS 宽度不等于分页；0.338 倍缩放也不满足手机可读性。
+3. **B 不推荐作为移动默认，也不能称作 A4 所见即所得**：固定 CSS 宽度不等于分页；320px 的 0.319 倍缩放也不满足手机可读性。
 4. 一致性结论：A/C 都是响应式屏幕预览；B 仅固定布局宽，三者都没有验证打印级屏幕 A4 一致性。打印仍以正式 `@page { size: A4; margin: 12mm; }` 输出为准。
 5. `e2e/pdf-print.spec.ts` 覆盖单页、长文、照片/自定义模块 PDF 的有效签名和基本大小；当前仓库及 PR #17 都未发现明确的 1.5pt/1.51pt 几何容差断言。M0 没有放宽或更改任何打印阈值；CI 必须继续跑现有打印回归。如要求以 1.5pt 作为正式数值门槛，应先补齐原有基线测量而不是在 M0 改阈值。
 
@@ -264,7 +265,7 @@ M0 实验使用正式 `ResumePreview` 和 `createM0Resume` 合成 Fixture。包�
 
 ### M0 覆盖
 
-`e2e/mobile-compact-studio-m0.spec.ts` 生成 `test-results/mobile-compact-studio-m0/`：390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、AI 快捷入口焦点、导出不产生下载、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图、`geometry.json`、`performance.json`。测试确认 M0 路由不请求正式 `App`，并监测到它没有读取 `inkless-cat/resume-store` 或 `inkless-cat/ui-store`。工作流将该目录作为 GitHub Actions Artifact 上传 14 天。
+`e2e/mobile-compact-studio-m0.spec.ts` 新增 1 个 M0 专项 E2E 流程，生成 54 个 DOM 几何场景和 `performance.json`。覆盖 390px 编辑首屏/滚动、320px 编辑与菜单、预览 A/B/C、单页/长文、模板/模块、Action Sheet 与 AI Provider Dialog、AI 快捷入口焦点、导出不产生下载、亮暗主题、字体 150%/200%（含 320×568）、键盘占用模拟、减少动态效果/强制颜色、横屏编辑和横屏菜单、1024/1440 截图。测试确认 M0 路由不请求正式 `App`，并监测到它没有读取 `inkless-cat/resume-store` 或 `inkless-cat/ui-store`。GitHub Actions 的全套 Chromium E2E 为 87/87 passed；`mobile-compact-studio-m0-visual-review` Artifact 有 35 个文件，保留 14 天。
 
 Before/After 截图只包含合成数据；PR #17 [Preview](https://8e2aeec3.inkless-cat.pages.dev/) 的几何表与本地旧 UI 截图用于基线，M0 截图和 DOM 几何由同尺寸 Playwright Artifact 提供。旧 Preview 的预览截图没有复制：当时浏览器载入了联系信息，因此只保留只读几何测量。用户此前提到的 iPhone 实机截图没有附在本任务中，仍为 Pending。
 
@@ -309,11 +310,11 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 | `npm run build`                                          | 本地 PASS；M0 动态 chunk 和 CSS 已生成                                                                                              |
 | `npm audit --omit=dev --audit-level=moderate`            | 本地 PASS：0 vulnerabilities                                                                                                        |
 | `git diff --check`                                       | 本地 PASS                                                                                                                           |
-| GitHub Actions（当前提交）                               | 推送后复验；必须检查 quality、Linux Firefox acceptance 和 Cloudflare Pages Preview                                                  |
-| 完整 Chromium E2E（含既有打印回归）                      | PASS：本地 87 passed；含现有 `e2e/pdf-print.spec.ts`；截图现等待短暂提示消失后捕获；最新提交由 Actions 再跑                           |
-| Linux Firefox acceptance                                 | 以当前提交的 Actions 结果为准                                                                                                        |
-| Cloudflare Pages M0 Preview                              | 以当前提交的 head Preview 为准；推送后用官方 IAB 复核                                                                                |
-| 截图与几何 Artifact                                      | 以当前提交的 `mobile-compact-studio-m0-visual-review` Artifact 为准；包含 `geometry.json`、`performance.json` 和全套视口截图          |
+| GitHub Actions #98（M0 实现提交 `3839db1`）               | PASS：[quality、Linux Firefox acceptance](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40185235274) 均 SUCCESS；`visual-parity` 按现有工作流条件跳过 |
+| 完整 Chromium E2E（含既有打印回归）                      | PASS：87/87 passed（5.9 分钟）；包含 `e2e/pdf-print.spec.ts`，未放宽打印断言                                                         |
+| Linux Firefox acceptance                                 | PASS：run #98 SUCCESS                                                                                                                 |
+| Cloudflare Pages M0 Preview                              | PASS：[实现提交 Preview](https://78a3c7de.inkless-cat.pages.dev/design/mobile-compact)，官方 IAB 打开核验；当前分支 Preview 使用上方稳定 URL |
+| 截图与几何 Artifact                                      | PASS：[mobile-compact-studio-m0-visual-review](https://github.com/kokoiiiiiiii/inkless-cat/actions/runs/40185235274/artifacts/12596386480)，3.14 MB / 35 files，保留至 2026-11-08 |
 | 原生 iPhone Safari/Chrome、键盘、动态岛、safe area、回弹 | Pending；不能由 WebKit/Chromium 代替                                                                                                |
 | 用户提供的既有 iPhone 截图逐张审计                       | Pending；当前消息未附截图                                                                                                           |
 | 完整 WCAG 2.2 AA / VoiceOver                             | Pending 专项审计                                                                                                                    |
@@ -329,8 +330,8 @@ M0 新增独立懒加载设计路由与 CSS/Fixture/测试。`src/main.tsx` 将�
 | P1   | 用户之前的 iPhone 截图未在当前任务可读                             | 补入评审资料后逐张对照，不伪称已审                       |
 | P1   | PR #17 尚未合并；M1 必须重新以届时 main 为准                       | M1 开始前复查远程 main 与所有编辑器依赖                  |
 | P2   | B/C 的 transform 与 scroll sync 需要映射；B 字号不适手机           | M3 默认 A；C 只有单独阅读适配通过后加入                  |
-| P2   | 200KB `section-manager` 相关 chunk 属复用组件依赖成本              | 只由 M0 路由懒加载；正式加载性能以 Preview 资源记录复核  |
+| P2   | M0 复用正式 `PhotoUpload`（68.71 KB）与 Resume/template（110.61 KB）chunk | 已隔离在懒加载路由；上线前用生产网络预算复核实际下载量 |
 | P2   | 当前 PDF E2E 未发现 1.5pt 明确阈值                                 | 维持现有断言；要建立数值容差需另行审计基线，不在 M0 放宽 |
 | P3   | M0 设计截图来自 Chromium，不等同 Safari 字体和系统表单视觉         | 以原生手机验收补齐                                       |
 
-**M0 结论：CONDITIONAL PASS。** 高保真原型、交互、A4 可行性和设计/兼容性报告已完成；自动化门禁须以本次更新提交的 Actions 结果确认后最终交付。原生 iPhone 实机、未附的旧 iPhone 截图审计及完整 VoiceOver/WCAG 2.2 AA 仍为 Pending；这些结果不以 Chromium/Firefox 替代。PR 保持 Draft，不合并；M1～M3 不在本阶段开始。
+**M0 结论：CONDITIONAL PASS。** 高保真可交互原型、UX/架构审计、A/B/C A4 技术实验、交互契约、M1～M3 计划和自动化门禁均已完成。PR #18 仍为 Draft，等待手机设计评审，不合并；本阶段未开始 M1～M3。原生 iPhone Safari/Chrome、软键盘、安全区、地址栏、VoiceOver、完整 WCAG 2.2 AA 以及本任务未附的旧 iPhone 截图审计仍为 Pending；Chromium/Firefox 结果不替代实机结论。
