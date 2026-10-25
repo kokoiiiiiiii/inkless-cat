@@ -480,9 +480,9 @@ test('Mobile Compact Studio M0 interaction, viewport and A4 experiment evidence'
   geometry.push(await measure(page, '320x568-editor-font-200'));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByLabel('字体缩放').selectOption('1');
-  await page.getByLabel('外观主题').check();
+  await page.getByLabel('深色').check();
   await capture(page, '390-dark-theme');
-  await page.getByLabel('外观主题').uncheck();
+  await page.getByLabel('深色').uncheck();
   await page.getByLabel('软键盘占用模拟（非 iPhone）').check();
   await expect(page.locator('.m0-keyboard-sim')).toBeVisible();
   await expect(page.locator('.m0-dock')).toBeHidden();
