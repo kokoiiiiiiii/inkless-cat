@@ -138,11 +138,11 @@ export const M01ProfilePage = ({
             </section>
 
             <div className="m01-profile-slice__field-group m01-profile-slice__field-group--identity">
-              {identityFields.map(renderTextField)}
+              {identityFields.map((definition) => renderTextField(definition))}
             </div>
 
             <div className="m01-profile-slice__field-group m01-profile-slice__field-group--contact">
-              {contactFields.map(renderTextField)}
+              {contactFields.map((definition) => renderTextField(definition))}
             </div>
 
             <StudioTextarea
