@@ -8,7 +8,9 @@ test('default entry stays on the existing editor and URL parameters do not enabl
 }, testInfo) => {
   const consoleMessages: Array<{ type: string; text: string }> = [];
   const pageErrors: string[] = [];
-  page.on('console', (message) => consoleMessages.push({ type: message.type(), text: message.text() }));
+  page.on('console', (message) =>
+    consoleMessages.push({ type: message.type(), text: message.text() }),
+  );
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/?m01=1');

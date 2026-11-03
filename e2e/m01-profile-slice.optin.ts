@@ -3,11 +3,8 @@ import path from 'node:path';
 
 import type { ResumeData } from '@entities/resume';
 import { resumeSchema } from '@entities/resume';
-import {
-  RESUME_STORE_PERSIST_VERSION,
-  UI_STORE_PERSIST_VERSION,
-} from '@entities/workspace';
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { RESUME_STORE_PERSIST_VERSION, UI_STORE_PERSIST_VERSION } from '@entities/workspace';
+import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY } from '@shared/lib/storage';
 
 const activeSections = [
@@ -178,7 +175,9 @@ const readPersistedState = async (page: Page) =>
 const attachDiagnostics = (page: Page, testInfo: TestInfo, name: string) => {
   const consoleMessages: Array<{ type: string; text: string }> = [];
   const pageErrors: string[] = [];
-  page.on('console', (message) => consoleMessages.push({ type: message.type(), text: message.text() }));
+  page.on('console', (message) =>
+    consoleMessages.push({ type: message.type(), text: message.text() }),
+  );
   page.on('pageerror', (error) => pageErrors.push(error.message));
   return {
     consoleMessages,
@@ -266,10 +265,22 @@ test('real M01 edits reach the canonical preview, persisted keys and a fresh reh
     `${JSON.stringify(
       {
         source: 'synthetic fixture; isolated Playwright context',
-        S0: { resume: s0.resumeEnvelope?.state.resume, activeSections: s0.resumeEnvelope?.state.activeSections, uiState: s0.uiEnvelope?.state },
+        S0: {
+          resume: s0.resumeEnvelope?.state.resume,
+          activeSections: s0.resumeEnvelope?.state.activeSections,
+          uiState: s0.uiEnvelope?.state,
+        },
         S1: { formValues: updateValues, previewHeading: updateValues.fullName },
-        S2: { resume: s2.resumeEnvelope?.state.resume, activeSections: s2.resumeEnvelope?.state.activeSections, uiState: s2.uiEnvelope?.state },
-        S3: { resume: s3.resumeEnvelope?.state.resume, activeSections: s3.resumeEnvelope?.state.activeSections, uiState: s3.uiEnvelope?.state },
+        S2: {
+          resume: s2.resumeEnvelope?.state.resume,
+          activeSections: s2.resumeEnvelope?.state.activeSections,
+          uiState: s2.uiEnvelope?.state,
+        },
+        S3: {
+          resume: s3.resumeEnvelope?.state.resume,
+          activeSections: s3.resumeEnvelope?.state.activeSections,
+          uiState: s3.uiEnvelope?.state,
+        },
         diff: pathDiff,
         pocKey: s3.pocKey,
       },
@@ -308,19 +319,24 @@ test('failed local persistence is announced, does not claim success, and reload 
   await seedIsolatedPage(page, true);
   await page.goto('/');
   const oldValue = syntheticResume.personal.fullName ?? '';
-  const rawBaseline = await page.evaluate((key) => localStorage.getItem(key), RESUME_STORE_PERSIST_KEY);
+  const rawBaseline = await page.evaluate(
+    (key) => localStorage.getItem(key),
+    RESUME_STORE_PERSIST_KEY,
+  );
 
   await field(page, 'fullName').fill('D1 In-Memory Only Candidate');
 
   await expect(field(page, 'fullName')).toHaveValue('D1 In-Memory Only Candidate');
   await expect(page.locator('.resume-preview h1')).toHaveText('D1 In-Memory Only Candidate');
-  await expect(page.getByRole('alert')).toContainText(/最新修改未能保存|latest edits could not be saved/u);
+  await expect(page.getByRole('alert')).toContainText(
+    /最新修改未能保存|latest edits could not be saved/u,
+  );
   await expect(page.getByText(/保存成功|saved successfully/u)).toHaveCount(0);
   const failedWriteState = await readPersistedState(page);
   expect(failedWriteState.resumeEnvelope?.state.resume.personal.fullName).toBe(oldValue);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), RESUME_STORE_PERSIST_KEY),
-  ).toBe(rawBaseline);
+  expect(await page.evaluate((key) => localStorage.getItem(key), RESUME_STORE_PERSIST_KEY)).toBe(
+    rawBaseline,
+  );
 
   await page.reload();
   await expect(field(page, 'fullName')).toHaveValue(oldValue);
@@ -346,14 +362,17 @@ test('mobile widths remain scrollable and keyboard focus stays visible with redu
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       `horizontal overflow at ${viewport.width}×${viewport.height}`,
     ).toBe(true);
-    expect(
-      await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
-    ).toBe(true);
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(
+      true,
+    );
 
     const nameField = field(page, 'fullName');
     const motion = await nameField.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { transitionDuration: style.transitionDuration, animationDuration: style.animationDuration };
+      return {
+        transitionDuration: style.transitionDuration,
+        animationDuration: style.animationDuration,
+      };
     });
     expect(Number.parseFloat(motion.transitionDuration) * 1000).toBeLessThanOrEqual(0.01);
     expect(Number.parseFloat(motion.animationDuration) * 1000).toBeLessThanOrEqual(0.01);
@@ -364,7 +383,9 @@ test('mobile widths remain scrollable and keyboard focus stays visible with redu
     await expect(titleField).toBeFocused();
     expect(await titleField.evaluate((element) => element.matches(':focus-visible'))).toBe(true);
 
-    const targetSize = await nameField.evaluate((element) => element.getBoundingClientRect().height);
+    const targetSize = await nameField.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    );
     expect(targetSize).toBeGreaterThanOrEqual(44);
     await page.locator('.resume-preview').scrollIntoViewIfNeeded();
     await expect(page.locator('.resume-preview')).toBeInViewport();
@@ -385,7 +406,13 @@ test('mobile widths remain scrollable and keyboard focus stays visible with redu
       JSON.stringify(
         {
           viewports,
-          checks: ['no horizontal overflow', 'focus-visible Tab order', '44px target height', 'preview scroll reachability', 'reduced motion media active'],
+          checks: [
+            'no horizontal overflow',
+            'focus-visible Tab order',
+            '44px target height',
+            'preview scroll reachability',
+            'reduced motion media active',
+          ],
         },
         null,
         2,
