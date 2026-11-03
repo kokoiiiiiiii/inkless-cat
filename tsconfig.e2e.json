@@ -8,6 +8,7 @@
     "playwright.config.ts",
     "playwright.firefox.config.ts",
     "playwright.m01.config.ts",
+    "playwright.m01-visual.config.ts",
     "e2e"
   ]
 }
