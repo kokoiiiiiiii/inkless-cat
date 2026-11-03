@@ -5,7 +5,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: '**/m01-visual-regression.spec.ts',
+  testMatch: '**/m01-visual-regression.d2.ts',
   outputDir: 'D2_REVIEW/evidence/chromium/playwright-output-final',
   fullyParallel: false,
   workers: 1,
