@@ -20,6 +20,7 @@
     "vitest.setup.ts",
     "playwright.config.ts",
     "playwright.firefox.config.ts",
+    "playwright.m01.config.ts",
     "e2e"
   ]
 }
