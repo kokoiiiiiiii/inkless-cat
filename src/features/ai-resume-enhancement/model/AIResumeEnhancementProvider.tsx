@@ -4,16 +4,14 @@ import type { ReactNode } from 'react';
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 
 import { AIResumeEnhancementLauncherContext } from './AIResumeEnhancementLauncherContext';
-import type { AIEnhancementTarget } from './types';
 import type { AIEnhancementProviderClient } from './useAIResumeEnhancement';
+import type {
+  AIResumeEnhancementLaunchOptions,
+  AIResumeEnhancementLaunchRequest,
+} from './AIResumeEnhancementLauncherContext';
+import type { AIEnhancementTarget } from './types';
 
 const AIResumeEnhancementRuntime = lazy(() => import('../ui/AIResumeEnhancementRuntime'));
-
-type LaunchRequest = {
-  id: number;
-  target: AIEnhancementTarget;
-  opener: HTMLButtonElement;
-};
 
 type AIResumeEnhancementProviderProps = {
   children: ReactNode;
@@ -26,36 +24,63 @@ export const AIResumeEnhancementProvider = ({
 }: AIResumeEnhancementProviderProps) => {
   const { loadAIEnhancementTranslations, loadAIProviderTranslations, t } = useI18n();
   const [runtimeCreated, setRuntimeCreated] = useState(false);
-  const [request, setRequest] = useState<LaunchRequest | null>(null);
-  const [pendingRequest, setPendingRequest] = useState<Omit<LaunchRequest, 'id'> | null>(null);
+  const [request, setRequest] = useState<AIResumeEnhancementLaunchRequest | null>(null);
+  const [pendingRequest, setPendingRequest] = useState<Omit<
+    AIResumeEnhancementLaunchRequest,
+    'id'
+  > | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const requestSequence = useRef(0);
   const loadAndOpen = useCallback(
-    async (nextRequest: Omit<LaunchRequest, 'id'>) => {
+    async (nextRequest: Omit<AIResumeEnhancementLaunchRequest, 'id'>) => {
+      const requestId = ++requestSequence.current;
       setPendingRequest(nextRequest);
       setIsPreparing(true);
       setLoadFailed(false);
       try {
         await Promise.all([loadAIEnhancementTranslations(), loadAIProviderTranslations()]);
-        setRequest({ ...nextRequest, id: ++requestSequence.current });
+        if (requestSequence.current !== requestId) return;
+        setRequest({ ...nextRequest, id: requestId });
         setRuntimeCreated(true);
         setPendingRequest(null);
       } catch {
-        setLoadFailed(true);
+        if (requestSequence.current === requestId) setLoadFailed(true);
       } finally {
-        setIsPreparing(false);
+        if (requestSequence.current === requestId) setIsPreparing(false);
       }
     },
     [loadAIEnhancementTranslations, loadAIProviderTranslations],
   );
   const open = useCallback(
-    (target: AIEnhancementTarget, opener: HTMLButtonElement) => {
-      void loadAndOpen({ target, opener });
+    (
+      target: AIEnhancementTarget,
+      opener: HTMLButtonElement,
+      options: AIResumeEnhancementLaunchOptions = {},
+    ) => {
+      void loadAndOpen({ ...options, target, opener });
     },
     [loadAndOpen],
   );
-  const contextValue = useMemo(() => ({ open }), [open]);
+  const closeInline = useCallback(
+    (mountNode?: HTMLElement | null) => {
+      const matchesMount = (
+        candidate: { presentation?: 'dialog' | 'inline'; mountNode?: HTMLElement } | null,
+      ) =>
+        candidate?.presentation === 'inline' && (!mountNode || candidate.mountNode === mountNode);
+      const closesPending = matchesMount(pendingRequest);
+      const closesRequest = matchesMount(request);
+      if (!closesPending && !closesRequest) return;
+
+      requestSequence.current += 1;
+      if (closesPending) setPendingRequest(null);
+      if (closesRequest) setRequest(null);
+      setIsPreparing(false);
+      setLoadFailed(false);
+    },
+    [pendingRequest, request],
+  );
+  const contextValue = useMemo(() => ({ open, closeInline }), [closeInline, open]);
 
   return (
     <AIResumeEnhancementLauncherContext.Provider value={contextValue}>

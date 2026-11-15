@@ -108,7 +108,9 @@ describe('useAIResumeEnhancement', () => {
     expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
     expect(useResumeStore.getState().hasResumeChanges).toBe(false);
 
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const applied = useResumeStore.getState();
     expect(applied.resume.personal.summary).toBe('Designs and maintains backend APIs.');
     expect(applied.resume.personal.fullName).toBe('Private Name');
@@ -128,6 +130,228 @@ describe('useAIResumeEnhancement', () => {
     expect(useResumeStore.getState().resume.personal.email).toBe('private@example.com');
     expect(useResumeStore.getState().hasResumeChanges).toBe(true);
     expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toContain('Builds backend APIs');
+  });
+
+  it('rejects a suggestion without changing the canonical resume or dirty state', async () => {
+    const complete = vi.fn<AIEnhancementProviderClient['complete']>().mockResolvedValue({
+      content: 'Designs and maintains backend APIs.',
+    });
+    const { result } = renderHook(() => useAIResumeEnhancement(createProvider(complete)), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+
+    await act(async () => result.current.generate('en'));
+    expect(result.current.session?.status).toBe('suggested');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+
+    act(() => result.current.reject());
+
+    expect(result.current.session?.status).toBe('rejected');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    expect(useResumeStore.getState().hasResumeChanges).toBe(false);
+    const persisted = localStorage.getItem(RESUME_STORE_PERSIST_KEY);
+    expect(persisted === null || !persisted.includes('Designs and maintains backend APIs.')).toBe(
+      true,
+    );
+  });
+
+  it('keeps an inline accepted session visible after the canonical update', async () => {
+    const complete = vi.fn<AIEnhancementProviderClient['complete']>().mockResolvedValue({
+      content: 'Designs and maintains backend APIs.',
+    });
+    const { result } = renderHook(() => useAIResumeEnhancement(createProvider(complete)), {
+      wrapper: testProviders,
+    });
+    const selectionRange = { start: 2, end: 8, direction: 'backward' as const };
+    act(() =>
+      result.current.open({ kind: 'personal-summary' }, document.createElement('button'), {
+        presentation: 'inline',
+        sourceRevision: 9,
+        selectionRange,
+      }),
+    );
+
+    expect(result.current.session).toMatchObject({
+      presentation: 'inline',
+      sourceRevision: useResumeStore.getState().personalSummaryRevision,
+      selectionRange,
+    });
+    await act(async () => result.current.generate('en'));
+    let applied = false;
+    act(() => {
+      applied = result.current.apply();
+    });
+
+    expect(applied).toBe(true);
+    expect(result.current.session?.status).toBe('accepted');
+    expect(useResumeStore.getState().resume.personal.summary).toBe(
+      'Designs and maintains backend APIs.',
+    );
+  });
+
+  it('refuses an apply-time race after the source changes following generation', async () => {
+    const complete = vi.fn<AIEnhancementProviderClient['complete']>().mockResolvedValue({
+      content: 'Designs and maintains backend APIs.',
+    });
+    const { result } = renderHook(() => useAIResumeEnhancement(createProvider(complete)), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+    await act(async () => result.current.generate('en'));
+    expect(result.current.session?.status).toBe('suggested');
+
+    act(() => {
+      useResumeStore.getState().updateResume((draft) => {
+        draft.personal.summary = 'A later user edit';
+      });
+      useResumeStore.getState().setHasResumeChanges(false);
+    });
+    let applied = true;
+    act(() => {
+      applied = result.current.apply();
+    });
+
+    expect(applied).toBe(false);
+    expect(result.current.session?.errorCode).toBe('source_changed');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('A later user edit');
+    expect(useResumeStore.getState().hasResumeChanges).toBe(false);
+  });
+
+  it('refuses A to B to A source changes while allowing unrelated field edits', async () => {
+    const complete = vi.fn<AIEnhancementProviderClient['complete']>().mockResolvedValue({
+      content: 'Designs and maintains backend APIs.',
+    });
+    const { result } = renderHook(() => useAIResumeEnhancement(createProvider(complete)), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+    await act(async () => result.current.generate('en'));
+    act(() =>
+      useResumeStore.getState().updateResume((draft) => {
+        draft.personal.email = 'new@example.test';
+      }),
+    );
+    expect(result.current.session?.status).toBe('suggested');
+    act(() =>
+      useResumeStore.getState().updateResume((draft) => {
+        draft.personal.summary = 'B';
+      }),
+    );
+    act(() =>
+      useResumeStore.getState().updateResume((draft) => {
+        draft.personal.summary = 'Builds backend APIs';
+      }),
+    );
+    let applied = true;
+    act(() => {
+      applied = result.current.apply();
+    });
+    expect(applied).toBe(false);
+    expect(result.current.session?.errorCode).toBe('source_changed');
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
+    expect(useResumeStore.getState().resume.personal.email).toBe('new@example.test');
+  });
+
+  it('regenerates a stale summary from the current canonical value and revision', async () => {
+    const sourceA = 'Fictional summary A: maps tiny gardens.';
+    const sourceB = 'Fictional summary B: restores model rockets.';
+    const firstSuggestion = 'Fictional suggestion A: maps small gardens.';
+    const secondSuggestion = 'Fictional suggestion B: restores model rockets.';
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = sourceA;
+    });
+    const revisionA = useResumeStore.getState().personalSummaryRevision;
+    useResumeStore.getState().setHasResumeChanges(false);
+
+    const requests: Array<{
+      messages: ChatMessage[];
+      options: StreamCompleteOptions;
+      resolve: (result: ChatCompletionResult) => void;
+    }> = [];
+    const streamComplete = vi.fn(
+      (messages: ChatMessage[], options: StreamCompleteOptions) =>
+        new Promise<ChatCompletionResult>((resolve) => {
+          requests.push({ messages, options, resolve });
+        }),
+    );
+    const provider = { ...createProvider(vi.fn()), streamComplete };
+    const { result } = renderHook(() => useAIResumeEnhancement(provider), {
+      wrapper: testProviders,
+    });
+    openSummary(result.current);
+    expect(result.current.session?.sourceRevision).toBe(revisionA);
+
+    let firstGeneration: Promise<void> | undefined;
+    act(() => {
+      firstGeneration = result.current.generate('en');
+    });
+    expect(requests).toHaveLength(1);
+    expect(JSON.stringify(requests[0]?.messages)).toContain(sourceA);
+    await act(async () => {
+      requests[0]?.resolve({ content: firstSuggestion });
+      await firstGeneration;
+    });
+    expect(result.current.session?.status).toBe('suggested');
+    expect(result.current.session?.candidate).toBe(firstSuggestion);
+    expect(useResumeStore.getState().resume.personal.summary).toBe(sourceA);
+
+    act(() => {
+      useResumeStore.getState().updateResume((draft) => {
+        draft.personal.summary = sourceB;
+      });
+    });
+    const revisionB = useResumeStore.getState().personalSummaryRevision;
+    expect(revisionB).toBeGreaterThan(revisionA);
+    expect(result.current.session?.errorCode).toBe('source_changed');
+    expect(useResumeStore.getState().resume.personal.summary).toBe(sourceB);
+
+    let regeneration: Promise<void> | undefined;
+    act(() => {
+      regeneration = result.current.generate('en');
+    });
+    expect(requests).toHaveLength(2);
+    expect(JSON.stringify(requests[1]?.messages)).toContain(sourceB);
+    expect(JSON.stringify(requests[1]?.messages)).not.toContain(sourceA);
+    expect(result.current.session?.status).toBe('streaming');
+    expect(result.current.session?.sourceRevision).toBe(revisionB);
+    expect(useResumeStore.getState().resume.personal.summary).toBe(sourceB);
+    expect(useResumeStore.getState().hasResumeChanges).toBe(true);
+
+    act(() => requests[0]?.options.onDelta('Late output from the old A request.'));
+    expect(result.current.session?.preview).not.toContain('Late output from the old A request.');
+
+    await act(async () => {
+      requests[1]?.resolve({ content: secondSuggestion });
+      await regeneration;
+    });
+    expect(result.current.session?.status).toBe('suggested');
+    expect(result.current.session?.candidate).toBe(secondSuggestion);
+    expect(useResumeStore.getState().resume.personal.summary).toBe(sourceB);
+    expect(useResumeStore.getState().hasResumeChanges).toBe(true);
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).toContain(sourceB);
+    expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY)).not.toContain(secondSuggestion);
+  });
+
+  it('does not restore an inline suggestion after the controller remounts', async () => {
+    const complete = vi.fn<AIEnhancementProviderClient['complete']>().mockResolvedValue({
+      content: 'Fictional suggestion that must stay in the old session.',
+    });
+    const provider = createProvider(complete);
+    const firstController = renderHook(() => useAIResumeEnhancement(provider), {
+      wrapper: testProviders,
+    });
+    openSummary(firstController.result.current);
+    await act(async () => firstController.result.current.generate('en'));
+    expect(firstController.result.current.session?.status).toBe('suggested');
+
+    firstController.unmount();
+    const reloadedController = renderHook(() => useAIResumeEnhancement(provider), {
+      wrapper: testProviders,
+    });
+
+    expect(reloadedController.result.current.session).toBeNull();
+    expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
   });
 
   it('shows a temporary incremental preview and only makes a complete validated suggestion adoptable', async () => {
@@ -160,7 +384,9 @@ describe('useAIResumeEnhancement', () => {
     expect(result.current.session?.candidate).toBe('');
     expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
     expect(localStorage.getItem(RESUME_STORE_PERSIST_KEY) ?? '').not.toContain('A streamed');
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
 
     act(() => onDelta?.('suggestion'));
@@ -177,7 +403,9 @@ describe('useAIResumeEnhancement', () => {
     expect(result.current.session?.preview).toBe('');
     expect(result.current.session?.candidate).toBe('A streamed suggestion');
     expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     expect(useResumeStore.getState().resume.personal.summary).toBe('A streamed suggestion');
   });
 
@@ -307,7 +535,9 @@ describe('useAIResumeEnhancement', () => {
       if (typeof requestBody !== 'string') throw new Error('Expected a JSON request body.');
       expect(JSON.parse(requestBody)).toMatchObject({ stream: true });
 
-      act(() => result.current.apply());
+      act(() => {
+        result.current.apply();
+      });
       expect(useResumeStore.getState().resume.personal.summary).toBe('Builds backend APIs');
       expect(useFeedbackStore.getState().items).toHaveLength(0);
 
@@ -583,7 +813,9 @@ describe('useAIResumeEnhancement', () => {
     });
     openSummary(result.current);
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     act(() => {
       useResumeStore.getState().updateResume((draft) => {
         draft.personal.summary = 'A later user edit';
@@ -605,7 +837,9 @@ describe('useAIResumeEnhancement', () => {
     });
     openSummary(result.current);
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
 
     act(() => {
       useResumeStore.getState().updateResume((draft) => {
@@ -632,7 +866,9 @@ describe('useAIResumeEnhancement', () => {
     });
     openSummary(result.current);
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     act(() => {
       useResumeStore.getState().updateResume((draft) => {
         draft.personal.email = 'edited@example.com';
@@ -664,7 +900,9 @@ describe('useAIResumeEnhancement', () => {
       ),
     );
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     act(() => {
       useResumeStore.getState().updateResume((draft) => {
         draft.experience.reverse();
@@ -693,7 +931,9 @@ describe('useAIResumeEnhancement', () => {
       ),
     );
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     act(() => {
       useResumeStore.getState().updateResume((draft) => {
         draft.projects.reverse();
@@ -721,7 +961,9 @@ describe('useAIResumeEnhancement', () => {
       ),
     );
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const undo = useFeedbackStore.getState().items.at(-1)?.action?.onClick;
 
     act(() => {
@@ -761,7 +1003,9 @@ describe('useAIResumeEnhancement', () => {
       ),
     );
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const undo = useFeedbackStore.getState().items.at(-1)?.action?.onClick;
     act(() => {
       useResumeStore.getState().updateResume((draft) => {
@@ -784,7 +1028,9 @@ describe('useAIResumeEnhancement', () => {
     });
     openSummary(result.current);
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const undo = useFeedbackStore.getState().items.at(-1)?.action?.onClick;
     useResumeStore.getState().resetState(initialResume());
 
@@ -802,7 +1048,9 @@ describe('useAIResumeEnhancement', () => {
     });
     openSummary(result.current);
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const undo = useFeedbackStore.getState().items.at(-1)?.action?.onClick;
     const imported = initialResume();
     imported.personal.summary = 'Imported summary';
@@ -823,7 +1071,9 @@ describe('useAIResumeEnhancement', () => {
     });
     openSummary(result.current);
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const oldUndo = useFeedbackStore.getState().items.at(-1)?.action?.onClick;
 
     act(() =>
@@ -833,7 +1083,9 @@ describe('useAIResumeEnhancement', () => {
       ),
     );
     await act(async () => result.current.generate('en'));
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
     const currentUndo = useFeedbackStore.getState().items.at(-1)?.action?.onClick;
 
     act(() => oldUndo?.());
@@ -955,7 +1207,9 @@ describe('useAIResumeEnhancement', () => {
         draft.experience.reverse();
       });
     });
-    act(() => result.current.apply());
+    act(() => {
+      result.current.apply();
+    });
 
     expect(
       useResumeStore.getState().resume.experience.find((item) => item.id === 'experience-a')

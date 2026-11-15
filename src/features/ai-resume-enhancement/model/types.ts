@@ -9,13 +9,29 @@ export type AIEnhancementLocale = 'zh-CN' | 'en';
 
 export type AIEnhancementFieldValue = string | string[];
 
+export type AIEnhancementPresentation = 'dialog' | 'inline';
+
+export type AIEnhancementSelectionRange = {
+  start: number;
+  end: number;
+  direction: 'forward' | 'backward' | 'none';
+};
+
+export type AIEnhancementOpenContext = {
+  presentation?: AIEnhancementPresentation;
+  sourceRevision?: number;
+  selectionRange?: AIEnhancementSelectionRange | null;
+};
+
 export type AIEnhancementStatus =
   | 'idle'
   | 'streaming'
   | 'validating'
   | 'suggested'
   | 'error'
-  | 'cancelled';
+  | 'cancelled'
+  | 'accepted'
+  | 'rejected';
 
 export type AIEnhancementErrorCode =
   | 'empty_output'
@@ -40,6 +56,9 @@ export type AIEnhancementSession = {
   original: AIEnhancementFieldValue;
   originalText: string;
   workspaceGeneration: number;
+  sourceRevision: number;
+  selectionRange: AIEnhancementSelectionRange | null;
+  presentation: AIEnhancementPresentation;
   mode: AIEnhancementMode;
   status: AIEnhancementStatus;
   preview: string;

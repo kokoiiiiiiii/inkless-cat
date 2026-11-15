@@ -16,6 +16,8 @@ const configuration: Readonly<ProviderConfig> = {
   model: 'test-model',
 };
 
+let inlinePortalMount: HTMLDivElement | null = null;
+
 describe('AIResumeEnhancementRuntime', () => {
   beforeEach(() => {
     const resume = createEmptyResume();
@@ -24,7 +26,11 @@ describe('AIResumeEnhancementRuntime', () => {
     useResumeStore.getState().setHasResumeChanges(false);
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    inlinePortalMount?.remove();
+    inlinePortalMount = null;
+  });
 
   it('opens and generates after the initial StrictMode effect replay', async () => {
     const streamComplete = vi.fn((_messages: ChatMessage[], options: StreamCompleteOptions) => {
@@ -60,5 +66,68 @@ describe('AIResumeEnhancementRuntime', () => {
     const suggestionField = await screen.findByLabelText('AI 建议（可手动修改）');
     expect((suggestionField as HTMLTextAreaElement).value).toBe(suggestion);
     expect(useResumeStore.getState().resume.personal.summary).toBe(originalSummary);
+  });
+
+  it('renders Inline AI through the same stream controller and keeps Accept in the official workflow', async () => {
+    const streamComplete = vi.fn((_messages: ChatMessage[], options: StreamCompleteOptions) => {
+      options.onDelta(suggestion);
+      return Promise.resolve({ content: suggestion });
+    });
+    const provider: AIEnhancementProviderClient = {
+      configuration,
+      isConfigured: true,
+      connectionStatus: 'ready',
+      complete: vi.fn().mockResolvedValue({ content: '' }),
+      streamComplete,
+    };
+    const opener = document.createElement('button');
+    inlinePortalMount = document.createElement('div');
+    document.body.append(inlinePortalMount);
+
+    render(
+      <I18nProvider>
+        <FeedbackProvider>
+          <AIResumeEnhancementRuntime
+            provider={provider}
+            request={{
+              id: 2,
+              target: { kind: 'personal-summary' },
+              opener,
+              presentation: 'inline',
+              mountNode: inlinePortalMount,
+              fieldLabel: '个人简介',
+              sourceValue: originalSummary,
+              sourceRevision: useResumeStore.getState().workspaceRevision,
+              workspaceGeneration: useResumeStore.getState().workspaceGeneration,
+              selectionRange: { start: 2, end: 10, direction: 'forward' },
+            }}
+          />
+        </FeedbackProvider>
+      </I18nProvider>,
+    );
+
+    const panel = await screen.findByTestId('pc-ai-inline-panel');
+    expect(panel.dataset.aiState).toBe('IDLE');
+    expect(panel.dataset.selectionStart).toBe('2');
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('pc-ai-inline-generate'));
+    await waitFor(() => expect(streamComplete).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(screen.getByTestId('pc-ai-inline-panel').dataset.aiState).toBe('SUGGESTION_READY'),
+    );
+    expect(useResumeStore.getState().resume.personal.summary).toBe(originalSummary);
+
+    fireEvent.click(screen.getByTestId('pc-ai-inline-apply'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('pc-ai-inline-panel').dataset.aiState).toBe('ACCEPTED'),
+    );
+    expect(useResumeStore.getState().resume.personal.summary).toBe(suggestion);
+    expect(useResumeStore.getState().hasResumeChanges).toBe(true);
+
+    fireEvent.click(screen.getByTestId('pc-ai-inline-done'));
+    await waitFor(() => expect(screen.queryByTestId('pc-ai-inline-panel')).toBeNull());
+    expect(useResumeStore.getState().resume.personal.summary).toBe(suggestion);
   });
 });

@@ -36,6 +36,8 @@ type ResumeStoreState = {
   workspaceGeneration: number;
   /** In-memory revision for resume and section edits; intentionally excluded from persistence. */
   workspaceRevision: number;
+  /** Monotonic in-memory identity for personal.summary edits; excluded from persistence. */
+  personalSummaryRevision: number;
 };
 
 type ActiveSectionsInput = ActiveSectionKey[] | ((prev: ActiveSectionKey[]) => ActiveSectionKey[]);
@@ -77,6 +79,7 @@ const createInitialState = (): ResumeStoreState => {
     hasResumeChanges: false,
     workspaceGeneration: 0,
     workspaceRevision: 0,
+    personalSummaryRevision: 0,
   };
 };
 
@@ -110,6 +113,9 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                   workspaceRevision:
                     state.workspaceRevision +
                     Number(nextResume !== state.resume || sectionsChanged),
+                  personalSummaryRevision:
+                    state.personalSummaryRevision +
+                    Number(nextResume.personal.summary !== state.resume.personal.summary),
                 };
               },
               false,
@@ -155,6 +161,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                   hasResumeChanges: false,
                   workspaceGeneration: state.workspaceGeneration + 1,
                   workspaceRevision: state.workspaceRevision + 1,
+                  personalSummaryRevision: state.personalSummaryRevision + 1,
                 };
               },
               false,
@@ -172,6 +179,7 @@ export const useResumeStore = createWithEqualityFn<ResumeStore>()(
                   hasResumeChanges: false,
                   workspaceGeneration: state.workspaceGeneration + 1,
                   workspaceRevision: state.workspaceRevision + 1,
+                  personalSummaryRevision: state.personalSummaryRevision + 1,
                 };
               },
               false,

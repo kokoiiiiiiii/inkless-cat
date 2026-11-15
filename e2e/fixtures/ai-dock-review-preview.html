@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Dock synthetic review preview</title>
+  </head>
+  <body>
+    <script type="module">
+      import { createEmptyResume } from '/src/entities/resume/index.ts';
+      import {
+        createDefaultWorkspace,
+        migrateWorkspace,
+        RESUME_STORE_PERSIST_VERSION,
+        UI_STORE_PERSIST_VERSION,
+      } from '/src/entities/workspace/index.ts';
+      import { LOCALE_KEY } from '/src/shared/i18n/config.ts';
+      import { RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY } from '/src/shared/lib/storage.ts';
+
+      const resume = createEmptyResume();
+      resume.personal = {
+        ...resume.personal,
+        fullName: 'Fictional Review Tester',
+        title: 'Product Designer · Test Studio',
+        email: 'reviewer@example.test',
+        phone: '+1 555 0100',
+        location: 'Example City',
+        summary: Array.from(
+          { length: 4 },
+          (_, index) =>
+            'Source ' +
+            String(index + 1).padStart(2, '0') +
+            ': Draft wording for the fictional studio. 中文原文段落' +
+            (index + 1) +
+            '保留可核验事实。',
+        ).join('\n\n'),
+      };
+
+      const normalized = migrateWorkspace({ ...createDefaultWorkspace(), resume });
+      if (!normalized.ok) throw new Error(normalized.error.message);
+
+      localStorage.setItem(
+        RESUME_STORE_PERSIST_KEY,
+        JSON.stringify({
+          state: {
+            resume: normalized.value.resume,
+            activeSections: normalized.value.activeSections,
+          },
+          version: RESUME_STORE_PERSIST_VERSION,
+        }),
+      );
+      localStorage.setItem(
+        UI_STORE_PERSIST_KEY,
+        JSON.stringify({
+          state: {
+            theme: normalized.value.theme,
+            templateId: normalized.value.templateId,
+            customTemplates: normalized.value.customTemplates,
+          },
+          version: UI_STORE_PERSIST_VERSION,
+        }),
+      );
+      localStorage.setItem(LOCALE_KEY, 'zh-CN');
+      globalThis.location.replace('/pc-studio');
+    </script>
+  </body>
+</html>

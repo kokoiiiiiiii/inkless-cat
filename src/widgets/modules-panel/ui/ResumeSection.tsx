@@ -37,6 +37,7 @@ type ResumeSectionProps = {
     value: string,
   ) => void;
   notifyFocus: SectionFocusHandler;
+  stableFieldIdentity?: boolean;
   sectionRef?: (node: HTMLElement | null) => void;
 };
 
@@ -49,6 +50,7 @@ type FieldHelperFactoryProps = {
   itemId: string;
   defaultFocusId: string;
   notifyFocus: SectionFocusHandler;
+  stableFieldIdentity: boolean;
   onFieldChange: ResumeSectionProps['onFieldChange'];
   onListChange: ResumeSectionProps['onListChange'];
   resolveLabel: (field: string) => string;
@@ -80,13 +82,19 @@ const createFieldHelpers = ({
   itemId,
   defaultFocusId,
   notifyFocus,
+  stableFieldIdentity,
   onFieldChange,
   onListChange,
   resolveLabel,
   placeholder,
 }: FieldHelperFactoryProps): FieldHelpers => {
-  const handleFocus = (focusId?: string) => () =>
+  const handleFocus = (field: string, focusId?: string) => () => {
+    if (stableFieldIdentity) {
+      notifyFocus(sectionKey, focusId ?? defaultFocusId, `${sectionKey}.${itemId}.${field}`);
+      return;
+    }
     notifyFocus(sectionKey, focusId ?? defaultFocusId);
+  };
 
   const input: FieldHelpers['input'] = (field, options = {}) => (
     <FieldLabel label={resolveLabel(field)}>
@@ -95,8 +103,9 @@ const createFieldHelpers = ({
         type="text"
         value={toStringValue(item[field])}
         placeholder={options.placeholder ?? ''}
+        data-studio-field-id={stableFieldIdentity ? `${sectionKey}.${itemId}.${field}` : undefined}
         onChange={(event) => onFieldChange(sectionKey, index, field, event.target.value)}
-        onFocus={handleFocus(options.focusId)}
+        onFocus={handleFocus(field, options.focusId)}
       />
     </FieldLabel>
   );
@@ -119,8 +128,9 @@ const createFieldHelpers = ({
         rows={options.rows ?? 3}
         value={toStringValue(item[field])}
         placeholder={options.placeholder ?? ''}
+        data-studio-field-id={stableFieldIdentity ? `${sectionKey}.${itemId}.${field}` : undefined}
         onChange={(event) => onFieldChange(sectionKey, index, field, event.target.value)}
-        onFocus={handleFocus(options.focusId)}
+        onFocus={handleFocus(field, options.focusId)}
       />
     </FieldLabel>
   );
@@ -135,8 +145,9 @@ const createFieldHelpers = ({
           Array.isArray(item[field]) ? (item[field] as string[]).filter(Boolean).join('\n') : ''
         }
         placeholder={options.placeholder ?? ''}
+        data-studio-field-id={stableFieldIdentity ? `${sectionKey}.${itemId}.${field}` : undefined}
         onChange={(event) => onListChange(sectionKey, index, field, event.target.value)}
-        onFocus={handleFocus(options.focusId)}
+        onFocus={handleFocus(field, options.focusId)}
       />
     </FieldLabel>
   );
@@ -160,6 +171,7 @@ const ResumeSection = memo(
     onFieldChange,
     onListChange,
     notifyFocus,
+    stableFieldIdentity = false,
     sectionRef,
   }: ResumeSectionProps) => {
     const { t } = useI18n();
@@ -215,6 +227,7 @@ const ResumeSection = memo(
               itemId,
               defaultFocusId,
               notifyFocus,
+              stableFieldIdentity,
               onFieldChange,
               onListChange,
               resolveLabel,

@@ -29,6 +29,7 @@ type PersonalSectionProps = {
     key: Key,
     value: PersonalSettings[Key],
   ) => void;
+  validateStudioFields?: boolean;
 };
 
 const PersonalSection = memo(
@@ -42,9 +43,11 @@ const PersonalSection = memo(
     onExtraChange,
     onExtraRemove,
     onSettingChange,
+    validateStudioFields = false,
   }: PersonalSectionProps) => {
     const { t } = useI18n();
     const summaryId = useId();
+    const emailErrorId = useId();
     const extras = Array.isArray(personal.extras) ? personal.extras : [];
     const showPhoto = settings.showPhoto !== false;
     const photoSize = Math.max(80, Math.min(settings.photoSize ?? 120, 260));
@@ -82,17 +85,21 @@ const PersonalSection = memo(
         inputType: 'text',
       },
     ] as const;
+    const emailInvalid =
+      validateStudioFields &&
+      Boolean(personal.email) &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email ?? '');
 
     return (
-      <section ref={sectionRef} className="space-y-4">
+      <section ref={sectionRef} className="pc-personal-module space-y-4">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">
             {t('modules.personal.title')}
           </h3>
         </header>
         <div className={cardClass}>
-          <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start lg:gap-8">
-            <div className="space-y-4">
+          <div className="pc-personal-layout space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start lg:gap-8">
+            <div className="pc-personal-fields space-y-4">
               <label className={labelClass}>
                 <span className={labelTextClass}>
                   {t('modules.personal.fields.fullName.label')}
@@ -117,7 +124,7 @@ const PersonalSection = memo(
                   onFocus={() => notifyFocus('personal', 'personal')}
                 />
               </label>
-              <div className={labelClass}>
+              <div className={labelClass} data-studio-summary>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label htmlFor={summaryId} className={labelTextClass}>
                     {t('modules.personal.fields.summary.label')}
@@ -134,7 +141,7 @@ const PersonalSection = memo(
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-4 lg:w-[260px] lg:shrink-0">
+            <div className="pc-personal-photo flex flex-col gap-4 lg:w-[260px] lg:shrink-0">
               {showPhoto && (
                 <div className="self-center lg:self-stretch">
                   <PhotoUpload
@@ -203,7 +210,7 @@ const PersonalSection = memo(
                 </ul>
               </div>
             </div>
-            <div className="space-y-3 lg:col-span-2">
+            <div className="pc-personal-extras space-y-3 lg:col-span-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className={labelTextClass}>{t('modules.personal.extras.title')}</span>
                 <button type="button" className={subtleButtonClass} onClick={onExtraAdd}>
@@ -242,7 +249,20 @@ const PersonalSection = memo(
                             placeholder={contact.valuePlaceholder}
                             onChange={(event) => onChange(contact.valueKey, event.target.value)}
                             onFocus={() => notifyFocus('personal', contact.id)}
+                            aria-invalid={contact.id === 'email' && emailInvalid ? true : undefined}
+                            aria-describedby={
+                              contact.id === 'email' && emailInvalid ? emailErrorId : undefined
+                            }
                           />
+                          {contact.id === 'email' && emailInvalid && (
+                            <span
+                              id={emailErrorId}
+                              className="pc-field-error"
+                              data-testid="pc-email-error"
+                            >
+                              {t('editor.pcStudio.emailInvalid')}
+                            </span>
+                          )}
                         </label>
                       </div>
                       <div className="mt-2 flex justify-end">

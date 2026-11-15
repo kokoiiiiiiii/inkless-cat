@@ -35,6 +35,7 @@ type CustomSectionEditorProps = {
   onTextChange: (sectionId: string, value: string) => void;
   onRemove: (sectionId: string) => void;
   notifyFocus: SectionFocusHandler;
+  stableFieldIdentity?: boolean;
   sectionRef?: (node: HTMLElement | null) => void;
 };
 
@@ -51,6 +52,7 @@ const CustomSectionEditor = memo(
     onTextChange,
     onRemove,
     notifyFocus,
+    stableFieldIdentity = false,
     sectionRef,
   }: CustomSectionEditorProps) => {
     const { t } = useI18n();
@@ -59,6 +61,13 @@ const CustomSectionEditor = memo(
     const fieldsValue = Array.isArray(section.fields) ? section.fields : [];
     const textValue = typeof section.text === 'string' ? section.text : '';
     const fallbackTitle = section.title || t('modules.customSection.defaultTitle');
+    const notifyFieldFocus = (itemKey: string, fieldPath: string) => {
+      if (stableFieldIdentity) {
+        notifyFocus(sectionKey, itemKey, fieldPath);
+        return;
+      }
+      notifyFocus(sectionKey, itemKey);
+    };
 
     return (
       <section ref={sectionRef} className="space-y-4">
@@ -94,8 +103,11 @@ const CustomSectionEditor = memo(
                 type="text"
                 value={section.title || ''}
                 placeholder={t('modules.customSection.namePlaceholder')}
+                data-studio-field-id={
+                  stableFieldIdentity ? `customSections.${section.id}.title` : undefined
+                }
                 onChange={(event) => onTitleChange(section.id, event.target.value)}
-                onFocus={() => notifyFocus(sectionKey, section.id)}
+                onFocus={() => notifyFieldFocus(section.id, `customSections.${section.id}.title`)}
               />
             </label>
             <label className={labelClass}>
@@ -103,10 +115,13 @@ const CustomSectionEditor = memo(
               <select
                 className={inputClass}
                 value={mode}
+                data-studio-field-id={
+                  stableFieldIdentity ? `customSections.${section.id}.mode` : undefined
+                }
                 onChange={(event) =>
                   onModeChange(section.id, event.target.value as ResumeCustomSectionMode)
                 }
-                onFocus={() => notifyFocus(sectionKey, `${section.id}-mode`)}
+                onFocus={() => notifyFieldFocus(section.id, `customSections.${section.id}.mode`)}
               >
                 {customModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -123,8 +138,11 @@ const CustomSectionEditor = memo(
                   rows={4}
                   value={itemsValue}
                   placeholder={t('modules.customSection.listPlaceholder')}
+                  data-studio-field-id={
+                    stableFieldIdentity ? `customSections.${section.id}.items` : undefined
+                  }
                   onChange={(event) => onItemsChange(section.id, event.target.value)}
-                  onFocus={() => notifyFocus(sectionKey, section.id)}
+                  onFocus={() => notifyFieldFocus(section.id, `customSections.${section.id}.items`)}
                 />
               </label>
             )}
@@ -161,10 +179,20 @@ const CustomSectionEditor = memo(
                               type="text"
                               value={field.label || ''}
                               placeholder={t('modules.customSection.fieldNamePlaceholder')}
+                              data-studio-field-id={
+                                stableFieldIdentity
+                                  ? `customSections.${section.id}.fields.${field.id}.label`
+                                  : undefined
+                              }
                               onChange={(event) =>
                                 onFieldChange(section.id, field.id, 'label', event.target.value)
                               }
-                              onFocus={() => notifyFocus(sectionKey, `${field.id}-label`)}
+                              onFocus={() =>
+                                notifyFieldFocus(
+                                  field.id,
+                                  `customSections.${section.id}.fields.${field.id}.label`,
+                                )
+                              }
                             />
                           </label>
                           <label className={`${labelClass} md:flex-1`}>
@@ -176,10 +204,20 @@ const CustomSectionEditor = memo(
                               type="text"
                               value={field.value || ''}
                               placeholder={t('modules.customSection.fieldValuePlaceholder')}
+                              data-studio-field-id={
+                                stableFieldIdentity
+                                  ? `customSections.${section.id}.fields.${field.id}.value`
+                                  : undefined
+                              }
                               onChange={(event) =>
                                 onFieldChange(section.id, field.id, 'value', event.target.value)
                               }
-                              onFocus={() => notifyFocus(sectionKey, `${field.id}-value`)}
+                              onFocus={() =>
+                                notifyFieldFocus(
+                                  field.id,
+                                  `customSections.${section.id}.fields.${field.id}.value`,
+                                )
+                              }
                             />
                           </label>
                         </div>
@@ -206,8 +244,11 @@ const CustomSectionEditor = memo(
                   rows={5}
                   value={textValue}
                   placeholder={t('modules.customSection.textPlaceholder')}
+                  data-studio-field-id={
+                    stableFieldIdentity ? `customSections.${section.id}.text` : undefined
+                  }
                   onChange={(event) => onTextChange(section.id, event.target.value)}
-                  onFocus={() => notifyFocus(sectionKey, `${section.id}-text`)}
+                  onFocus={() => notifyFieldFocus(section.id, `customSections.${section.id}.text`)}
                 />
               </label>
             )}

@@ -25,8 +25,8 @@ export const useModulesPanelController = ({
   registerSectionRef,
 }: UseModulesPanelControllerOptions) => {
   const notifyFocus = useCallback<SectionFocusHandler>(
-    (sectionKey, itemKey) => {
-      onFieldFocus?.(sectionKey, itemKey);
+    (sectionKey, itemKey, fieldPath) => {
+      onFieldFocus?.(sectionKey, itemKey, fieldPath);
     },
     [onFieldFocus],
   );
