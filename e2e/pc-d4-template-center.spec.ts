@@ -29,7 +29,11 @@ const fictionalCustomTemplate = {
 
 const installFixture = async (
   page: import('@playwright/test').Page,
-  options: { templateId?: string; customTemplates?: (typeof fictionalCustomTemplate)[] } = {},
+  options: {
+    templateId?: string;
+    customTemplates?: (typeof fictionalCustomTemplate)[];
+    locale?: 'en' | 'zh-CN';
+  } = {},
 ) => {
   const defaults = createDefaultWorkspace();
   const emptyResume = createEmptyResume();
@@ -42,10 +46,10 @@ const installFixture = async (
   if (!normalized.ok) throw new Error(normalized.error.message);
 
   await page.addInitScript(
-    ({ resumeKey, uiKey, localeKey, resumeState, uiState }) => {
+    ({ resumeKey, uiKey, localeKey, locale, resumeState, uiState }) => {
       localStorage.setItem(resumeKey, JSON.stringify(resumeState));
       localStorage.setItem(uiKey, JSON.stringify(uiState));
-      localStorage.setItem(localeKey, 'en');
+      localStorage.setItem(localeKey, locale);
 
       const storage = globalThis.localStorage;
       const writes: string[] = [];
@@ -65,6 +69,7 @@ const installFixture = async (
       resumeKey: RESUME_STORE_PERSIST_KEY,
       uiKey: UI_STORE_PERSIST_KEY,
       localeKey: LOCALE_KEY,
+      locale: options.locale ?? 'en',
       resumeState: {
         state: {
           resume: normalized.value.resume,
@@ -133,6 +138,130 @@ const openStudio = async (page: import('@playwright/test').Page) => {
   );
 };
 
+const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
+  page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>('.pc-studio-header');
+    if (!header) throw new Error('PC Studio header is missing.');
+
+    const rect = (element: Element) => {
+      const bounds = element.getBoundingClientRect();
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        width: bounds.width,
+        height: bounds.height,
+      };
+    };
+    const isVisible = (element: Element) => {
+      const bounds = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return (
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        bounds.width > 0 &&
+        bounds.height > 0
+      );
+    };
+    const intersects = (first: ReturnType<typeof rect>, second: ReturnType<typeof rect>) =>
+      Math.min(first.right, second.right) - Math.max(first.left, second.left) > 0.5 &&
+      Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > 0.5;
+
+    const selectors = {
+      brand: '.pc-brand-lockup',
+      context: '.pc-resume-context',
+      save: '.pc-save-status',
+      actions: '.pc-header-actions',
+    } as const;
+    const segments = Object.fromEntries(
+      Object.entries(selectors).map(([name, selector]) => {
+        const element = header.querySelector<HTMLElement>(selector);
+        if (!element) throw new Error(`PC Studio header segment is missing: ${name}`);
+        return [name, element];
+      }),
+    ) as Record<keyof typeof selectors, HTMLElement>;
+    const visibleSegments = Object.entries(segments).filter(([, element]) => isVisible(element));
+    const controls = [
+      ...segments.actions.querySelectorAll<HTMLElement>(
+        ':scope > button, :scope > .pc-history-controls > button, :scope > .pc-export-menu > details > summary',
+      ),
+    ].filter((element) => isVisible(element));
+    const overlaps: string[] = [];
+
+    for (let first = 0; first < visibleSegments.length; first += 1) {
+      for (let second = first + 1; second < visibleSegments.length; second += 1) {
+        const [firstName, firstElement] = visibleSegments[first]!;
+        const [secondName, secondElement] = visibleSegments[second]!;
+        if (intersects(rect(firstElement), rect(secondElement))) {
+          overlaps.push(`${firstName}:${secondName}`);
+        }
+      }
+    }
+
+    const nonActionSegments = visibleSegments.filter(([name]) => name !== 'actions');
+    for (const [segmentName, segment] of nonActionSegments) {
+      for (const [index, control] of controls.entries()) {
+        if (intersects(rect(segment), rect(control)))
+          overlaps.push(`${segmentName}:control-${index}`);
+      }
+    }
+    for (let first = 0; first < controls.length; first += 1) {
+      for (let second = first + 1; second < controls.length; second += 1) {
+        if (intersects(rect(controls[first]!), rect(controls[second]!))) {
+          overlaps.push(`control-${first}:control-${second}`);
+        }
+      }
+    }
+
+    const headerBounds = rect(header);
+    const actionBounds = rect(segments.actions);
+    const outsideHeader: number[] = [];
+    const outsideActions: number[] = [];
+    const unhitTargets: number[] = [];
+    for (const [index, control] of controls.entries()) {
+      const bounds = rect(control);
+      if (
+        bounds.left < headerBounds.left - 0.5 ||
+        bounds.right > headerBounds.right + 0.5 ||
+        bounds.top < headerBounds.top - 0.5 ||
+        bounds.bottom > headerBounds.bottom + 0.5
+      ) {
+        outsideHeader.push(index);
+      }
+      if (bounds.left < actionBounds.left - 0.5 || bounds.right > actionBounds.right + 0.5) {
+        outsideActions.push(index);
+      }
+      const hitTarget = document.elementFromPoint(
+        bounds.left + bounds.width / 2,
+        bounds.top + bounds.height / 2,
+      );
+      if (!hitTarget || (hitTarget !== control && !control.contains(hitTarget))) {
+        unhitTargets.push(index);
+      }
+    }
+
+    const saveStatus = segments.save;
+    return {
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio,
+      },
+      documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      segmentRects: Object.fromEntries(
+        Object.entries(segments).map(([name, element]) => [name, rect(element)]),
+      ),
+      overlaps,
+      outsideHeader,
+      outsideActions,
+      unhitTargets,
+      saveState: saveStatus.dataset.saveState,
+      saveLive: saveStatus.getAttribute('aria-live'),
+      saveText: saveStatus.textContent?.trim(),
+    };
+  });
+
 const captureScreenshot = async (
   page: import('@playwright/test').Page,
   label: string,
@@ -150,6 +279,93 @@ const captureScreenshot = async (
 };
 
 if (pcStudioEnabled) {
+  test('desktop header geometry stays disjoint and controls remain reachable in both locales', async ({
+    page,
+  }) => {
+    const viewports = [
+      { width: 1024, height: 768 },
+      { width: 1199, height: 800 },
+      { width: 1200, height: 800 },
+      { width: 1280, height: 800 },
+      { width: 1366, height: 768 },
+      { width: 1399, height: 800 },
+      { width: 1400, height: 800 },
+      { width: 1440, height: 900 },
+      { width: 1479, height: 900 },
+      { width: 1480, height: 900 },
+      { width: 1920, height: 1080 },
+    ];
+
+    for (const locale of ['en', 'zh-CN'] as const) {
+      const localePage = await page.context().newPage();
+      try {
+        await installFixture(localePage, { locale });
+        await localePage.setViewportSize(viewports[0]!);
+        await openStudio(localePage);
+
+        for (const viewport of viewports) {
+          await localePage.setViewportSize(viewport);
+          const geometry = await measureHeaderGeometry(localePage);
+          const label = `${locale} at ${viewport.width}x${viewport.height}`;
+
+          expect(geometry.viewport, `${label} viewport`).toMatchObject(viewport);
+          expect(geometry.viewport.devicePixelRatio, `${label} device pixel ratio`).toBeGreaterThan(
+            0,
+          );
+          expect(geometry.documentOverflow, `${label} document overflow`).toBeLessThanOrEqual(0);
+          expect(geometry.overlaps, `${label} overlapping header targets`).toEqual([]);
+          expect(geometry.outsideHeader, `${label} controls outside the header`).toEqual([]);
+          expect(geometry.outsideActions, `${label} controls outside the action region`).toEqual(
+            [],
+          );
+          expect(geometry.unhitTargets, `${label} controls with covered hit targets`).toEqual([]);
+          expect(geometry.saveState, `${label} save state`).toBe('saved');
+          expect(geometry.saveLive, `${label} save announcement`).toBe('polite');
+          expect(geometry.saveText, `${label} save status text`).toBe(
+            locale === 'en' ? 'Saved on this device' : '已保存到此设备',
+          );
+        }
+
+        const actionNames =
+          locale === 'en'
+            ? ['Template Center', 'AI Assistant', 'Preview', 'Back to editor']
+            : ['模板中心', 'AI 助手', '预览', '返回编辑器'];
+        for (const name of actionNames) {
+          await expect(localePage.getByRole('button', { name, exact: true })).toBeVisible();
+        }
+
+        const templateButton = localePage.getByRole('button', {
+          name: actionNames[0]!,
+          exact: true,
+        });
+        const aiButton = localePage.getByRole('button', { name: actionNames[1]!, exact: true });
+        const previewButton = localePage.getByRole('button', {
+          name: actionNames[2]!,
+          exact: true,
+        });
+        const exportButton = localePage.locator('.pc-export-menu summary');
+        const themeButton = localePage.locator('.pc-theme-toggle');
+        const exitButton = localePage.getByRole('button', { name: actionNames[3]!, exact: true });
+        const keyboardOrder = [
+          templateButton,
+          aiButton,
+          previewButton,
+          exportButton,
+          themeButton,
+          exitButton,
+        ];
+
+        await templateButton.focus();
+        for (const [index, control] of keyboardOrder.entries()) {
+          if (index > 0) await localePage.keyboard.press('Tab');
+          await expect(control, `${locale} header Tab order item ${index + 1}`).toBeFocused();
+        }
+      } finally {
+        await localePage.close();
+      }
+    }
+  });
+
   test('Gallery browsing preserves persisted resume, sections, templateId and custom templates', async ({
     page,
   }) => {

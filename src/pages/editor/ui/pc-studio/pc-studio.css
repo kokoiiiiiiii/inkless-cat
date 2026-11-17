@@ -1234,6 +1234,50 @@
   }
 }
 
+@media (max-width: 1479px) and (min-width: 1400px) {
+  .pc-studio-header {
+    gap: 12px;
+    padding-inline: 16px;
+  }
+
+  .pc-header-actions {
+    gap: 6px;
+  }
+
+  .pc-header-button {
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 1399px) and (min-width: 1200px) {
+  .pc-studio-header {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+
+  .pc-brand-lockup {
+    flex-basis: 180px;
+    min-width: 0;
+  }
+
+  .pc-resume-context {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .pc-header-actions {
+    gap: 4px;
+  }
+
+  .pc-header-button {
+    padding-inline: 10px;
+  }
+
+  .pc-history-controls {
+    display: none;
+  }
+}
+
 @media (max-width: 1199px) {
   .pc-workspace-grid {
     grid-template-columns: 72px minmax(0, 1fr);
