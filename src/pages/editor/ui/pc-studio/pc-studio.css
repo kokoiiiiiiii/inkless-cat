@@ -1460,6 +1460,7 @@
 
   .pc-header-actions {
     gap: 5px;
+    justify-content: flex-start;
     overflow-x: auto;
   }
 

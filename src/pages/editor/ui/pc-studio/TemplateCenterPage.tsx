@@ -1,7 +1,9 @@
 /* eslint-disable tailwindcss/no-custom-classname -- These scoped BEM classes are defined in TemplateCenterPage.css. */
 import './TemplateCenterPage.css';
 
+import type { ActiveSectionKey, ResumeData } from '@entities/resume';
 import type { ResumeTemplate } from '@entities/template';
+import { ResumePreview } from '@features/resume-preview';
 import { useI18n } from '@shared/i18n';
 import { TemplateThumbnail } from '@widgets/template-selector';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -9,6 +11,8 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 type TemplateCenterPageProps = {
   builtInTemplates: ResumeTemplate[];
   customTemplates: ResumeTemplate[];
+  resume: ResumeData;
+  activeSections: ActiveSectionKey[];
   currentTemplateId: string;
   displayedFallbackTemplateName: string;
   onBackToWorkspace: () => void;
@@ -17,11 +21,12 @@ type TemplateCenterPageProps = {
 
 type TemplateSource = 'built-in' | 'custom';
 type GalleryGroup = 'all' | TemplateSource;
-type ViewMode = 'gallery' | 'details';
+type ViewMode = 'gallery' | 'details' | 'preview';
 
 type TemplateEntry = {
   template: ResumeTemplate;
   source: TemplateSource;
+  key: string;
 };
 
 const supportedPreviewStyles = new Set(['modern', 'classic', 'creative', 'custom']);
@@ -44,9 +49,14 @@ const canRenderThumbnail = (template: ResumeTemplate) =>
   typeof template.accentColor === 'string' &&
   isSafeHexColor(template.accentColor);
 
+const canRenderLivePreview = (template: ResumeTemplate) =>
+  typeof template.previewStyle === 'string' && supportedPreviewStyles.has(template.previewStyle);
+
 const TemplateCenterPage = ({
   builtInTemplates,
   customTemplates,
+  resume,
+  activeSections,
   currentTemplateId,
   displayedFallbackTemplateName,
   onBackToWorkspace,
@@ -55,27 +65,28 @@ const TemplateCenterPage = ({
   const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<GalleryGroup>('all');
-  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<TemplateEntry | null>(null);
+  const [candidate, setCandidate] = useState<TemplateEntry | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('gallery');
   const pageRef = useRef<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
-  const pendingDetailFocusIdRef = useRef<string | null>(null);
+  const pendingGalleryFocusKeyRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
-    if (viewMode === 'details') {
+    if (viewMode !== 'gallery') {
       headingRef.current?.focus();
       return;
     }
 
-    const detailId = pendingDetailFocusIdRef.current;
-    if (detailId !== null) {
+    const templateKey = pendingGalleryFocusKeyRef.current;
+    if (templateKey !== null) {
       const detailButton = [
         ...(pageRef.current?.querySelectorAll<HTMLButtonElement>(
           'button[data-template-detail-trigger]',
         ) ?? []),
-      ].find((button) => button.dataset.templateDetailTrigger === detailId);
+      ].find((button) => button.dataset.templateDetailTrigger === templateKey);
       (detailButton ?? headingRef.current)?.focus();
-      pendingDetailFocusIdRef.current = null;
+      pendingGalleryFocusKeyRef.current = null;
       return;
     }
 
@@ -90,8 +101,16 @@ const TemplateCenterPage = ({
       ? customTemplates.filter((template) => isTemplateRecord(template))
       : [];
     return [
-      ...safeBuiltIn.map((template) => ({ template, source: 'built-in' as const })),
-      ...safeCustom.map((template) => ({ template, source: 'custom' as const })),
+      ...safeBuiltIn.map((template, index) => ({
+        template,
+        source: 'built-in' as const,
+        key: `built-in:${index}:${template.id}`,
+      })),
+      ...safeCustom.map((template, index) => ({
+        template,
+        source: 'custom' as const,
+        key: `custom:${index}:${template.id}`,
+      })),
     ];
   }, [builtInTemplates, customTemplates]);
 
@@ -111,20 +130,41 @@ const TemplateCenterPage = ({
 
   const builtInEntries = filteredEntries.filter((entry) => entry.source === 'built-in');
   const customEntries = filteredEntries.filter((entry) => entry.source === 'custom');
-  const selectedEntry =
-    viewMode === 'details'
-      ? entries.find((entry) => entry.template.id === selectedDetailId)
+  const resolveSelectedEntry = (selection: TemplateEntry | null) =>
+    selection
+      ? entries.find(
+          (entry) =>
+            entry.key === selection.key &&
+            entry.source === selection.source &&
+            entry.template === selection.template,
+        )
       : undefined;
+  const selectedEntry = viewMode === 'details' ? resolveSelectedEntry(selectedDetail) : undefined;
+  const candidateEntry = viewMode === 'preview' ? resolveSelectedEntry(candidate) : undefined;
 
-  const openDetails = (templateId: string) => {
-    setSelectedDetailId(templateId);
+  const openDetails = (entry: TemplateEntry) => {
+    setSelectedDetail(entry);
     setViewMode('details');
   };
 
-  const backToGallery = () => {
-    pendingDetailFocusIdRef.current = selectedDetailId;
+  const openPreview = (entry: TemplateEntry) => {
+    if (!canRenderLivePreview(entry.template)) return;
+    setCandidate(entry);
+    setViewMode('preview');
+  };
+
+  const backToGallery = (focusKey = candidate?.key ?? selectedDetail?.key ?? null) => {
+    pendingGalleryFocusKeyRef.current = focusKey;
     setViewMode('gallery');
-    setSelectedDetailId(null);
+    setSelectedDetail(null);
+    setCandidate(null);
+  };
+
+  const backToWorkspace = () => {
+    setSelectedDetail(null);
+    setCandidate(null);
+    setViewMode('gallery');
+    onBackToWorkspace();
   };
 
   const renderThumbnail = (template: ResumeTemplate) => {
@@ -161,10 +201,11 @@ const TemplateCenterPage = ({
     return (
       <article
         className="pc-template-card"
-        key={`${source}:${template.id}`}
+        key={entry.key}
         aria-labelledby={nameId}
         data-template-id={template.id}
         data-template-source={source}
+        data-template-instance-key={entry.key}
       >
         <div className="pc-template-card__body">
           <div className="pc-template-card__thumbnail">{renderThumbnail(template)}</div>
@@ -198,8 +239,8 @@ const TemplateCenterPage = ({
           <button
             type="button"
             className="pc-template-center__button pc-template-center__button--secondary"
-            data-template-detail-trigger={template.id}
-            onClick={() => openDetails(template.id)}
+            data-template-detail-trigger={entry.key}
+            onClick={() => openDetails(entry)}
           >
             {t('template.gallery.viewDetails')}
           </button>
@@ -279,14 +320,18 @@ const TemplateCenterPage = ({
           <div className="pc-template-center__heading-copy">
             <p className="pc-template-center__eyebrow">{t('template.gallery.eyebrow')}</p>
             <h1 className="pc-template-center__title" ref={headingRef} tabIndex={-1}>
-              {viewMode === 'details'
-                ? t('template.gallery.detailsTitle')
-                : t('template.gallery.title')}
+              {viewMode === 'preview'
+                ? t('template.gallery.livePreviewTitle')
+                : viewMode === 'details'
+                  ? t('template.gallery.detailsTitle')
+                  : t('template.gallery.title')}
             </h1>
             <p className="pc-template-center__intro">
-              {viewMode === 'details'
-                ? t('template.gallery.detailsDescription')
-                : t('template.gallery.description')}
+              {viewMode === 'preview'
+                ? t('template.gallery.livePreviewDescription')
+                : viewMode === 'details'
+                  ? t('template.gallery.detailsDescription')
+                  : t('template.gallery.description')}
             </p>
           </div>
           <div className="pc-template-center__header-actions">
@@ -302,7 +347,7 @@ const TemplateCenterPage = ({
               <button
                 type="button"
                 className="pc-template-center__button pc-template-center__button--secondary"
-                onClick={backToGallery}
+                onClick={() => backToGallery()}
               >
                 {t('template.gallery.backToGallery')}
               </button>
@@ -310,14 +355,14 @@ const TemplateCenterPage = ({
             <button
               type="button"
               className="pc-template-center__button pc-template-center__button--primary"
-              onClick={onBackToWorkspace}
+              onClick={backToWorkspace}
             >
               {t('template.gallery.backToWorkspace')}
             </button>
           </div>
         </header>
 
-        {missingCurrent && (
+        {missingCurrent && viewMode !== 'preview' && (
           <div className="pc-template-center__missing-current" role="alert">
             <span className="pc-template-center__missing-icon" aria-hidden="true">
               !
@@ -335,7 +380,54 @@ const TemplateCenterPage = ({
           </div>
         )}
 
-        {viewMode === 'details' ? (
+        {viewMode === 'preview' ? (
+          candidateEntry ? (
+            <section
+              className="pc-template-live-preview"
+              aria-labelledby="pc-template-live-preview-name"
+              data-testid="pc-template-live-preview"
+              data-template-id={candidateEntry.template.id}
+              data-template-source={candidateEntry.source}
+              data-template-instance-key={candidateEntry.key}
+              data-preview-style={candidateEntry.template.previewStyle}
+            >
+              <div className="pc-template-live-preview__notice" role="status">
+                <strong>{t('template.gallery.previewOnly')}</strong>
+                <p>{t('template.gallery.livePreviewNotice')}</p>
+              </div>
+              <h2 id="pc-template-live-preview-name" className="pc-template-live-preview__name">
+                {candidateEntry.template.name || t('template.gallery.unnamedTemplate')}
+              </h2>
+              <div
+                className="pc-template-live-preview__paper"
+                role="region"
+                aria-label={t('template.gallery.liveResumePreview')}
+              >
+                <ResumePreview
+                  resume={resume}
+                  activeSections={activeSections}
+                  templateStyle={candidateEntry.template.previewStyle}
+                  accentColor={candidateEntry.template.accentColor}
+                  theme={candidateEntry.template.theme}
+                />
+              </div>
+            </section>
+          ) : (
+            <section className="pc-template-center__stale-detail" role="alert">
+              <h2>{t('template.gallery.previewUnavailable')}</h2>
+              <p>{t('template.gallery.previewUnavailableDescription')}</p>
+              <div className="pc-template-detail__actions">
+                <button
+                  type="button"
+                  className="pc-template-center__button pc-template-center__button--secondary"
+                  onClick={() => backToGallery()}
+                >
+                  {t('template.gallery.backToGallery')}
+                </button>
+              </div>
+            </section>
+          )
+        ) : viewMode === 'details' ? (
           selectedEntry ? (
             <section
               className="pc-template-detail"
@@ -388,25 +480,45 @@ const TemplateCenterPage = ({
                     </dd>
                   </div>
                 </dl>
+                <div className="pc-template-detail__actions">
+                  <button
+                    type="button"
+                    className="pc-template-center__button pc-template-center__button--primary"
+                    disabled={!canRenderLivePreview(selectedEntry.template)}
+                    onClick={() => openPreview(selectedEntry)}
+                  >
+                    {canRenderLivePreview(selectedEntry.template)
+                      ? t('template.gallery.livePreview')
+                      : t('template.gallery.previewUnavailable')}
+                  </button>
+                </div>
+                {!canRenderLivePreview(selectedEntry.template) && (
+                  <p className="pc-template-detail__preview-warning" role="alert">
+                    {t('template.gallery.unsupportedPreviewStyle', {
+                      style:
+                        selectedEntry.template.previewStyle || t('template.gallery.unknownStyle'),
+                    })}
+                  </p>
+                )}
               </div>
             </section>
           ) : (
             <section className="pc-template-center__stale-detail" role="alert">
               <h2>{t('template.gallery.detailUnavailable')}</h2>
               <p>{t('template.gallery.detailUnavailableDescription')}</p>
-              <code>{selectedDetailId || '—'}</code>
+              <code>{selectedDetail?.template.id || '—'}</code>
               <div className="pc-template-detail__actions">
                 <button
                   type="button"
                   className="pc-template-center__button pc-template-center__button--secondary"
-                  onClick={backToGallery}
+                  onClick={() => backToGallery()}
                 >
                   {t('template.gallery.backToGallery')}
                 </button>
                 <button
                   type="button"
                   className="pc-template-center__button pc-template-center__button--primary"
-                  onClick={onBackToWorkspace}
+                  onClick={backToWorkspace}
                 >
                   {t('template.gallery.backToWorkspace')}
                 </button>

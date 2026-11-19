@@ -83,6 +83,20 @@ export const template = {
       'Browse built-in and custom templates. Opening details does not change your selected template or resume.',
     detailsTitle: 'Template Details',
     detailsDescription: 'Review this template’s identity and illustrative layout.',
+    livePreviewTitle: 'Live Resume Preview',
+    livePreviewDescription:
+      'Preview this template with your current resume and active sections. Returning to the gallery does not apply it.',
+    livePreview: 'Live Preview',
+    previewOnly: 'Preview only',
+    livePreviewNotice:
+      'This uses your current resume and active sections. It has not been applied and will not change your saved workspace.',
+    liveResumePreview: 'Live resume preview',
+    previewUnavailable: 'Live preview unavailable',
+    previewUnavailableDescription:
+      'This template is no longer available in the registry. Return to the gallery to choose another template.',
+    unsupportedPreviewStyle:
+      'This template uses the unsupported preview style “{style}”. A live preview is unavailable because no matching renderer exists.',
+    unknownStyle: 'unknown',
     searchAndFilter: 'Search and filter templates',
     searchLabel: 'Search templates',
     searchPlaceholder: 'Search by name or description',

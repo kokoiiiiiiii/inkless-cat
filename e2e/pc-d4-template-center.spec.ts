@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { createEmptyResume } from '@entities/resume';
-import { templates } from '@entities/template';
+import { type ActiveSectionKey, createEmptyResume, type ResumeData } from '@entities/resume';
+import { type ResumeTemplate, templates } from '@entities/template';
 import {
   createDefaultWorkspace,
   migrateWorkspace,
@@ -15,9 +15,10 @@ import { RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY } from '@shared/lib/stor
 
 const pcStudioEnabled = process.env.VITE_ENABLE_PC_STUDIO === 'true';
 const screenshotDirectory = path.resolve('artifacts/pc-d4-d1/screenshots');
+const d2S1ScreenshotDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/screenshots');
 const customTemplateId = 'pc-d4-d1-fictional-custom-template';
 const currentTemplateId = templates[0]?.id ?? 'modern-blue';
-const fictionalCustomTemplate = {
+const fictionalCustomTemplate: ResumeTemplate = {
   id: customTemplateId,
   name: 'Fictional Product Designer Portfolio',
   description:
@@ -25,13 +26,15 @@ const fictionalCustomTemplate = {
   accentColor: '#2563eb',
   previewStyle: 'modern',
   sample: createEmptyResume(),
-} as const;
+};
 
 const installFixture = async (
   page: import('@playwright/test').Page,
   options: {
     templateId?: string;
-    customTemplates?: (typeof fictionalCustomTemplate)[];
+    customTemplates?: ResumeTemplate[];
+    resume?: ResumeData;
+    activeSections?: ActiveSectionKey[];
     locale?: 'en' | 'zh-CN';
   } = {},
 ) => {
@@ -39,8 +42,8 @@ const installFixture = async (
   const emptyResume = createEmptyResume();
   const normalized = migrateWorkspace({
     ...defaults,
-    resume: emptyResume,
-    activeSections: [],
+    resume: options.resume ?? emptyResume,
+    activeSections: options.activeSections ?? [],
     customTemplates: options.customTemplates ?? [fictionalCustomTemplate],
   });
   if (!normalized.ok) throw new Error(normalized.error.message);
@@ -81,7 +84,7 @@ const installFixture = async (
         state: {
           theme: 'light',
           templateId: options.templateId ?? currentTemplateId,
-          customTemplates: options.customTemplates ?? [fictionalCustomTemplate],
+          customTemplates: normalized.value.customTemplates,
         },
         version: UI_STORE_PERSIST_VERSION,
       },
@@ -275,6 +278,18 @@ const captureScreenshot = async (
   await page.screenshot({
     path: path.join(screenshotDirectory, `${label}-${viewport.width}x${viewport.height}.png`),
     fullPage: false,
+  });
+};
+
+const captureD2S1Screenshot = async (
+  page: import('@playwright/test').Page,
+  label: string,
+  viewport: { width: number; height: number },
+) => {
+  await mkdir(d2S1ScreenshotDirectory, { recursive: true });
+  await page.screenshot({
+    path: path.join(d2S1ScreenshotDirectory, `${label}-${viewport.width}x${viewport.height}.png`),
+    fullPage: true,
   });
 };
 
@@ -502,6 +517,216 @@ if (pcStudioEnabled) {
     expect(canonicalAfter.activeSections).toEqual(canonicalBefore.activeSections);
     expect(canonicalAfter.templateId).toBe(canonicalBefore.templateId);
     expect(canonicalAfter.customTemplates).toEqual(canonicalBefore.customTemplates);
+  });
+
+  test('read-only live preview uses canonical resume data and preserves stores and persistence', async ({
+    page,
+  }) => {
+    const canonicalResume = createEmptyResume();
+    canonicalResume.personal.fullName = 'D2-S1 Live Candidate';
+    canonicalResume.personal.summary = 'Canonical resume summary for a real live preview.';
+    canonicalResume.experience = [
+      {
+        id: 'd2-s1-canonical-role',
+        company: 'Canonical Resume Labs',
+        role: 'Product Engineer',
+        startDate: '2022',
+        endDate: 'Present',
+        highlights: ['This experience belongs to the current resume.'],
+      },
+    ];
+
+    const sample = createEmptyResume();
+    sample.personal.fullName = 'Template Sample Must Not Appear';
+    sample.personal.summary = 'This sample snapshot must never be used in preview.';
+    const customDuplicate = {
+      ...fictionalCustomTemplate,
+      id: currentTemplateId,
+      name: 'Custom Duplicate Candidate',
+      description: 'A custom fixture sharing the built-in template ID.',
+      previewStyle: 'creative',
+      sample,
+    } satisfies ResumeTemplate;
+    const alternateCustom = {
+      ...fictionalCustomTemplate,
+      id: 'pc-d4-d2-s1-alternate-custom',
+      name: 'Alternate Custom Candidate',
+      description: 'A second custom candidate for switching checks.',
+      previewStyle: 'classic',
+      sample,
+    } satisfies ResumeTemplate;
+
+    await installFixture(page, {
+      templateId: currentTemplateId,
+      customTemplates: [customDuplicate, alternateCustom],
+      resume: canonicalResume,
+      activeSections: ['experience'],
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStudio(page);
+
+    const monitorProbeKey = '__pcD4D2S1StorageMonitorProbe';
+    await page.evaluate((key) => localStorage.setItem(key, 'monitor-probe'), monitorProbeKey);
+    expect(await readStorageWriteLog(page)).toContain(monitorProbeKey);
+    await page.evaluate((key) => localStorage.removeItem(key), monitorProbeKey);
+    await clearStorageWriteLog(page);
+    expect(await readStorageWriteLog(page)).toEqual([]);
+
+    const mobileBefore = await readPersistedWorkspace(page);
+    await page.getByRole('button', { name: 'Template Center' }).click();
+    const mobileCenter = page.getByTestId('pc-template-center');
+    await expect(mobileCenter).toBeVisible();
+    await mobileCenter.getByRole('button', { name: 'Custom', exact: true }).click();
+    const mobileDuplicateCard = mobileCenter.locator(
+      `[data-template-source="custom"][data-template-id="${currentTemplateId}"]`,
+    );
+    await mobileDuplicateCard.getByRole('button', { name: 'View Details' }).click();
+    await mobileCenter.getByRole('button', { name: 'Live Preview' }).click();
+    const mobileLivePreview = page.getByTestId('pc-template-live-preview');
+    await expect(mobileLivePreview).toBeVisible();
+    await expect(mobileLivePreview).toContainText('D2-S1 Live Candidate');
+    await expect(mobileLivePreview).not.toContainText('Template Sample Must Not Appear');
+    const previewOverflow = await page.evaluate(() => {
+      const paper = document.querySelector<HTMLElement>('.pc-template-live-preview__paper');
+      if (!paper) throw new Error('The live preview paper is missing.');
+      return {
+        document: document.documentElement.scrollWidth - window.innerWidth,
+        paper: paper.scrollWidth - paper.clientWidth,
+        paperWidth: paper.getBoundingClientRect().width,
+      };
+    });
+    expect(previewOverflow.document).toBeLessThanOrEqual(0);
+    expect(previewOverflow.paper).toBeLessThanOrEqual(0);
+    expect(previewOverflow.paperWidth).toBeLessThanOrEqual(390);
+    await captureD2S1Screenshot(page, 'custom-live-preview-mobile', { width: 390, height: 844 });
+    await page.getByRole('button', { name: 'Back to Workspace' }).click();
+    await expect(page.getByTestId('pc-template-center')).toHaveCount(0);
+    const mobileAfter = await readPersistedWorkspace(page);
+    expect(mobileAfter).toEqual(mobileBefore);
+    const mobileStorageWrites = await readStorageWriteLog(page);
+    expect(
+      mobileStorageWrites.filter((key) =>
+        [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(key),
+      ),
+    ).toEqual([]);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(page.getByTestId('pc-studio')).toBeVisible();
+    await expect(page.getByTestId('pc-save-status')).toHaveAttribute(
+      'data-save-state',
+      /^(ready|saved)$/u,
+    );
+    await expect.poll(async () => readStorageWriteLog(page)).toContain(UI_STORE_PERSIST_KEY);
+    await clearStorageWriteLog(page);
+    expect(await readStorageWriteLog(page)).toEqual([]);
+    const before = await readPersistedWorkspace(page);
+    expect(before).toEqual(mobileBefore);
+
+    const templateCenterTrigger = page.getByRole('button', { name: 'Template Center' });
+    await templateCenterTrigger.focus();
+    await page.keyboard.press('Enter');
+    const center = page.getByTestId('pc-template-center');
+    await expect(center).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Template Gallery' })).toBeFocused();
+    await center.getByRole('button', { name: 'Custom', exact: true }).click();
+
+    const customDuplicateCard = center.locator(
+      `[data-template-source="custom"][data-template-id="${currentTemplateId}"]`,
+    );
+    await expect(customDuplicateCard).toHaveCount(1);
+    const duplicateDetailsButton = customDuplicateCard.getByRole('button', {
+      name: 'View Details',
+    });
+    await duplicateDetailsButton.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Template Details' })).toBeFocused();
+    await expect(center.getByRole('heading', { name: 'Custom Duplicate Candidate' })).toBeVisible();
+    await center.getByRole('button', { name: 'Live Preview' }).focus();
+    await page.keyboard.press('Enter');
+
+    const livePreview = page.getByTestId('pc-template-live-preview');
+    await expect(livePreview).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Live Resume Preview' })).toBeFocused();
+    await expect(livePreview).toHaveAttribute('data-template-id', currentTemplateId);
+    await expect(livePreview).toHaveAttribute('data-template-source', 'custom');
+    await expect(livePreview).toHaveAttribute('data-preview-style', 'creative');
+    await expect(livePreview).toContainText('D2-S1 Live Candidate');
+    await expect(livePreview).toContainText('Canonical resume summary for a real live preview.');
+    await expect(livePreview).toContainText('This experience belongs to the current resume.');
+    await expect(livePreview).not.toContainText('Template Sample Must Not Appear');
+    await expect(livePreview).not.toContainText(
+      'This sample snapshot must never be used in preview.',
+    );
+    await expect(center.getByRole('status')).toContainText('Preview only');
+    await expect(center.getByRole('button', { name: /Apply/i })).toHaveCount(0);
+    await expect(center.getByRole('button', { name: /Load Sample/i })).toHaveCount(0);
+    await captureD2S1Screenshot(page, 'custom-live-preview', { width: 1440, height: 900 });
+
+    await page.getByRole('button', { name: 'Back to Gallery' }).click();
+    await expect(livePreview).toHaveCount(0);
+    await expect(duplicateDetailsButton).toBeFocused();
+
+    await center.getByRole('button', { name: 'All templates' }).click();
+    const appliedBuiltInCard = center.locator(
+      `[data-template-source="built-in"][data-template-id="${currentTemplateId}"]`,
+    );
+    await appliedBuiltInCard.getByRole('button', { name: 'View Details' }).click();
+    await expect(center.getByText('Currently applied')).toBeVisible();
+    await center.getByRole('button', { name: 'Live Preview' }).click();
+    await expect(page.getByTestId('pc-template-live-preview')).toHaveAttribute(
+      'data-template-source',
+      'built-in',
+    );
+    await expect(page.getByTestId('pc-template-live-preview')).toHaveAttribute(
+      'data-preview-style',
+      'modern',
+    );
+    await page.getByRole('button', { name: 'Back to Gallery' }).click();
+
+    await center.getByRole('button', { name: 'Custom', exact: true }).click();
+    const alternateCard = center.locator(
+      '[data-template-source="custom"][data-template-id="pc-d4-d2-s1-alternate-custom"]',
+    );
+    await alternateCard.getByRole('button', { name: 'View Details' }).click();
+    await center.getByRole('button', { name: 'Live Preview' }).click();
+    await expect(page.getByTestId('pc-template-live-preview')).toHaveAttribute(
+      'data-template-id',
+      'pc-d4-d2-s1-alternate-custom',
+    );
+    await expect(page.getByTestId('pc-template-live-preview')).toHaveAttribute(
+      'data-preview-style',
+      'classic',
+    );
+    await page.getByRole('button', { name: 'Back to Workspace' }).click();
+    await expect(page.getByTestId('pc-template-center')).toHaveCount(0);
+    await expect(page.getByTestId('pc-editor-stage')).toBeVisible();
+
+    const after = await readPersistedWorkspace(page);
+    expect(after).toEqual(before);
+    const storageWriteLog = await readStorageWriteLog(page);
+    const storeWrites = storageWriteLog.filter((key) =>
+      [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(key),
+    );
+    expect(storeWrites).toEqual([]);
+
+    await page.getByRole('button', { name: 'Template Center' }).click();
+    await expect(center).toBeVisible();
+    await expect(page.getByTestId('pc-template-live-preview')).toHaveCount(0);
+    await center.getByRole('button', { name: 'Custom', exact: true }).click();
+    await center
+      .locator('[data-template-source="custom"][data-template-id="pc-d4-d2-s1-alternate-custom"]')
+      .getByRole('button', { name: 'View Details' })
+      .click();
+    await center.getByRole('button', { name: 'Live Preview' }).click();
+    await expect(page.getByTestId('pc-template-live-preview')).toBeVisible();
+    await page.reload();
+    await openStudio(page);
+    await expect(page.getByTestId('pc-template-center')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Template Center' }).click();
+    await expect(page.getByTestId('pc-template-center')).toBeVisible();
+    await expect(page.getByTestId('pc-template-live-preview')).toHaveCount(0);
+    const persistedAfterReload = await readPersistedWorkspace(page);
+    expect(persistedAfterReload).toEqual(before);
   });
 
   test('a missing persisted template is never relabeled as Current or silently repaired', async ({

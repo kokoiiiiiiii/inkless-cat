@@ -79,6 +79,18 @@ export const template = {
     description: '浏览内置模板和自定义模板。查看详情不会更改当前模板或简历内容。',
     detailsTitle: '模板详情',
     detailsDescription: '查看模板信息与说明性版式缩略图。',
+    livePreviewTitle: '简历实时预览',
+    livePreviewDescription: '使用你当前的简历内容和启用分区预览此模板。返回模板库不会应用模板。',
+    livePreview: '实时预览',
+    previewOnly: '仅预览',
+    livePreviewNotice:
+      '预览使用你当前的简历内容和启用分区。模板尚未应用，也不会更改已保存的工作区。',
+    liveResumePreview: '简历实时预览',
+    previewUnavailable: '无法实时预览',
+    previewUnavailableDescription: '此模板已不在注册目录中，请返回模板库选择其他模板。',
+    unsupportedPreviewStyle:
+      '此模板使用不受支持的预览样式“{style}”。没有匹配的渲染器，因此无法实时预览。',
+    unknownStyle: '未知',
     searchAndFilter: '搜索和筛选模板',
     searchLabel: '搜索模板',
     searchPlaceholder: '按名称或描述搜索',

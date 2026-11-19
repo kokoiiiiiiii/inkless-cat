@@ -201,6 +201,8 @@ const PCStudioPage = () => {
         <TemplateCenterPage
           builtInTemplates={studio.templatePanel.baseTemplates}
           customTemplates={studio.templatePanel.customTemplates}
+          resume={studio.resume}
+          activeSections={studio.activeSections}
           currentTemplateId={currentTemplateId}
           displayedFallbackTemplateName={studio.templatePanel.activeTemplate.name}
           onBackToWorkspace={handleBackToWorkspace}
