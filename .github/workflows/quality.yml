@@ -14,12 +14,15 @@ permissions:
 
 jobs:
   quality:
+    strategy:
+      matrix:
+        node: ['24.22.1', '26.11.1']
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v7
         with:
-          node-version: '24.22.1'
+          node-version: ${{ matrix.node }}
           check-latest: true
           cache: npm
       - run: npm install --global npm@11.20.0
