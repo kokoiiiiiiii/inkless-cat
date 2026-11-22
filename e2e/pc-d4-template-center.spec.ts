@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -16,6 +18,7 @@ import { RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY } from '@shared/lib/stor
 const pcStudioEnabled = process.env.VITE_ENABLE_PC_STUDIO === 'true';
 const screenshotDirectory = path.resolve('artifacts/pc-d4-d1/screenshots');
 const d2S1ScreenshotDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/screenshots');
+const d2S1MatrixDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/visual-matrix');
 const customTemplateId = 'pc-d4-d1-fictional-custom-template';
 const currentTemplateId = templates[0]?.id ?? 'modern-blue';
 const fictionalCustomTemplate: ResumeTemplate = {
@@ -50,22 +53,50 @@ const installFixture = async (
 
   await page.addInitScript(
     ({ resumeKey, uiKey, localeKey, locale, resumeState, uiState }) => {
-      localStorage.setItem(resumeKey, JSON.stringify(resumeState));
-      localStorage.setItem(uiKey, JSON.stringify(uiState));
-      localStorage.setItem(localeKey, locale);
+      const fixtureSeedKey = '__pcD4FixtureSeeded';
+      if (sessionStorage.getItem(fixtureSeedKey) !== 'true') {
+        localStorage.setItem(resumeKey, JSON.stringify(resumeState));
+        localStorage.setItem(uiKey, JSON.stringify(uiState));
+        localStorage.setItem(localeKey, locale);
+        sessionStorage.setItem(fixtureSeedKey, 'true');
+      }
 
       const storage = globalThis.localStorage;
       const writes: string[] = [];
+      const operations: Array<{ method: 'setItem' | 'removeItem' | 'clear'; key: string | null }> =
+        [];
       const originalSetItem = Object.getOwnPropertyDescriptor(Storage.prototype, 'setItem')
         ?.value as Storage['setItem'] | undefined;
-      if (!originalSetItem) throw new Error('Storage.prototype.setItem is unavailable.');
+      const originalRemoveItem = Object.getOwnPropertyDescriptor(Storage.prototype, 'removeItem')
+        ?.value as Storage['removeItem'] | undefined;
+      const originalClear = Object.getOwnPropertyDescriptor(Storage.prototype, 'clear')?.value as
+        | Storage['clear']
+        | undefined;
+      if (!originalSetItem || !originalRemoveItem || !originalClear) {
+        throw new Error('Storage write methods are unavailable.');
+      }
       Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
-        if (this === storage) writes.push(key);
+        if (this === storage) {
+          writes.push(key);
+          operations.push({ method: 'setItem', key });
+        }
         originalSetItem.call(this, key, value);
+      };
+      Storage.prototype.removeItem = function (this: Storage, key: string) {
+        if (this === storage) operations.push({ method: 'removeItem', key });
+        originalRemoveItem.call(this, key);
+      };
+      Storage.prototype.clear = function (this: Storage) {
+        if (this === storage) operations.push({ method: 'clear', key: null });
+        originalClear.call(this);
       };
       Object.defineProperty(globalThis, '__pcD4StorageWrites', {
         configurable: true,
         value: writes,
+      });
+      Object.defineProperty(globalThis, '__pcD4StorageOperations', {
+        configurable: true,
+        value: operations,
       });
     },
     {
@@ -107,9 +138,15 @@ const readPersistedWorkspace = (page: import('@playwright/test').Page) =>
 
 const clearStorageWriteLog = (page: import('@playwright/test').Page) =>
   page.evaluate(() => {
-    const writes = (globalThis as typeof globalThis & { __pcD4StorageWrites?: string[] })
-      .__pcD4StorageWrites;
-    if (writes) writes.length = 0;
+    const monitor = globalThis as typeof globalThis & {
+      __pcD4StorageWrites?: string[];
+      __pcD4StorageOperations?: Array<{
+        method: 'setItem' | 'removeItem' | 'clear';
+        key: string | null;
+      }>;
+    };
+    if (monitor.__pcD4StorageWrites) monitor.__pcD4StorageWrites.length = 0;
+    if (monitor.__pcD4StorageOperations) monitor.__pcD4StorageOperations.length = 0;
   });
 
 const readStorageWriteLog = (page: import('@playwright/test').Page) =>
@@ -118,6 +155,57 @@ const readStorageWriteLog = (page: import('@playwright/test').Page) =>
       (globalThis as typeof globalThis & { __pcD4StorageWrites?: string[] }).__pcD4StorageWrites ??
       [],
   );
+
+const readStorageOperationLog = (page: import('@playwright/test').Page) =>
+  page.evaluate(
+    () =>
+      (
+        globalThis as typeof globalThis & {
+          __pcD4StorageOperations?: Array<{
+            method: 'setItem' | 'removeItem' | 'clear';
+            key: string | null;
+          }>;
+        }
+      ).__pcD4StorageOperations ?? [],
+  );
+
+const readLocalStorageSnapshot = (page: import('@playwright/test').Page) =>
+  page.evaluate(() =>
+    Object.fromEntries(
+      Object.keys(localStorage)
+        .sort()
+        .map((key) => [key, localStorage.getItem(key)]),
+    ),
+  );
+
+const readRuntimeStoreSnapshot = (page: import('@playwright/test').Page) =>
+  page.evaluate(async () => {
+    const resumeStoreUrl = '/src/entities/resume/model/resume.store.tsx';
+    const uiStoreUrl = '/src/entities/ui/model/ui.store.tsx';
+    const [{ useResumeStore }, { useUIStore }] = await Promise.all([
+      import(resumeStoreUrl),
+      import(uiStoreUrl),
+    ]);
+    const resume = useResumeStore.getState();
+    const ui = useUIStore.getState();
+    return JSON.parse(
+      JSON.stringify({
+        resume: {
+          resume: resume.resume,
+          activeSections: resume.activeSections,
+          hasResumeChanges: resume.hasResumeChanges,
+          workspaceGeneration: resume.workspaceGeneration,
+          workspaceRevision: resume.workspaceRevision,
+          personalSummaryRevision: resume.personalSummaryRevision,
+        },
+        ui: {
+          theme: ui.theme,
+          templateId: ui.templateId,
+          customTemplates: ui.customTemplates,
+        },
+      }),
+    );
+  });
 
 const exportCanonicalWorkspace = async (page: import('@playwright/test').Page) => {
   await page.locator('.pc-export-menu summary').click();
@@ -281,16 +369,210 @@ const captureScreenshot = async (
   });
 };
 
-const captureD2S1Screenshot = async (
-  page: import('@playwright/test').Page,
-  label: string,
-  viewport: { width: number; height: number },
-) => {
+const captureD2S1Screenshot = async (options: {
+  page: import('@playwright/test').Page;
+  browser: import('@playwright/test').Browser;
+  label: string;
+  viewport: { width: number; height: number };
+  fixture: string;
+  locale: 'en' | 'zh-CN';
+  scrollContainer: string;
+}) => {
+  const { page, browser, label, viewport, fixture, locale, scrollContainer } = options;
   await mkdir(d2S1ScreenshotDirectory, { recursive: true });
+  const screenshotPath = path.join(
+    d2S1ScreenshotDirectory,
+    `${label}-${viewport.width}x${viewport.height}.png`,
+  );
   await page.screenshot({
-    path: path.join(d2S1ScreenshotDirectory, `${label}-${viewport.width}x${viewport.height}.png`),
-    fullPage: true,
+    path: screenshotPath,
+    fullPage: false,
   });
+  const screenshot = await readFile(screenshotPath);
+  const [viewportMetrics, scrollMetrics] = await Promise.all([
+    page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio,
+    })),
+    page.locator(scrollContainer).evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    })),
+  ]);
+  const metadata = {
+    testedGitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    testedTreeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
+    dirtyStatus: execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
+    nodeVersion: process.version,
+    browserName: browser.browserType().name(),
+    browserVersion: browser.version(),
+    viewport: viewportMetrics,
+    fixture,
+    locale,
+    scrollContainer,
+    scrollPosition: { top: scrollMetrics.scrollTop, left: scrollMetrics.scrollLeft },
+    scrollMetrics,
+    screenshotPath: path.relative(process.cwd(), screenshotPath),
+    screenshotSha256: createHash('sha256').update(screenshot).digest('hex'),
+  };
+  await writeFile(
+    path.join(d2S1ScreenshotDirectory, `${label}-${viewport.width}x${viewport.height}.json`),
+    `${JSON.stringify(metadata, null, 2)}\n`,
+  );
+};
+
+const createD2S1MatrixResume = (fixture: 'standard' | 'long'): ResumeData => {
+  const isLong = fixture === 'long';
+  const resume = createEmptyResume();
+  resume.personal.fullName =
+    fixture === 'standard' ? 'D2 Standard Synthetic Candidate' : 'D2 Long Synthetic Candidate';
+  resume.personal.title = 'Product Designer / 产品设计师';
+  resume.personal.email = 'd2-synthetic@example.invalid';
+  resume.personal.phone = '+1 555 0100';
+  resume.personal.location = 'Shanghai / 上海';
+  resume.personal.summary = isLong
+    ? 'Fictional long-form profile with bilingual content. Led accessible design systems, cross-platform product research, and measurable workflow improvements across distributed teams. This paragraph intentionally includes mixed English and 中文内容 to exercise line wrapping, punctuation, and text boundaries in the live resume preview. '.repeat(
+        2,
+      )
+    : 'Fictional product designer focused on accessible systems, practical research, and bilingual experiences. 中英文混排内容用于验证文本换行与预览边界。';
+  resume.experience = Array.from({ length: isLong ? 10 : 4 }, (_, index) => ({
+    id: `${fixture}-experience-${index + 1}`,
+    company: `Synthetic Studio ${index + 1}`,
+    role: index % 2 === 0 ? 'Senior Product Designer' : 'Product Design Lead',
+    location: index % 2 === 0 ? 'Shanghai / 上海' : 'Remote · North America',
+    startDate: `${2015 + index}-01`,
+    endDate: index === 0 ? 'Present' : `${2018 + index}-12`,
+    highlights: Array.from(
+      { length: isLong ? 4 : 3 },
+      (_, highlightIndex) =>
+        `Fictional achievement ${index + 1}.${highlightIndex + 1}: improved a measurable product workflow, documented accessibility decisions, and shipped localized interface patterns for multiple teams. 包含中英文混排。`,
+    ),
+  }));
+  resume.education = Array.from({ length: isLong ? 4 : 2 }, (_, index) => ({
+    id: `${fixture}-education-${index + 1}`,
+    school: `Synthetic University ${index + 1}`,
+    degree: index % 2 === 0 ? 'M.Des. Interaction Design' : 'B.A. Visual Communication',
+    startDate: `${2008 + index}-09`,
+    endDate: `${2012 + index}-06`,
+    details:
+      'Fictional coursework in research, typography, inclusive systems, and prototyping. 课程项目均为虚构。',
+  }));
+  resume.projects = Array.from({ length: isLong ? 5 : 2 }, (_, index) => ({
+    id: `${fixture}-project-${index + 1}`,
+    name: `Synthetic Project ${index + 1}`,
+    role: 'Design systems and research',
+    summary:
+      'Fictional project summary with enough text to exercise line wrapping in a real resume preview. 项目说明使用虚构数据。',
+    link: `https://example.invalid/project-${index + 1}`,
+    highlights: [
+      'Mapped user needs to accessible interaction patterns and verified the handoff with fictional teams.',
+      'Recorded bilingual decisions and implementation notes for the synthetic case study.',
+    ],
+  }));
+  resume.skills = Array.from({ length: isLong ? 6 : 3 }, (_, index) => ({
+    id: `${fixture}-skill-${index + 1}`,
+    title: `Practice ${index + 1}`,
+    items: ['Research synthesis', 'Accessible UI systems', '中文内容设计', 'Prototyping'],
+  }));
+  resume.languages = [
+    { id: `${fixture}-language-en`, name: 'English', level: 'Fluent' },
+    { id: `${fixture}-language-zh`, name: '中文', level: 'Native' },
+  ];
+  resume.awards = Array.from({ length: isLong ? 3 : 1 }, (_, index) => ({
+    id: `${fixture}-award-${index + 1}`,
+    name: `Synthetic Design Award ${index + 1}`,
+    issuer: 'Fictional Design Association',
+    year: `${2020 + index}`,
+  }));
+  return resume;
+};
+
+const captureD2S1MatrixState = async (options: {
+  page: import('@playwright/test').Page;
+  browser: import('@playwright/test').Browser;
+  fixture: 'standard' | 'long';
+  viewportName: 'desktop' | 'mobile';
+  viewport: { width: number; height: number };
+  scrollStage: 'top' | 'middle' | 'bottom';
+}) => {
+  const { page, browser, fixture, viewportName, viewport, scrollStage } = options;
+  const center = page.locator('.pc-template-center');
+  const initialMetrics = await center.evaluate((element) => ({
+    scrollTop: element.scrollTop,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }));
+  const maxScroll = initialMetrics.scrollHeight - initialMetrics.clientHeight;
+  expect(
+    maxScroll,
+    `${fixture}/${viewportName} must have a real internal scroll range for top/middle/bottom evidence`,
+  ).toBeGreaterThan(200);
+  const targetScrollTop =
+    scrollStage === 'top' ? 0 : scrollStage === 'middle' ? Math.round(maxScroll / 2) : maxScroll;
+  await center.evaluate((element, scrollTop) => {
+    element.scrollTop = scrollTop;
+  }, targetScrollTop);
+  await expect.poll(() => center.evaluate((element) => element.scrollTop)).toBe(targetScrollTop);
+  const scrollMetrics = await center.evaluate((element) => ({
+    scrollTop: element.scrollTop,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    documentScrollWidth: document.documentElement.scrollWidth,
+    documentClientWidth: document.documentElement.clientWidth,
+  }));
+  const actualMaxScroll = scrollMetrics.scrollHeight - scrollMetrics.clientHeight;
+  expect(scrollMetrics.scrollWidth - scrollMetrics.clientWidth).toBeLessThanOrEqual(0);
+  expect(scrollMetrics.documentScrollWidth - scrollMetrics.documentClientWidth).toBeLessThanOrEqual(
+    0,
+  );
+  if (scrollStage === 'middle') {
+    expect(scrollMetrics.scrollTop).toBeGreaterThan(0);
+    expect(scrollMetrics.scrollTop).toBeLessThan(actualMaxScroll);
+  } else if (scrollStage === 'bottom') {
+    expect(scrollMetrics.scrollTop).toBeGreaterThanOrEqual(actualMaxScroll - 1);
+  } else {
+    expect(scrollMetrics.scrollTop).toBe(0);
+  }
+
+  await mkdir(d2S1MatrixDirectory, { recursive: true });
+  const fileBase = `${fixture}-${viewportName}-${scrollStage}-${viewport.width}x${viewport.height}`;
+  const screenshotPath = path.join(d2S1MatrixDirectory, `${fileBase}.png`);
+  await page.screenshot({ path: screenshotPath, fullPage: false });
+  const screenshot = await readFile(screenshotPath);
+  const viewportMetrics = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    devicePixelRatio: window.devicePixelRatio,
+  }));
+  const metadata = {
+    testedGitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    testedTreeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
+    dirtyStatus: execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
+    nodeVersion: process.version,
+    browserName: browser.browserType().name(),
+    browserVersion: browser.version(),
+    viewport: viewportMetrics,
+    fixture,
+    locale: 'en',
+    scrollContainer: '.pc-template-center',
+    scrollStage,
+    scrollMetrics,
+    screenshotPath: path.relative(process.cwd(), screenshotPath),
+    screenshotSha256: createHash('sha256').update(screenshot).digest('hex'),
+  };
+  await writeFile(
+    path.join(d2S1MatrixDirectory, `${fileBase}.json`),
+    `${JSON.stringify(metadata, null, 2)}\n`,
+  );
 };
 
 if (pcStudioEnabled) {
@@ -377,6 +659,81 @@ if (pcStudioEnabled) {
         }
       } finally {
         await localePage.close();
+      }
+    }
+  });
+
+  test('mobile header, Export, and return path remain reachable in both locales @d2-s1', async ({
+    page,
+    browser,
+  }) => {
+    for (const locale of ['en', 'zh-CN'] as const) {
+      const mobilePage = await page.context().newPage();
+      try {
+        await installFixture(mobilePage, { locale });
+        await mobilePage.setViewportSize({ width: 390, height: 844 });
+        await openStudio(mobilePage);
+        await captureD2S1Screenshot({
+          page: mobilePage,
+          browser,
+          label: `mobile-header-${locale}`,
+          viewport: { width: 390, height: 844 },
+          fixture: 'fictional-header',
+          locale,
+          scrollContainer: '.pc-header-actions',
+        });
+
+        const headerMetrics = await mobilePage.evaluate(() => {
+          const header = document.querySelector<HTMLElement>('.pc-studio-header');
+          const actions = document.querySelector<HTMLElement>('.pc-header-actions');
+          if (!header || !actions) throw new Error('PC Studio mobile header is missing.');
+          return {
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
+            actionsOverflow: getComputedStyle(actions).overflowX,
+            actionsScrollWidth: actions.scrollWidth,
+            actionsClientWidth: actions.clientWidth,
+            headerBounds: header.getBoundingClientRect().toJSON(),
+          };
+        });
+        expect(headerMetrics.viewport).toEqual({ width: 390, height: 844 });
+        expect(headerMetrics.documentOverflow).toBeLessThanOrEqual(0);
+        expect(headerMetrics.actionsOverflow).toMatch(/^(auto|scroll)$/u);
+
+        const exportSummary = mobilePage.locator('.pc-export-menu summary');
+        await exportSummary.scrollIntoViewIfNeeded();
+        const exportBounds = await exportSummary.boundingBox();
+        const actionsBounds = await mobilePage.locator('.pc-header-actions').boundingBox();
+        expect(exportBounds).not.toBeNull();
+        expect(actionsBounds).not.toBeNull();
+        expect(exportBounds!.x).toBeGreaterThanOrEqual(actionsBounds!.x - 1);
+        expect(exportBounds!.x + exportBounds!.width).toBeLessThanOrEqual(
+          actionsBounds!.x + actionsBounds!.width + 1,
+        );
+        expect(exportBounds!.x).toBeGreaterThanOrEqual(0);
+        expect(exportBounds!.x + exportBounds!.width).toBeLessThanOrEqual(390);
+        await exportSummary.focus();
+        await expect(exportSummary).toBeFocused();
+        await mobilePage.keyboard.press('Enter');
+        const exportOptions = mobilePage.locator('.pc-export-options');
+        await expect(exportOptions).toBeVisible();
+        await expect(exportOptions.getByRole('menuitem')).toHaveCount(3);
+        await mobilePage.keyboard.press('Escape');
+        if (await exportOptions.isVisible()) await exportSummary.click();
+
+        const templateCenterName = locale === 'en' ? 'Template Center' : '模板中心';
+        await mobilePage.getByRole('button', { name: templateCenterName, exact: true }).click();
+        const backName = locale === 'en' ? 'Back to Workspace' : '返回工作区';
+        const backButton = mobilePage.getByRole('button', { name: backName, exact: true });
+        await expect(backButton).toBeVisible();
+        const backBounds = await backButton.boundingBox();
+        expect(backBounds).not.toBeNull();
+        expect(backBounds!.x).toBeGreaterThanOrEqual(0);
+        expect(backBounds!.x + backBounds!.width).toBeLessThanOrEqual(390);
+        await backButton.click();
+        await expect(mobilePage.getByTestId('pc-studio')).toBeVisible();
+      } finally {
+        await mobilePage.close();
       }
     }
   });
@@ -519,8 +876,9 @@ if (pcStudioEnabled) {
     expect(canonicalAfter.customTemplates).toEqual(canonicalBefore.customTemplates);
   });
 
-  test('read-only live preview uses canonical resume data and preserves stores and persistence', async ({
+  test('read-only live preview uses canonical resume data and preserves stores and persistence @d2-s1', async ({
     page,
+    browser,
   }) => {
     const canonicalResume = createEmptyResume();
     canonicalResume.personal.fullName = 'D2-S1 Live Candidate';
@@ -573,6 +931,8 @@ if (pcStudioEnabled) {
     expect(await readStorageWriteLog(page)).toEqual([]);
 
     const mobileBefore = await readPersistedWorkspace(page);
+    const mobileRuntimeBefore = await readRuntimeStoreSnapshot(page);
+    const mobileStorageBefore = await readLocalStorageSnapshot(page);
     await page.getByRole('button', { name: 'Template Center' }).click();
     const mobileCenter = page.getByTestId('pc-template-center');
     await expect(mobileCenter).toBeVisible();
@@ -598,15 +958,32 @@ if (pcStudioEnabled) {
     expect(previewOverflow.document).toBeLessThanOrEqual(0);
     expect(previewOverflow.paper).toBeLessThanOrEqual(0);
     expect(previewOverflow.paperWidth).toBeLessThanOrEqual(390);
-    await captureD2S1Screenshot(page, 'custom-live-preview-mobile', { width: 390, height: 844 });
+    await captureD2S1Screenshot({
+      page,
+      browser,
+      label: 'custom-live-preview-mobile',
+      viewport: { width: 390, height: 844 },
+      fixture: 'canonical-d2-s1',
+      locale: 'en',
+      scrollContainer: '.pc-template-center',
+    });
     await page.getByRole('button', { name: 'Back to Workspace' }).click();
     await expect(page.getByTestId('pc-template-center')).toHaveCount(0);
     const mobileAfter = await readPersistedWorkspace(page);
     expect(mobileAfter).toEqual(mobileBefore);
+    expect(await readRuntimeStoreSnapshot(page)).toEqual(mobileRuntimeBefore);
+    expect(await readLocalStorageSnapshot(page)).toEqual(mobileStorageBefore);
     const mobileStorageWrites = await readStorageWriteLog(page);
     expect(
       mobileStorageWrites.filter((key) =>
         [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(key),
+      ),
+    ).toEqual([]);
+    const mobileStorageOperations = await readStorageOperationLog(page);
+    expect(mobileStorageOperations).not.toContainEqual({ method: 'clear', key: null });
+    expect(
+      mobileStorageOperations.filter((operation) =>
+        [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
       ),
     ).toEqual([]);
 
@@ -617,10 +994,30 @@ if (pcStudioEnabled) {
       /^(ready|saved)$/u,
     );
     await expect.poll(async () => readStorageWriteLog(page)).toContain(UI_STORE_PERSIST_KEY);
+    const breakpointOperations = await readStorageOperationLog(page);
+    const breakpointStoreOperations = breakpointOperations.filter((operation) =>
+      [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
+    );
+    expect(breakpointStoreOperations).toContainEqual({
+      method: 'setItem',
+      key: UI_STORE_PERSIST_KEY,
+    });
+    expect(
+      breakpointStoreOperations.filter((operation) => operation.key === RESUME_STORE_PERSIST_KEY),
+    ).toEqual([]);
+    expect(
+      breakpointStoreOperations
+        .filter((operation) => operation.key === UI_STORE_PERSIST_KEY)
+        .every((operation) => operation.method === 'setItem'),
+    ).toBe(true);
+    expect(await readRuntimeStoreSnapshot(page)).toEqual(mobileRuntimeBefore);
+    expect(await readLocalStorageSnapshot(page)).toEqual(mobileStorageBefore);
     await clearStorageWriteLog(page);
     expect(await readStorageWriteLog(page)).toEqual([]);
     const before = await readPersistedWorkspace(page);
     expect(before).toEqual(mobileBefore);
+    const runtimeBefore = await readRuntimeStoreSnapshot(page);
+    const storageSnapshotBefore = await readLocalStorageSnapshot(page);
 
     const templateCenterTrigger = page.getByRole('button', { name: 'Template Center' });
     await templateCenterTrigger.focus();
@@ -660,7 +1057,15 @@ if (pcStudioEnabled) {
     await expect(center.getByRole('status')).toContainText('Preview only');
     await expect(center.getByRole('button', { name: /Apply/i })).toHaveCount(0);
     await expect(center.getByRole('button', { name: /Load Sample/i })).toHaveCount(0);
-    await captureD2S1Screenshot(page, 'custom-live-preview', { width: 1440, height: 900 });
+    await captureD2S1Screenshot({
+      page,
+      browser,
+      label: 'custom-live-preview',
+      viewport: { width: 1440, height: 900 },
+      fixture: 'canonical-d2-s1',
+      locale: 'en',
+      scrollContainer: '.pc-template-center',
+    });
 
     await page.getByRole('button', { name: 'Back to Gallery' }).click();
     await expect(livePreview).toHaveCount(0);
@@ -703,11 +1108,20 @@ if (pcStudioEnabled) {
 
     const after = await readPersistedWorkspace(page);
     expect(after).toEqual(before);
+    expect(await readRuntimeStoreSnapshot(page)).toEqual(runtimeBefore);
+    expect(await readLocalStorageSnapshot(page)).toEqual(storageSnapshotBefore);
     const storageWriteLog = await readStorageWriteLog(page);
     const storeWrites = storageWriteLog.filter((key) =>
       [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(key),
     );
     expect(storeWrites).toEqual([]);
+    const storageOperations = await readStorageOperationLog(page);
+    expect(storageOperations).not.toContainEqual({ method: 'clear', key: null });
+    expect(
+      storageOperations.filter((operation) =>
+        [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
+      ),
+    ).toEqual([]);
 
     await page.getByRole('button', { name: 'Template Center' }).click();
     await expect(center).toBeVisible();
@@ -727,6 +1141,15 @@ if (pcStudioEnabled) {
     await expect(page.getByTestId('pc-template-live-preview')).toHaveCount(0);
     const persistedAfterReload = await readPersistedWorkspace(page);
     expect(persistedAfterReload).toEqual(before);
+    expect(await readRuntimeStoreSnapshot(page)).toEqual(runtimeBefore);
+    expect(await readLocalStorageSnapshot(page)).toEqual(storageSnapshotBefore);
+    const reloadOperations = await readStorageOperationLog(page);
+    expect(reloadOperations).not.toContainEqual({ method: 'clear', key: null });
+    expect(
+      reloadOperations.filter((operation) =>
+        [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
+      ),
+    ).toEqual([]);
   });
 
   test('a missing persisted template is never relabeled as Current or silently repaired', async ({
@@ -791,6 +1214,56 @@ if (pcStudioEnabled) {
     expect(after.resume?.state.activeSections).toEqual(before.resume?.state.activeSections);
     expect(after.ui?.state.templateId).toBe(before.ui?.state.templateId);
   });
+
+  const matrixViewports = [
+    { name: 'desktop', viewport: { width: 1440, height: 900 } },
+    { name: 'mobile', viewport: { width: 390, height: 844 } },
+  ] as const;
+  const matrixScrollStages = ['top', 'middle', 'bottom'] as const;
+  const matrixActiveSections: ActiveSectionKey[] = [
+    'experience',
+    'education',
+    'projects',
+    'skills',
+    'languages',
+    'awards',
+  ];
+
+  for (const fixture of ['standard', 'long'] as const) {
+    for (const viewportCase of matrixViewports) {
+      for (const scrollStage of matrixScrollStages) {
+        test(`D2-S1 visual matrix ${fixture}/${viewportCase.name}/${scrollStage} @d2-s1`, async ({
+          page,
+          browser,
+        }) => {
+          const resume = createD2S1MatrixResume(fixture);
+          await installFixture(page, { resume, activeSections: matrixActiveSections });
+          await page.setViewportSize(viewportCase.viewport);
+          await openStudio(page);
+          await page.getByRole('button', { name: 'Template Center', exact: true }).click();
+
+          const center = page.getByTestId('pc-template-center');
+          await expect(center).toBeVisible();
+          const builtInCard = center.locator(
+            `[data-template-source="built-in"][data-template-id="${currentTemplateId}"]`,
+          );
+          await builtInCard.getByRole('button', { name: 'View Details' }).click();
+          await center.getByRole('button', { name: 'Live Preview' }).click();
+          const livePreview = page.getByTestId('pc-template-live-preview');
+          await expect(livePreview).toBeVisible();
+          await expect(livePreview).toContainText(resume.personal.fullName ?? '');
+          await captureD2S1MatrixState({
+            page,
+            browser,
+            fixture,
+            viewportName: viewportCase.name,
+            viewport: viewportCase.viewport,
+            scrollStage,
+          });
+        });
+      }
+    }
+  }
 } else {
   test('PC Studio remains unavailable while the feature gate is off', async ({ page }) => {
     await page.goto('/pc-studio');

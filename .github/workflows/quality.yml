@@ -8,6 +8,12 @@ on:
       - reopened
       - labeled
   workflow_dispatch:
+    inputs:
+      run_d2_s1_browser_acceptance:
+        description: Run the D2-S1 Linux Chromium acceptance suite
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,6 +32,7 @@ jobs:
           check-latest: true
           cache: npm
       - run: npm install --global npm@11.20.0
+      - run: node --version && npm --version
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run typecheck
@@ -34,12 +41,55 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=1 --retries=0
+        env:
+          VITE_ENABLE_PC_STUDIO: 'false'
       - uses: actions/upload-artifact@v7
         if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/phase4b-') }}
         with:
-          name: phase4b-studio-visual-review
+          name: phase4b-studio-visual-review-${{ matrix.node }}
           path: test-results/**/phase4b-*.png
           if-no-files-found: ignore
+          retention-days: 14
+
+  d2-s1-chromium-acceptance:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_d2_s1_browser_acceptance }}
+    needs: quality
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26.11.1'
+          check-latest: true
+          cache: npm
+      - run: npm install --global npm@11.20.0
+      - run: node --version
+      - run: npm --version
+      - run: npm ci
+      - name: Install Playwright Chromium and Linux dependencies
+        id: install-chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run D2-S1 Chromium acceptance with PC Studio enabled
+        run: npm run test:e2e -- --workers=1 --retries=0 --output=test-results/d2-s1-gate-on --grep @d2-s1 e2e/pc-d4-template-center.spec.ts
+        env:
+          VITE_ENABLE_PC_STUDIO: 'true'
+      - name: Verify the PC Studio feature gate remains closed
+        if: ${{ always() && steps.install-chromium.outcome == 'success' }}
+        run: npm run test:e2e -- --workers=1 --retries=0 --output=test-results/d2-s1-gate-off e2e/pc-d4-template-center.spec.ts e2e/pc-d1-gate-off.spec.ts
+        env:
+          VITE_ENABLE_PC_STUDIO: 'false'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: d2-s1-chromium-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/pc-d4-d2/d2-s1/screenshots/**
+            artifacts/pc-d4-d2/d2-s1/visual-matrix/**
+            test-results/**
+          if-no-files-found: warn
           retention-days: 14
 
   linux-firefox-acceptance:
