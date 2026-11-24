@@ -21,6 +21,7 @@ permissions:
 jobs:
   quality:
     strategy:
+      fail-fast: false
       matrix:
         node: ['24.22.1', '26.11.1']
     runs-on: ubuntu-26.04
@@ -33,16 +34,43 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.20.0
       - run: node --version && npm --version
-      - run: npm ci
+      - id: install-dependencies
+        run: npm ci
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e -- --workers=1 --retries=0
+      - id: build
+        run: npm run build
+      - name: Install Playwright Chromium and Linux dependencies
+        id: install-chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run standard Chromium regression with PC Studio disabled
+        id: chromium-gate-off
+        run: npm run test:e2e -- --config playwright.quality-gate-off.config.ts --workers=1 --retries=0 --output=test-results/quality-gate-off
         env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/quality-gate-off/report.json
           VITE_ENABLE_PC_STUDIO: 'false'
+      - name: Run PC Studio Chromium regression with feature gate enabled
+        id: chromium-gate-on
+        if: ${{ always() && !cancelled() && steps.install-dependencies.outcome == 'success' && steps.build.outcome == 'success' && steps.install-chromium.outcome == 'success' }}
+        run: >-
+          npm run test:e2e -- --workers=1 --retries=0
+          --output=test-results/quality-gate-on --grep-invert @d2-s1
+          e2e/ai-dock-scroll.spec.ts e2e/pc-d1-studio.spec.ts
+          e2e/pc-d4-template-center.spec.ts
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/quality-gate-on/report.json
+          VITE_ENABLE_PC_STUDIO: 'true'
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && steps.install-chromium.outcome == 'success' }}
+        with:
+          name: quality-chromium-${{ matrix.node }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/quality-gate-off/**
+            test-results/quality-gate-on/**
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'design/phase4b-') }}
         with:
@@ -75,11 +103,13 @@ jobs:
       - name: Run D2-S1 Chromium acceptance with PC Studio enabled
         run: npm run test:e2e -- --workers=1 --retries=0 --output=test-results/d2-s1-gate-on --grep @d2-s1 e2e/pc-d4-template-center.spec.ts
         env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/d2-s1-gate-on/report.json
           VITE_ENABLE_PC_STUDIO: 'true'
       - name: Verify the PC Studio feature gate remains closed
         if: ${{ always() && steps.install-chromium.outcome == 'success' }}
         run: npm run test:e2e -- --workers=1 --retries=0 --output=test-results/d2-s1-gate-off e2e/pc-d4-template-center.spec.ts e2e/pc-d1-gate-off.spec.ts
         env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/d2-s1-gate-off/report.json
           VITE_ENABLE_PC_STUDIO: 'false'
       - uses: actions/upload-artifact@v7
         if: always()

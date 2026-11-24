@@ -10,10 +10,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
-  reporter: 'list',
+  reporter: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE
+    ? [['list'], ['json', { outputFile: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE }]]
+    : 'list',
   use: {
     ...devices['Desktop Chrome'],
     baseURL,
+    screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
   webServer: {
