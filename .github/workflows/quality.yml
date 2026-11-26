@@ -14,6 +14,11 @@ on:
         required: false
         type: boolean
         default: false
+      run_d2_s1_diagnostics:
+        description: Run independent D2-S1 product diagnostics before the formal quality gate
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -77,6 +82,82 @@ jobs:
           name: phase4b-studio-visual-review-${{ matrix.node }}
           path: test-results/**/phase4b-*.png
           if-no-files-found: ignore
+          retention-days: 14
+
+  d2-s1-early-diagnostics:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_d2_s1_diagnostics }}
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24.22.1', '26.11.1']
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          check-latest: true
+          cache: npm
+      - run: npm install --global npm@11.20.0
+      - run: node --version && npm --version
+      - id: install-dependencies
+        run: npm ci
+      - name: Install Playwright Chromium and Linux dependencies
+        id: install-chromium
+        if: ${{ always() && steps.install-dependencies.outcome == 'success' }}
+        run: npx playwright install --with-deps chromium
+      - name: Build candidate for diagnostic context
+        id: build-candidate
+        if: ${{ always() && steps.install-dependencies.outcome == 'success' }}
+        run: npm run build
+        env:
+          VITE_ENABLE_PC_STUDIO: 'true'
+      - name: Repeat deterministic AI Dock SSE E2E five times
+        id: diagnostic-sse-repeat
+        if: ${{ always() && steps.install-dependencies.outcome == 'success' && steps.install-chromium.outcome == 'success' }}
+        run: >-
+          npm run test:e2e -- --workers=1 --retries=0 --repeat-each=5
+          --output=test-results/d2-s1-sse-repeat
+          --grep "AI Dock runs the official inline controller with a local test SSE endpoint"
+          e2e/pc-d1-studio.spec.ts
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/d2-s1-sse-repeat/report.json
+          VITE_ENABLE_PC_STUDIO: 'true'
+      - name: Run Focus, SSE, Header, and D2-S1 Gate ON diagnostics
+        id: diagnostic-gate-on
+        if: ${{ always() && steps.install-dependencies.outcome == 'success' && steps.install-chromium.outcome == 'success' }}
+        run: >-
+          npm run test:e2e -- --workers=1 --retries=0
+          --output=test-results/d2-s1-diagnostic-on
+          e2e/ai-dock-scroll.spec.ts e2e/pc-d1-studio.spec.ts
+          e2e/pc-d4-template-center.spec.ts
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/d2-s1-diagnostic-on/report.json
+          VITE_ENABLE_PC_STUDIO: 'true'
+      - name: Verify Gate OFF fallback and isolation
+        id: diagnostic-gate-off
+        if: ${{ always() && steps.install-dependencies.outcome == 'success' && steps.install-chromium.outcome == 'success' }}
+        run: >-
+          npm run test:e2e -- --config playwright.quality-gate-off.config.ts
+          --workers=1 --retries=0 --output=test-results/d2-s1-diagnostic-off
+          e2e/pc-d4-template-center.spec.ts e2e/pc-d1-gate-off.spec.ts
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/d2-s1-diagnostic-off/report.json
+          VITE_ENABLE_PC_STUDIO: 'false'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: d2-s1-early-diagnostic-${{ matrix.node }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/pc-d4-d2/d2-s1/screenshots/**
+            artifacts/pc-d4-d2/d2-s1/visual-matrix/**
+            test-results/d2-s1-diagnostic-on/**
+            test-results/d2-s1-diagnostic-off/**
+            test-results/d2-s1-sse-repeat/**
+          if-no-files-found: warn
           retention-days: 14
 
   d2-s1-chromium-acceptance:
