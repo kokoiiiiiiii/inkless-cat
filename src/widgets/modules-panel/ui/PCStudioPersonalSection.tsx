@@ -26,6 +26,8 @@ type PCStudioPersonalSectionProps = {
   onExtraAdd: () => void;
   onExtraChange: (id: string, key: keyof ResumePersonalExtra, value: string) => void;
   onExtraRemove: (id: string) => void;
+  moreFieldsOpen: boolean;
+  onMoreFieldsOpenChange?: (open: boolean) => void;
   onSettingChange: <Key extends keyof PersonalSettings>(
     key: Key,
     value: PersonalSettings[Key],
@@ -42,6 +44,8 @@ const PCStudioPersonalSection = memo(
     onExtraAdd,
     onExtraChange,
     onExtraRemove,
+    moreFieldsOpen,
+    onMoreFieldsOpenChange,
     onSettingChange,
   }: PCStudioPersonalSectionProps) => {
     const { t } = useI18n();
@@ -211,7 +215,12 @@ const PCStudioPersonalSection = memo(
           </div>
         </section>
 
-        <details className={styles.more} data-testid="pc-personal-more">
+        <details
+          className={styles.more}
+          data-testid="pc-personal-more"
+          open={moreFieldsOpen}
+          onToggle={(event) => onMoreFieldsOpenChange?.(event.currentTarget.open)}
+        >
           <summary>
             <span>{t('editor.pcStudio.morePersonalFields')}</span>
             <span aria-hidden="true" className={styles.chevron}>

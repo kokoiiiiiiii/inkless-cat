@@ -13,6 +13,8 @@ type FocusedModulesPanelProps = {
   resume: ResumeData;
   controller: UseModulesPanelControllerResult;
   personalPresentation?: 'standard' | 'pc-studio';
+  personalMoreOpen?: boolean;
+  onPersonalMoreOpenChange?: (open: boolean) => void;
 };
 
 export const FocusedModulesPanel = ({
@@ -20,6 +22,8 @@ export const FocusedModulesPanel = ({
   resume,
   controller,
   personalPresentation = 'standard',
+  personalMoreOpen = false,
+  onPersonalMoreOpenChange,
 }: FocusedModulesPanelProps) => {
   const {
     personalSettings,
@@ -59,6 +63,8 @@ export const FocusedModulesPanel = ({
           onExtraChange={handlePersonalExtraChange}
           onExtraRemove={handlePersonalExtraRemove}
           onSettingChange={handlePersonalSettingChange}
+          moreFieldsOpen={personalMoreOpen}
+          onMoreFieldsOpenChange={onPersonalMoreOpenChange}
         />
       );
     }

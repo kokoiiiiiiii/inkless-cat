@@ -26,6 +26,7 @@ const PCStudioPage = () => {
   const templateTriggerRef = useRef<HTMLButtonElement | null>(null);
   const templateManagerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [templateCenterOpen, setTemplateCenterOpen] = useState(false);
+  const [personalMoreOpen, setPersonalMoreOpen] = useState(false);
   const wasTemplateCenterOpenRef = useRef(false);
   const currentTemplateId = useUISelector((state) => state.templateId);
   const setTemplateManagerOpen = studio.setTemplateOpen;
@@ -165,6 +166,8 @@ const PCStudioPage = () => {
                   resume={studio.resume}
                   controller={studio.modulesController}
                   personalPresentation="pc-studio"
+                  personalMoreOpen={personalMoreOpen}
+                  onPersonalMoreOpenChange={setPersonalMoreOpen}
                 />
               </div>
             </div>
