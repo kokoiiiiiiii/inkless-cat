@@ -1,4 +1,5 @@
 import { createEmptyResume } from '@entities/resume';
+import { AIResumeEnhancementProvider } from '@features/ai-resume-enhancement';
 import type { PersonalSettings } from '@features/edit-module';
 import { I18nProvider } from '@shared/i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -13,6 +14,13 @@ const settings: PersonalSettings = {
   photoSize: 96,
   photoPosition: 'right',
 };
+const provider = {
+  configuration: null,
+  isConfigured: false,
+  connectionStatus: 'not_configured',
+  complete: vi.fn().mockResolvedValue({ content: '' }),
+  streamComplete: vi.fn().mockResolvedValue({ content: '' }),
+} satisfies Parameters<typeof AIResumeEnhancementProvider>[0]['provider'];
 
 const FocusRecoveryHarness = () => {
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
@@ -20,26 +28,28 @@ const FocusRecoveryHarness = () => {
 
   return (
     <I18nProvider>
-      <button type="button" onClick={() => setEditorMounted(false)}>
-        Unmount editor
-      </button>
-      <button type="button" onClick={() => setEditorMounted(true)}>
-        Restore editor
-      </button>
-      {editorMounted && (
-        <PCStudioPersonalSection
-          personal={personal}
-          settings={settings}
-          onChange={vi.fn()}
-          notifyFocus={vi.fn()}
-          onExtraAdd={vi.fn()}
-          onExtraChange={vi.fn()}
-          onExtraRemove={vi.fn()}
-          onSettingChange={vi.fn()}
-          moreFieldsOpen={moreFieldsOpen}
-          onMoreFieldsOpenChange={setMoreFieldsOpen}
-        />
-      )}
+      <AIResumeEnhancementProvider provider={provider}>
+        <button type="button" onClick={() => setEditorMounted(false)}>
+          Unmount editor
+        </button>
+        <button type="button" onClick={() => setEditorMounted(true)}>
+          Restore editor
+        </button>
+        {editorMounted && (
+          <PCStudioPersonalSection
+            personal={personal}
+            settings={settings}
+            onChange={vi.fn()}
+            notifyFocus={vi.fn()}
+            onExtraAdd={vi.fn()}
+            onExtraChange={vi.fn()}
+            onExtraRemove={vi.fn()}
+            onSettingChange={vi.fn()}
+            moreFieldsOpen={moreFieldsOpen}
+            onMoreFieldsOpenChange={setMoreFieldsOpen}
+          />
+        )}
+      </AIResumeEnhancementProvider>
     </I18nProvider>
   );
 };
@@ -47,17 +57,17 @@ const FocusRecoveryHarness = () => {
 describe('PCStudioPersonalSection editor lifecycle', () => {
   it('keeps the expanded personal fields open when the editor subtree remounts', async () => {
     render(<FocusRecoveryHarness />);
-    const details = screen.getByTestId('pc-personal-more') as HTMLDetailsElement;
+    const details = screen.getByTestId<HTMLDetailsElement>('pc-personal-more');
     const summary = details.querySelector('summary');
-    expect(summary).not.toBeNull();
+    if (!summary) throw new Error('Personal details summary is missing.');
 
-    fireEvent.click(summary!);
+    fireEvent.click(summary);
     await waitFor(() => expect(details.open).toBe(true));
 
     fireEvent.click(screen.getByRole('button', { name: 'Unmount editor' }));
     expect(screen.queryByTestId('pc-personal-more')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Restore editor' }));
-    expect((screen.getByTestId('pc-personal-more') as HTMLDetailsElement).open).toBe(true);
+    expect(screen.getByTestId<HTMLDetailsElement>('pc-personal-more').open).toBe(true);
   });
 });

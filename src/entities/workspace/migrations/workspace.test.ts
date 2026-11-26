@@ -1,6 +1,7 @@
 import { type ActiveSectionKey, createEmptyResume } from '@entities/resume';
 import type { ResumeTemplate } from '@entities/template';
 import { workspaceToJson } from '@features/export-resume';
+import { MAX_TEMPLATE_NAME_LENGTH } from '@shared/lib/limits';
 import { isErr } from '@shared/lib/result';
 import { describe, expect, it } from 'vitest';
 
@@ -114,6 +115,28 @@ describe('migrateWorkspace', () => {
     expect(isErr(result)).toBe(true);
     if (isErr(result)) {
       expect(result.error.code).toBe('INVALID_WORKSPACE');
+    }
+  });
+
+  it('accepts the schema-valid long-name header pressure fixture', () => {
+    const base = createDefaultWorkspace();
+    const resume = createEmptyResume();
+    resume.personal.fullName = 'Candidate ' + 'W'.repeat(500);
+    const template = {
+      ...customTemplate,
+      name: 'T'.repeat(MAX_TEMPLATE_NAME_LENGTH),
+    };
+    const result = migrateWorkspace({
+      ...base,
+      resume,
+      templateId: template.id,
+      customTemplates: [template],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.resume.personal.fullName).toBe(resume.personal.fullName);
+      expect(result.value.customTemplates[0]?.name).toHaveLength(MAX_TEMPLATE_NAME_LENGTH);
     }
   });
 });

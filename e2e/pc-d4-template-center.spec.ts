@@ -13,6 +13,7 @@ import {
 } from '@entities/workspace';
 import { expect, test } from '@playwright/test';
 import { LOCALE_KEY } from '@shared/i18n';
+import { MAX_RESUME_TEXT_LENGTH, MAX_TEMPLATE_NAME_LENGTH } from '@shared/lib/limits';
 import { RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY } from '@shared/lib/storage';
 
 const pcStudioEnabled = process.env.VITE_ENABLE_PC_STUDIO === 'true';
@@ -21,6 +22,25 @@ const d2S1ScreenshotDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/screensho
 const d2S1MatrixDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/visual-matrix');
 const customTemplateId = 'pc-d4-d1-fictional-custom-template';
 const currentTemplateId = templates[0]?.id ?? 'modern-blue';
+const storageOperationKey = '__pcD4StorageOperationsV2';
+const storagePhaseKey = '__pcD4StoragePhase';
+const storageWorkspaceKey = '__pcD4StorageWorkspaceIdentity';
+
+type StorageOperation = {
+  sequence: number;
+  phase: string;
+  key: string | null;
+  method: 'setItem' | 'removeItem' | 'clear';
+  previousValue: string | null;
+  nextValue: string | null;
+  workspaceIdentity: string;
+  source: string;
+  callStack: string;
+  businessFieldsBefore: unknown;
+  businessFieldsAfter: unknown;
+  businessFieldsChanged: boolean | null;
+  result: 'completed' | 'threw';
+};
 
 const getExecutionIdentity = () => ({
   kind: process.env.GITHUB_RUN_ID ? 'github-actions' : 'local',
@@ -45,6 +65,7 @@ const installFixture = async (
     resume?: ResumeData;
     activeSections?: ActiveSectionKey[];
     locale?: 'en' | 'zh-CN';
+    fixtureIdentity?: string;
   } = {},
 ) => {
   const defaults = createDefaultWorkspace();
@@ -55,22 +76,37 @@ const installFixture = async (
     activeSections: options.activeSections ?? [],
     customTemplates: options.customTemplates ?? [fictionalCustomTemplate],
   });
-  if (!normalized.ok) throw new Error(normalized.error.message);
+  if (!normalized.ok) {
+    throw new Error(
+      `${normalized.error.message} details=${JSON.stringify(normalized.error.details ?? null)}`,
+    );
+  }
 
   await page.addInitScript(
-    ({ resumeKey, uiKey, localeKey, locale, resumeState, uiState }) => {
+    ({
+      resumeKey,
+      uiKey,
+      localeKey,
+      locale,
+      resumeState,
+      uiState,
+      fixtureIdentity,
+      operationKey,
+      phaseKey,
+      workspaceKey,
+    }) => {
       const fixtureSeedKey = '__pcD4FixtureSeeded';
-      if (sessionStorage.getItem(fixtureSeedKey) !== 'true') {
-        localStorage.setItem(resumeKey, JSON.stringify(resumeState));
-        localStorage.setItem(uiKey, JSON.stringify(uiState));
-        localStorage.setItem(localeKey, locale);
-        sessionStorage.setItem(fixtureSeedKey, 'true');
-      }
-
       const storage = globalThis.localStorage;
-      const writes: string[] = [];
-      const operations: Array<{ method: 'setItem' | 'removeItem' | 'clear'; key: string | null }> =
-        [];
+      const restoredOperations = sessionStorage.getItem(operationKey);
+      let operations: StorageOperation[] = [];
+      try {
+        operations = JSON.parse(restoredOperations ?? '[]') as StorageOperation[];
+      } catch {
+        operations = [];
+      }
+      const writes = operations
+        .filter((operation) => operation.method === 'setItem' && operation.key !== null)
+        .map((operation) => operation.key as string);
       const originalSetItem = Object.getOwnPropertyDescriptor(Storage.prototype, 'setItem')
         ?.value as Storage['setItem'] | undefined;
       const originalRemoveItem = Object.getOwnPropertyDescriptor(Storage.prototype, 'removeItem')
@@ -81,21 +117,128 @@ const installFixture = async (
       if (!originalSetItem || !originalRemoveItem || !originalClear) {
         throw new Error('Storage write methods are unavailable.');
       }
+
+      const readBusinessFields = (key: string | null, value: string | null): unknown => {
+        if (value === null || (key !== resumeKey && key !== uiKey)) return null;
+        try {
+          const parsed = JSON.parse(value) as { state?: Record<string, unknown> };
+          const state = parsed.state ?? {};
+          if (key === resumeKey) {
+            return {
+              resume: state.resume ?? null,
+              activeSections: state.activeSections ?? null,
+            };
+          }
+          return {
+            theme: state.theme ?? null,
+            templateId: state.templateId ?? null,
+            customTemplates: state.customTemplates ?? null,
+          };
+        } catch {
+          return { invalidJson: true };
+        }
+      };
+      const currentPhase = () => sessionStorage.getItem(phaseKey) ?? 'APPLICATION_BOOTSTRAP';
+      const recordOperation = (
+        method: StorageOperation['method'],
+        key: string | null,
+        previousValue: string | null,
+        nextValue: string | null,
+        result: StorageOperation['result'],
+      ) => {
+        const callStack = new Error('localStorage operation').stack ?? '';
+        const frames = callStack.split('\n').map((frame) => frame.trim());
+        const source =
+          frames.find(
+            (frame, index) =>
+              index > 1 &&
+              !frame.includes('recordOperation') &&
+              !frame.includes('Storage.setItem') &&
+              !frame.includes('Storage.removeItem') &&
+              !frame.includes('Storage.clear'),
+          ) ?? 'UNATTRIBUTED';
+        const before = readBusinessFields(key, previousValue);
+        const after = readBusinessFields(key, nextValue);
+        const event: StorageOperation = {
+          sequence: operations.length + 1,
+          phase: currentPhase(),
+          key,
+          method,
+          previousValue,
+          nextValue,
+          workspaceIdentity: sessionStorage.getItem(workspaceKey) ?? fixtureIdentity,
+          source,
+          callStack,
+          businessFieldsBefore: before,
+          businessFieldsAfter: after,
+          businessFieldsChanged:
+            before === null || after === null
+              ? null
+              : JSON.stringify(before) !== JSON.stringify(after),
+          result,
+        };
+        operations.push(event);
+        if (method === 'setItem' && key !== null) writes.push(key);
+        try {
+          sessionStorage.setItem(operationKey, JSON.stringify(operations));
+        } catch {
+          // The localStorage operation remains captured in memory even if sessionStorage is full.
+        }
+      };
+
       Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
         if (this === storage) {
-          writes.push(key);
-          operations.push({ method: 'setItem', key });
+          const previousValue = storage.getItem(key);
+          try {
+            originalSetItem.call(this, key, value);
+            recordOperation('setItem', key, previousValue, value, 'completed');
+          } catch (error) {
+            recordOperation('setItem', key, previousValue, value, 'threw');
+            throw error;
+          }
+          return;
         }
         originalSetItem.call(this, key, value);
       };
       Storage.prototype.removeItem = function (this: Storage, key: string) {
-        if (this === storage) operations.push({ method: 'removeItem', key });
+        if (this === storage) {
+          const previousValue = storage.getItem(key);
+          try {
+            originalRemoveItem.call(this, key);
+            recordOperation('removeItem', key, previousValue, null, 'completed');
+          } catch (error) {
+            recordOperation('removeItem', key, previousValue, null, 'threw');
+            throw error;
+          }
+          return;
+        }
         originalRemoveItem.call(this, key);
       };
       Storage.prototype.clear = function (this: Storage) {
-        if (this === storage) operations.push({ method: 'clear', key: null });
+        if (this === storage) {
+          const previousValue = JSON.stringify(
+            Object.fromEntries(
+              Array.from({ length: storage.length }, (_, index) => storage.key(index))
+                .filter((key): key is string => key !== null)
+                .sort()
+                .map((key) => [key, storage.getItem(key)]),
+            ),
+          );
+          try {
+            originalClear.call(this);
+            recordOperation('clear', null, previousValue, '{}', 'completed');
+          } catch (error) {
+            recordOperation('clear', null, previousValue, null, 'threw');
+            throw error;
+          }
+          return;
+        }
         originalClear.call(this);
       };
+      Object.defineProperty(globalThis, '__pcD4SetStoragePhase', {
+        configurable: true,
+        value: (phase: string) => sessionStorage.setItem(phaseKey, phase),
+      });
       Object.defineProperty(globalThis, '__pcD4StorageWrites', {
         configurable: true,
         value: writes,
@@ -104,12 +247,29 @@ const installFixture = async (
         configurable: true,
         value: operations,
       });
+
+      const seeded = sessionStorage.getItem(fixtureSeedKey) === 'true';
+      if (!seeded) {
+        sessionStorage.setItem(phaseKey, 'TEST_FIXTURE_INITIALIZATION');
+        sessionStorage.setItem(workspaceKey, fixtureIdentity);
+        localStorage.setItem(resumeKey, JSON.stringify(resumeState));
+        localStorage.setItem(uiKey, JSON.stringify(uiState));
+        localStorage.setItem(localeKey, locale);
+        sessionStorage.setItem(fixtureSeedKey, 'true');
+        sessionStorage.setItem(phaseKey, 'APPLICATION_BOOTSTRAP');
+      } else if (!sessionStorage.getItem(phaseKey)) {
+        sessionStorage.setItem(phaseKey, 'APPLICATION_BOOTSTRAP');
+      }
     },
     {
       resumeKey: RESUME_STORE_PERSIST_KEY,
       uiKey: UI_STORE_PERSIST_KEY,
       localeKey: LOCALE_KEY,
       locale: options.locale ?? 'en',
+      fixtureIdentity: options.fixtureIdentity ?? 'pc-d4-template-center-e2e-fixture',
+      operationKey: storageOperationKey,
+      phaseKey: storagePhaseKey,
+      workspaceKey: storageWorkspaceKey,
       resumeState: {
         state: {
           resume: normalized.value.resume,
@@ -146,14 +306,21 @@ const clearStorageWriteLog = (page: import('@playwright/test').Page) =>
   page.evaluate(() => {
     const monitor = globalThis as typeof globalThis & {
       __pcD4StorageWrites?: string[];
-      __pcD4StorageOperations?: Array<{
-        method: 'setItem' | 'removeItem' | 'clear';
-        key: string | null;
-      }>;
+      __pcD4StorageOperations?: StorageOperation[];
     };
     if (monitor.__pcD4StorageWrites) monitor.__pcD4StorageWrites.length = 0;
     if (monitor.__pcD4StorageOperations) monitor.__pcD4StorageOperations.length = 0;
+    sessionStorage.setItem('__pcD4StorageOperationsV2', '[]');
   });
+
+const setStorageTracePhase = (page: import('@playwright/test').Page, phase: string) =>
+  page.evaluate((nextPhase) => {
+    const monitor = globalThis as typeof globalThis & {
+      __pcD4SetStoragePhase?: (value: string) => void;
+    };
+    if (!monitor.__pcD4SetStoragePhase) throw new Error('Storage phase monitor is unavailable.');
+    monitor.__pcD4SetStoragePhase(nextPhase);
+  }, phase);
 
 const readStorageWriteLog = (page: import('@playwright/test').Page) =>
   page.evaluate(
@@ -167,13 +334,38 @@ const readStorageOperationLog = (page: import('@playwright/test').Page) =>
     () =>
       (
         globalThis as typeof globalThis & {
-          __pcD4StorageOperations?: Array<{
-            method: 'setItem' | 'removeItem' | 'clear';
-            key: string | null;
-          }>;
+          __pcD4StorageOperations?: StorageOperation[];
         }
       ).__pcD4StorageOperations ?? [],
   );
+
+const classifyStorageOperation = (operation: StorageOperation) => {
+  const isBusinessStore = [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(
+    operation.key ?? '',
+  );
+  if (operation.phase === 'TEST_FIXTURE_INITIALIZATION') return 'TEST_FIXTURE_INITIALIZATION';
+  if (isBusinessStore && ['READ_ONLY_BROWSING', 'POST_RELOAD_BROWSING'].includes(operation.phase)) {
+    return 'UNAUTHORIZED_BUSINESS_MUTATION';
+  }
+  if (
+    isBusinessStore &&
+    ['APPLICATION_BOOTSTRAP', 'RELOAD_REHYDRATION'].includes(operation.phase) &&
+    operation.method === 'setItem' &&
+    operation.businessFieldsChanged === false &&
+    /hydrate|rehydrat/iu.test(operation.callStack)
+  ) {
+    return 'LEGITIMATE_REHYDRATION';
+  }
+  if (
+    isBusinessStore &&
+    operation.method === 'setItem' &&
+    operation.previousValue === operation.nextValue
+  ) {
+    return 'IDENTICAL_VALUE_REWRITE';
+  }
+  if (operation.phase === 'AUTHORIZED_UI_STATE_CHANGE') return 'AUTHORIZED_UI_STATE_CHANGE';
+  return 'UNATTRIBUTED';
+};
 
 const readLocalStorageSnapshot = (page: import('@playwright/test').Page) =>
   page.evaluate(() =>
@@ -208,6 +400,7 @@ const readRuntimeStoreSnapshot = (page: import('@playwright/test').Page) =>
           theme: ui.theme,
           templateId: ui.templateId,
           customTemplates: ui.customTemplates,
+          mobileView: ui.mobileView,
         },
       }),
     );
@@ -946,15 +1139,29 @@ if (pcStudioEnabled) {
     page,
     browser,
   }, testInfo) => {
-    const resume = createEmptyResume();
-    const resumeName =
-      'Senior Product Designer ' + 'with an intentionally long candidate name '.repeat(4);
-    resume.personal.fullName = resumeName;
-    const longTemplate = {
-      ...fictionalCustomTemplate,
-      id: 'pc-d4-d2-s1-header-pressure-template',
-      name: 'Custom Portfolio Template ' + 'for International Product Designers '.repeat(3),
-    };
+    const fillName = (value: string, length: number) =>
+      value.repeat(Math.ceil(length / value.length)).slice(0, length);
+    const pressureFixtures = [
+      {
+        id: 'english-long',
+        resumeName:
+          'Senior Product Designer ' + 'with an intentionally long candidate name '.repeat(4),
+        templateName: fillName(
+          'Custom Portfolio Template for International Product Designers ',
+          MAX_TEMPLATE_NAME_LENGTH,
+        ),
+      },
+      {
+        id: 'chinese-long',
+        resumeName: '资深产品设计师'.repeat(12),
+        templateName: fillName('高级作品集模板·国际产品设计师', MAX_TEMPLATE_NAME_LENGTH),
+      },
+      {
+        id: 'continuous-string',
+        resumeName: 'Candidate' + 'W'.repeat(500),
+        templateName: 'T'.repeat(MAX_TEMPLATE_NAME_LENGTH),
+      },
+    ] as const;
     const viewports = [
       { width: 1200, height: 800 },
       { width: 1400, height: 800 },
@@ -965,80 +1172,113 @@ if (pcStudioEnabled) {
     const captureFailures: Array<{ locale: string; viewport: HeaderViewport; error: string }> = [];
 
     for (const locale of ['en', 'zh-CN'] as const) {
-      const localePage = await page.context().newPage();
-      let currentViewport = viewports[0]!;
-      let evidenceCaptured = false;
-      try {
-        await installFixture(localePage, {
-          locale,
-          resume,
-          templateId: longTemplate.id,
-          customTemplates: [longTemplate],
-        });
-        await localePage.setViewportSize(currentViewport);
-        await openStudio(localePage);
-        await expect(localePage.locator('.pc-resume-context')).toContainText(longTemplate.name);
-        await expect(localePage.locator('.pc-resume-context')).toContainText(resumeName);
+      for (const fixture of pressureFixtures) {
+        expect(fixture.resumeName.length).toBeLessThanOrEqual(MAX_RESUME_TEXT_LENGTH);
+        expect(fixture.templateName.length).toBe(MAX_TEMPLATE_NAME_LENGTH);
+        const resume = createEmptyResume();
+        resume.personal.fullName = fixture.resumeName;
+        const longTemplate = {
+          ...fictionalCustomTemplate,
+          id: `pc-d4-d2-s1-header-pressure-${fixture.id}-${locale}`,
+          name: fixture.templateName,
+        };
+        const localePage = await page.context().newPage();
+        let currentViewport = viewports[0]!;
+        let evidenceCaptured = false;
+        try {
+          await installFixture(localePage, {
+            locale,
+            resume,
+            templateId: longTemplate.id,
+            customTemplates: [longTemplate],
+            fixtureIdentity: `header-pressure-${fixture.id}-${locale}`,
+          });
+          await localePage.setViewportSize(currentViewport);
+          await openStudio(localePage);
+          await expect(localePage.locator('.pc-resume-context')).toContainText(longTemplate.name);
+          await expect(localePage.locator('.pc-resume-context')).toContainText(fixture.resumeName);
+          const truncationStyles = await localePage
+            .locator('.pc-resume-context > span, .pc-resume-context > strong')
+            .evaluateAll((elements) =>
+              elements.map((element) => {
+                const style = getComputedStyle(element);
+                return {
+                  overflow: style.overflow,
+                  textOverflow: style.textOverflow,
+                  whiteSpace: style.whiteSpace,
+                };
+              }),
+            );
+          expect(truncationStyles).toHaveLength(2);
+          expect(
+            truncationStyles.every(
+              (style) =>
+                style.overflow === 'hidden' &&
+                style.textOverflow === 'ellipsis' &&
+                style.whiteSpace === 'nowrap',
+            ),
+          ).toBe(true);
 
-        for (const viewport of viewports) {
-          currentViewport = viewport;
-          await localePage.setViewportSize(viewport);
-          const geometry = await measureHeaderGeometry(localePage);
-          const issues = inspectHeaderGeometry(geometry, viewport, locale);
-          if (issues.length === 0) continue;
-          failures.push({ locale, fixture: 'long-header-names', viewport, geometry, issues });
-          if (evidenceCaptured) continue;
-          evidenceCaptured = true;
-          try {
-            await attachHeaderFailureEvidence({
-              page: localePage,
-              browser,
-              testInfo,
-              locale,
-              fixture: 'long-header-names',
-              viewport,
-              geometry,
-              issues,
-            });
-          } catch (error) {
-            captureFailures.push({ locale, viewport, error: String(error) });
-          }
-        }
-
-        await localePage.setViewportSize(viewports[0]!);
-        const actionNames =
-          locale === 'en'
-            ? ['Template Center', 'AI Assistant', 'Preview', 'Back to editor']
-            : ['模板中心', 'AI 助手', '预览', '返回编辑器'];
-        for (const name of actionNames) {
-          await expect(localePage.getByRole('button', { name, exact: true })).toBeVisible();
-        }
-      } catch (error) {
-        if (!evidenceCaptured) {
-          try {
+          for (const viewport of viewports) {
+            currentViewport = viewport;
+            await localePage.setViewportSize(viewport);
             const geometry = await measureHeaderGeometry(localePage);
-            await attachHeaderFailureEvidence({
-              page: localePage,
-              browser,
-              testInfo,
-              locale,
-              fixture: 'long-header-names',
-              viewport: currentViewport,
-              geometry,
-              issues: ['test error: ' + String(error)],
-            });
+            const issues = inspectHeaderGeometry(geometry, viewport, locale);
+            if (issues.length === 0) continue;
+            failures.push({ locale, fixture: fixture.id, viewport, geometry, issues });
+            if (evidenceCaptured) continue;
             evidenceCaptured = true;
-          } catch (captureError) {
-            captureFailures.push({
-              locale,
-              viewport: currentViewport,
-              error: String(captureError),
-            });
+            try {
+              await attachHeaderFailureEvidence({
+                page: localePage,
+                browser,
+                testInfo,
+                locale,
+                fixture: fixture.id,
+                viewport,
+                geometry,
+                issues,
+              });
+            } catch (error) {
+              captureFailures.push({ locale, viewport, error: String(error) });
+            }
           }
+
+          await localePage.setViewportSize(viewports[0]!);
+          const actionNames =
+            locale === 'en'
+              ? ['Template Center', 'AI Assistant', 'Preview', 'Back to editor']
+              : ['模板中心', 'AI 助手', '预览', '返回编辑器'];
+          for (const name of actionNames) {
+            await expect(localePage.getByRole('button', { name, exact: true })).toBeVisible();
+          }
+        } catch (error) {
+          if (!evidenceCaptured) {
+            try {
+              const geometry = await measureHeaderGeometry(localePage);
+              await attachHeaderFailureEvidence({
+                page: localePage,
+                browser,
+                testInfo,
+                locale,
+                fixture: fixture.id,
+                viewport: currentViewport,
+                geometry,
+                issues: ['test error: ' + String(error)],
+              });
+              evidenceCaptured = true;
+            } catch (captureError) {
+              captureFailures.push({
+                locale,
+                viewport: currentViewport,
+                error: String(captureError),
+              });
+            }
+          }
+          throw error;
+        } finally {
+          await localePage.close();
         }
-        throw error;
-      } finally {
-        await localePage.close();
       }
     }
 
@@ -1084,19 +1324,27 @@ if (pcStudioEnabled) {
             actionsOverflow: getComputedStyle(actions).overflowX,
             actionsScrollWidth: actions.scrollWidth,
             actionsClientWidth: actions.clientWidth,
+            actionsScrollLeft: actions.scrollLeft,
             headerBounds: header.getBoundingClientRect().toJSON(),
           };
         });
         expect(headerMetrics.viewport).toEqual({ width: 390, height: 844 });
         expect(headerMetrics.documentOverflow).toBeLessThanOrEqual(0);
         expect(headerMetrics.actionsOverflow).toMatch(/^(auto|scroll)$/u);
+        expect(headerMetrics.actionsScrollWidth).toBeGreaterThanOrEqual(
+          headerMetrics.actionsClientWidth,
+        );
 
         const exportSummary = mobilePage.locator('.pc-export-menu summary');
         await exportSummary.scrollIntoViewIfNeeded();
         const exportBounds = await exportSummary.boundingBox();
         const actionsBounds = await mobilePage.locator('.pc-header-actions').boundingBox();
+        const actionScrollLeft = await mobilePage
+          .locator('.pc-header-actions')
+          .evaluate((element) => element.scrollLeft);
         expect(exportBounds).not.toBeNull();
         expect(actionsBounds).not.toBeNull();
+        expect(actionScrollLeft).toBeGreaterThanOrEqual(0);
         expect(exportBounds!.x).toBeGreaterThanOrEqual(actionsBounds!.x - 1);
         expect(exportBounds!.x + exportBounds!.width).toBeLessThanOrEqual(
           actionsBounds!.x + actionsBounds!.width + 1,
@@ -1108,12 +1356,38 @@ if (pcStudioEnabled) {
         await mobilePage.keyboard.press('Enter');
         const exportOptions = mobilePage.locator('.pc-export-options');
         await expect(exportOptions).toBeVisible();
-        await expect(exportOptions.getByRole('menuitem')).toHaveCount(3);
+        const exportNames =
+          locale === 'en'
+            ? ['JSON', 'Export Workspace', 'Export Markdown', 'Print / PDF']
+            : ['JSON', '导出工作区', '导出 Markdown', '打印 / PDF'];
+        await expect(exportOptions.getByRole('menuitem')).toHaveCount(exportNames.length);
+        for (const name of exportNames) {
+          const item = exportOptions.getByRole('menuitem', { name, exact: true });
+          await expect(item).toHaveCount(1);
+          await expect(item).toBeVisible();
+        }
+        const menuBounds = await exportOptions.boundingBox();
+        expect(menuBounds).not.toBeNull();
+        expect(menuBounds!.x).toBeGreaterThanOrEqual(0);
+        expect(menuBounds!.x + menuBounds!.width).toBeLessThanOrEqual(390);
+        expect(menuBounds!.y).toBeGreaterThanOrEqual(0);
+        expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(844);
+        for (const name of exportNames) {
+          await mobilePage.keyboard.press('Tab');
+          await expect(exportOptions.getByRole('menuitem', { name, exact: true })).toBeFocused();
+        }
         await mobilePage.keyboard.press('Escape');
-        if (await exportOptions.isVisible()) await exportSummary.click();
+        await expect(exportOptions).toBeHidden();
+        await expect(exportSummary).toBeFocused();
 
         const templateCenterName = locale === 'en' ? 'Template Center' : '模板中心';
-        await mobilePage.getByRole('button', { name: templateCenterName, exact: true }).click();
+        const templateCenterTrigger = mobilePage.getByRole('button', {
+          name: templateCenterName,
+          exact: true,
+        });
+        await templateCenterTrigger.scrollIntoViewIfNeeded();
+        await templateCenterTrigger.focus();
+        await mobilePage.keyboard.press('Enter');
         const backName = locale === 'en' ? 'Back to Workspace' : '返回工作区';
         const backButton = mobilePage.getByRole('button', { name: backName, exact: true });
         await expect(backButton).toBeVisible();
@@ -1121,8 +1395,10 @@ if (pcStudioEnabled) {
         expect(backBounds).not.toBeNull();
         expect(backBounds!.x).toBeGreaterThanOrEqual(0);
         expect(backBounds!.x + backBounds!.width).toBeLessThanOrEqual(390);
-        await backButton.click();
+        await backButton.focus();
+        await mobilePage.keyboard.press('Enter');
         await expect(mobilePage.getByTestId('pc-studio')).toBeVisible();
+        await expect(templateCenterTrigger).toBeFocused();
       } finally {
         await mobilePage.close();
       }
@@ -1270,7 +1546,7 @@ if (pcStudioEnabled) {
   test('read-only live preview uses canonical resume data and preserves stores and persistence @d2-s1', async ({
     page,
     browser,
-  }) => {
+  }, testInfo) => {
     const canonicalResume = createEmptyResume();
     canonicalResume.personal.fullName = 'D2-S1 Live Candidate';
     canonicalResume.personal.summary = 'Canonical resume summary for a real live preview.';
@@ -1310,6 +1586,7 @@ if (pcStudioEnabled) {
       customTemplates: [customDuplicate, alternateCustom],
       resume: canonicalResume,
       activeSections: ['experience'],
+      fixtureIdentity: 'd2-s1-canonical-live-preview-fixture',
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await openStudio(page);
@@ -1318,8 +1595,17 @@ if (pcStudioEnabled) {
     await page.evaluate((key) => localStorage.setItem(key, 'monitor-probe'), monitorProbeKey);
     expect(await readStorageWriteLog(page)).toContain(monitorProbeKey);
     await page.evaluate((key) => localStorage.removeItem(key), monitorProbeKey);
-    await clearStorageWriteLog(page);
-    expect(await readStorageWriteLog(page)).toEqual([]);
+    const allProbeOperations = await readStorageOperationLog(page);
+    const probeOperations = allProbeOperations.filter(
+      (operation) => operation.key === monitorProbeKey,
+    );
+    expect(probeOperations.map((operation) => operation.method)).toEqual(['setItem', 'removeItem']);
+    expect(
+      probeOperations.every(
+        (operation) => operation.workspaceIdentity === 'd2-s1-canonical-live-preview-fixture',
+      ),
+    ).toBe(true);
+    await setStorageTracePhase(page, 'READ_ONLY_BROWSING');
 
     const mobileBefore = await readPersistedWorkspace(page);
     const mobileRuntimeBefore = await readRuntimeStoreSnapshot(page);
@@ -1364,13 +1650,10 @@ if (pcStudioEnabled) {
     expect(mobileAfter).toEqual(mobileBefore);
     expect(await readRuntimeStoreSnapshot(page)).toEqual(mobileRuntimeBefore);
     expect(await readLocalStorageSnapshot(page)).toEqual(mobileStorageBefore);
-    const mobileStorageWrites = await readStorageWriteLog(page);
-    expect(
-      mobileStorageWrites.filter((key) =>
-        [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(key),
-      ),
-    ).toEqual([]);
-    const mobileStorageOperations = await readStorageOperationLog(page);
+    const allMobileStorageOperations = await readStorageOperationLog(page);
+    const mobileStorageOperations = allMobileStorageOperations.filter(
+      (operation) => operation.phase === 'READ_ONLY_BROWSING',
+    );
     expect(mobileStorageOperations).not.toContainEqual({ method: 'clear', key: null });
     expect(
       mobileStorageOperations.filter((operation) =>
@@ -1378,33 +1661,24 @@ if (pcStudioEnabled) {
       ),
     ).toEqual([]);
 
+    await setStorageTracePhase(page, 'AUTHORIZED_UI_STATE_CHANGE');
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(page.getByTestId('pc-studio')).toBeVisible();
     await expect(page.getByTestId('pc-save-status')).toHaveAttribute(
       'data-save-state',
       /^(ready|saved)$/u,
     );
-    await expect.poll(async () => readStorageWriteLog(page)).toContain(UI_STORE_PERSIST_KEY);
-    const breakpointOperations = await readStorageOperationLog(page);
+    const allBreakpointOperations = await readStorageOperationLog(page);
+    const breakpointOperations = allBreakpointOperations.filter(
+      (operation) => operation.phase === 'AUTHORIZED_UI_STATE_CHANGE',
+    );
     const breakpointStoreOperations = breakpointOperations.filter((operation) =>
       [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
     );
-    expect(breakpointStoreOperations).toContainEqual({
-      method: 'setItem',
-      key: UI_STORE_PERSIST_KEY,
-    });
-    expect(
-      breakpointStoreOperations.filter((operation) => operation.key === RESUME_STORE_PERSIST_KEY),
-    ).toEqual([]);
-    expect(
-      breakpointStoreOperations
-        .filter((operation) => operation.key === UI_STORE_PERSIST_KEY)
-        .every((operation) => operation.method === 'setItem'),
-    ).toBe(true);
+    expect(breakpointStoreOperations).toEqual([]);
     expect(await readRuntimeStoreSnapshot(page)).toEqual(mobileRuntimeBefore);
     expect(await readLocalStorageSnapshot(page)).toEqual(mobileStorageBefore);
-    await clearStorageWriteLog(page);
-    expect(await readStorageWriteLog(page)).toEqual([]);
+    await setStorageTracePhase(page, 'READ_ONLY_BROWSING');
     const before = await readPersistedWorkspace(page);
     expect(before).toEqual(mobileBefore);
     const runtimeBefore = await readRuntimeStoreSnapshot(page);
@@ -1501,15 +1775,13 @@ if (pcStudioEnabled) {
     expect(after).toEqual(before);
     expect(await readRuntimeStoreSnapshot(page)).toEqual(runtimeBefore);
     expect(await readLocalStorageSnapshot(page)).toEqual(storageSnapshotBefore);
-    const storageWriteLog = await readStorageWriteLog(page);
-    const storeWrites = storageWriteLog.filter((key) =>
-      [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(key),
+    const allReadOnlyOperations = await readStorageOperationLog(page);
+    const readOnlyOperations = allReadOnlyOperations.filter(
+      (operation) => operation.phase === 'READ_ONLY_BROWSING',
     );
-    expect(storeWrites).toEqual([]);
-    const storageOperations = await readStorageOperationLog(page);
-    expect(storageOperations).not.toContainEqual({ method: 'clear', key: null });
+    expect(readOnlyOperations.some((operation) => operation.method === 'clear')).toBe(false);
     expect(
-      storageOperations.filter((operation) =>
+      readOnlyOperations.filter((operation) =>
         [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
       ),
     ).toEqual([]);
@@ -1524,9 +1796,11 @@ if (pcStudioEnabled) {
       .click();
     await center.getByRole('button', { name: 'Live Preview' }).click();
     await expect(page.getByTestId('pc-template-live-preview')).toBeVisible();
+    await setStorageTracePhase(page, 'RELOAD_REHYDRATION');
     await page.reload();
     await openStudio(page);
     await expect(page.getByTestId('pc-template-center')).toHaveCount(0);
+    await setStorageTracePhase(page, 'POST_RELOAD_BROWSING');
     await page.getByRole('button', { name: 'Template Center' }).click();
     await expect(page.getByTestId('pc-template-center')).toBeVisible();
     await expect(page.getByTestId('pc-template-live-preview')).toHaveCount(0);
@@ -1534,10 +1808,53 @@ if (pcStudioEnabled) {
     expect(persistedAfterReload).toEqual(before);
     expect(await readRuntimeStoreSnapshot(page)).toEqual(runtimeBefore);
     expect(await readLocalStorageSnapshot(page)).toEqual(storageSnapshotBefore);
-    const reloadOperations = await readStorageOperationLog(page);
-    expect(reloadOperations).not.toContainEqual({ method: 'clear', key: null });
+    const completeOperationLog = await readStorageOperationLog(page);
+    const reloadOperations = completeOperationLog.filter(
+      (operation) => operation.phase === 'RELOAD_REHYDRATION',
+    );
+    const reloadStoreOperations = reloadOperations.filter((operation) =>
+      [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
+    );
+    const reloadUIOperations = reloadStoreOperations.filter(
+      (operation) => operation.key === UI_STORE_PERSIST_KEY,
+    );
+    const postReloadOperations = completeOperationLog.filter(
+      (operation) => operation.phase === 'POST_RELOAD_BROWSING',
+    );
+    await testInfo.attach('d2-s1-storage-operation-log.json', {
+      body: JSON.stringify(
+        {
+          workspaceIdentity: 'd2-s1-canonical-live-preview-fixture',
+          persistedBefore: before,
+          persistedAfterReload,
+          runtimeBefore,
+          runtimeAfterReload: await readRuntimeStoreSnapshot(page),
+          storageBefore: storageSnapshotBefore,
+          storageAfterReload: await readLocalStorageSnapshot(page),
+          operations: completeOperationLog.map((operation) => ({
+            ...operation,
+            classification: classifyStorageOperation(operation),
+          })),
+        },
+        null,
+        2,
+      ),
+      contentType: 'application/json',
+    });
+    expect(reloadOperations.some((operation) => operation.method === 'clear')).toBe(false);
+    expect(postReloadOperations.some((operation) => operation.method === 'clear')).toBe(false);
     expect(
-      reloadOperations.filter((operation) =>
+      reloadStoreOperations.filter((operation) => operation.key === RESUME_STORE_PERSIST_KEY),
+    ).toEqual([]);
+    expect(reloadUIOperations).toHaveLength(1);
+    expect(reloadUIOperations[0]?.method).toBe('setItem');
+    expect(classifyStorageOperation(reloadUIOperations[0]!)).toBe('LEGITIMATE_REHYDRATION');
+    expect(reloadUIOperations[0]?.callStack).toMatch(/hydrate|rehydrat/iu);
+    expect(reloadUIOperations[0]?.businessFieldsChanged).toBe(false);
+    expect(reloadUIOperations[0]?.previousValue).not.toBeNull();
+    expect(reloadUIOperations[0]?.nextValue).toBe(reloadUIOperations[0]?.previousValue);
+    expect(
+      postReloadOperations.filter((operation) =>
         [RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY].includes(operation.key ?? ''),
       ),
     ).toEqual([]);

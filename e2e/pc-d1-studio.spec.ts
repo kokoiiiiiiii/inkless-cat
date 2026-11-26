@@ -170,6 +170,52 @@ test('Focus Preview returns focus, selection, and scroll to the editor', async (
   await expect(summary).toBeHidden();
   await page.keyboard.press('Escape');
 
+  const expectRestoredEditorState = async () => {
+    await expect(summary).toBeFocused();
+    await expect
+      .poll(() =>
+        summary.evaluate((element: HTMLTextAreaElement) => ({
+          start: element.selectionStart,
+          end: element.selectionEnd,
+          direction: element.selectionDirection,
+        })),
+      )
+      .toEqual({ start: 3, end: 18, direction: 'backward' });
+    await expect.poll(() => editorScroll.evaluate((element) => element.scrollTop)).toBe(120);
+    await expect(page.getByTestId('pc-personal-more')).toHaveAttribute('open', '');
+  };
+  await expectRestoredEditorState();
+
+  await page.getByTestId('pc-preview-focus').click();
+  await expect(summary).toBeHidden();
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click();
+  await expectRestoredEditorState();
+});
+
+test('Compact Preview returns focus, selection, and scroll to the editor', async ({ page }) => {
+  await installResumeFixture(page, productScreenshotResume());
+  await openStudio(page, 1024, 768);
+  await page.getByTestId('pc-personal-more').locator('summary').click();
+  const summary = page.getByRole('textbox', { name: '个人简介' });
+  await summary.focus();
+  await summary.evaluate((element: HTMLTextAreaElement) => {
+    element.setSelectionRange(3, 18, 'backward');
+  });
+  const editorScroll = page.locator('.pc-editor-scroll');
+  const capacity = await editorScroll.evaluate(
+    (element) => element.scrollHeight - element.clientHeight,
+  );
+  expect(capacity).toBeGreaterThanOrEqual(120);
+  await editorScroll.evaluate((element) => {
+    element.scrollTop = 120;
+  });
+
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.getByTestId('pc-editor-stage')).toBeHidden();
+  await expect(page.getByTestId('pc-preview-pane')).toBeVisible();
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click();
+
+  await expect(page.getByTestId('pc-editor-stage')).toBeVisible();
   await expect(summary).toBeFocused();
   await expect
     .poll(() =>
@@ -181,6 +227,7 @@ test('Focus Preview returns focus, selection, and scroll to the editor', async (
     )
     .toEqual({ start: 3, end: 18, direction: 'backward' });
   await expect.poll(() => editorScroll.evaluate((element) => element.scrollTop)).toBe(120);
+  await expect(page.getByTestId('pc-personal-more')).toHaveAttribute('open', '');
 });
 
 test('Fit Width recalculates after the preview container resizes', async ({ page }) => {

@@ -178,6 +178,26 @@ describe('usePCStudioController Focus Preview', () => {
     expect(result.current.fieldContext?.fieldId).toBe('personal.summary');
   });
 
+  it('does not restore a preview snapshot after the workspace generation changes', () => {
+    const { editor, editorScrollContainer, field } = createEditor();
+    const { result } = renderHook(() => usePCStudioController(editor), { wrapper });
+    const originalGeneration = useResumeStore.getState().workspaceGeneration;
+
+    field.focus();
+    field.setSelectionRange(3, 18, 'backward');
+    editorScrollContainer.scrollTop = 64;
+    act(() => result.current.enterPreviewFocus());
+    field.remove();
+    editorScrollContainer.scrollTop = 0;
+
+    act(() => useResumeStore.getState().resetState(createEmptyResume()));
+    expect(useResumeStore.getState().workspaceGeneration).toBe(originalGeneration + 1);
+    act(() => result.current.exitPreviewFocus());
+
+    expect(document.activeElement).not.toBe(field);
+    expect(editorScrollContainer.scrollTop).toBe(0);
+  });
+
   it('captures editor position before compact preview hides the editor', () => {
     const { editor, editorScrollContainer, moduleContainer, field } = createEditor();
     const { result } = renderHook(() => usePCStudioController(editor), { wrapper });

@@ -1,5 +1,5 @@
 import { useI18n } from '@shared/i18n';
-import type { RefObject } from 'react';
+import type { KeyboardEvent, RefObject } from 'react';
 
 import type { LocalSaveStatus } from '../../model/pc-studio/useLocalSaveStatus';
 
@@ -75,6 +75,14 @@ const StudioHeader = ({
     [t('topbar.exportMarkdown'), onExportMarkdown],
     [t('topbar.print'), onPrint],
   ] as const;
+  const handleExportMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const details = event.currentTarget.closest('details');
+    if (event.key !== 'Escape' || !details?.open) return;
+    details.open = false;
+    details.querySelector('summary')?.focus();
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
     <header className="pc-studio-header">
@@ -153,7 +161,12 @@ const StudioHeader = ({
               <span aria-hidden="true">⇩</span>
               <span>{t('editor.pcStudio.export')}</span>
             </summary>
-            <div className="pc-export-options" role="menu">
+            <div
+              className="pc-export-options"
+              role="menu"
+              tabIndex={-1}
+              onKeyDown={handleExportMenuKeyDown}
+            >
               {menuLabels.map(([label, action]) => (
                 <button
                   key={label}
