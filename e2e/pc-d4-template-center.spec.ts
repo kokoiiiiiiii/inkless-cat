@@ -21,6 +21,12 @@ const d2S1ScreenshotDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/screensho
 const d2S1MatrixDirectory = path.resolve('artifacts/pc-d4-d2/d2-s1/visual-matrix');
 const customTemplateId = 'pc-d4-d1-fictional-custom-template';
 const currentTemplateId = templates[0]?.id ?? 'modern-blue';
+
+const getExecutionIdentity = () => ({
+  kind: process.env.GITHUB_RUN_ID ? 'github-actions' : 'local',
+  runId: process.env.GITHUB_RUN_ID ?? 'local-' + process.pid,
+  attempt: process.env.GITHUB_RUN_ATTEMPT ?? '1',
+});
 const fictionalCustomTemplate: ResumeTemplate = {
   id: customTemplateId,
   name: 'Fictional Product Designer Portfolio',
@@ -373,6 +379,20 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
       }
     }
 
+    const coreControls = [
+      { name: 'Template Center', selector: 'button[aria-controls="pc-template-center"]' },
+      { name: 'AI Assistant', selector: '.pc-header-button--ai' },
+      { name: 'Preview', selector: '.pc-header-button[aria-pressed]' },
+      { name: 'Export', selector: '.pc-export-menu summary' },
+      { name: 'Theme', selector: '.pc-theme-toggle' },
+      { name: 'Back to Editor', selector: '.pc-exit-button' },
+    ] as const;
+    const missingCoreControls = coreControls
+      .filter(({ selector }) => {
+        const control = header.querySelector<HTMLElement>(selector);
+        return !control || !isVisible(control);
+      })
+      .map(({ name }) => name);
     const saveStatus = segments.save;
     return {
       viewport: {
@@ -390,11 +410,116 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
       outsideHeader,
       outsideActions,
       unhitTargets,
+      missingCoreControls,
       saveState: saveStatus.dataset.saveState,
       saveLive: saveStatus.getAttribute('aria-live'),
       saveText: saveStatus.textContent?.trim(),
     };
   });
+
+type HeaderGeometry = Awaited<ReturnType<typeof measureHeaderGeometry>>;
+type HeaderViewport = { width: number; height: number };
+type HeaderFailureRecord = {
+  locale: 'en' | 'zh-CN';
+  fixture: string;
+  viewport: HeaderViewport;
+  issues: string[];
+  geometry: HeaderGeometry;
+};
+
+const inspectHeaderGeometry = (
+  geometry: HeaderGeometry,
+  viewport: HeaderViewport,
+  locale: 'en' | 'zh-CN',
+) => {
+  const issues: string[] = [];
+  const label = locale + ' at ' + viewport.width + 'x' + viewport.height;
+  if (geometry.viewport.width !== viewport.width || geometry.viewport.height !== viewport.height) {
+    issues.push(label + ': viewport did not settle to the requested dimensions');
+  }
+  if (geometry.viewport.devicePixelRatio <= 0) issues.push(label + ': invalid device pixel ratio');
+  if (geometry.documentOverflow > 0) issues.push(label + ': document has horizontal overflow');
+  if (geometry.overlaps.length > 0)
+    issues.push(label + ': overlapping header segments or controls');
+  if (geometry.outsideHeader.length > 0)
+    issues.push(label + ': controls extend outside the header');
+  if (geometry.outsideActions.length > 0)
+    issues.push(label + ': controls extend outside the actions region');
+  if (geometry.unhitTargets.length > 0)
+    issues.push(label + ': visible controls do not own their hit targets');
+  if (geometry.missingCoreControls.length > 0)
+    issues.push(
+      label + ': missing visible core controls ' + geometry.missingCoreControls.join(', '),
+    );
+  if (geometry.saveState !== 'saved') issues.push(label + ': save state is ' + geometry.saveState);
+  if (geometry.saveLive !== 'polite')
+    issues.push(label + ': save status is not announced politely');
+  const expectedSaveText = locale === 'en' ? 'Saved on this device' : '已保存到此设备';
+  if (geometry.saveText !== expectedSaveText) issues.push(label + ': unexpected save status text');
+  return issues;
+};
+
+const attachHeaderFailureEvidence = async (options: {
+  page: import('@playwright/test').Page;
+  browser: import('@playwright/test').Browser;
+  testInfo: import('@playwright/test').TestInfo;
+  locale: 'en' | 'zh-CN';
+  fixture: string;
+  viewport: HeaderViewport;
+  geometry: HeaderGeometry;
+  issues: string[];
+}) => {
+  const { page, browser, testInfo, locale, fixture, viewport, geometry, issues } = options;
+  const base = 'header-' + fixture + '-' + locale + '-' + viewport.width + 'x' + viewport.height;
+  const pagePath = testInfo.outputPath(base + '-page.png');
+  const headerPath = testInfo.outputPath(base + '-header.png');
+  const geometryPath = testInfo.outputPath(base + '-geometry.json');
+  await mkdir(path.dirname(pagePath), { recursive: true });
+  await page.screenshot({ path: pagePath, fullPage: true });
+  await page.locator('.pc-studio-header').screenshot({ path: headerPath });
+  const [pagePng, headerPng] = await Promise.all([readFile(pagePath), readFile(headerPath)]);
+  const metadata = {
+    testedGitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    testedTreeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
+    dirtyStatus: execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
+    execution: getExecutionIdentity(),
+    attempt: getExecutionIdentity().attempt,
+    nodeVersion: process.version,
+    browserName: browser.browserType().name(),
+    browserVersion: browser.version(),
+    testTitle: testInfo.title,
+    testResult: 'failed',
+    locale,
+    fixture,
+    viewport: geometry.viewport,
+    failures: issues,
+    geometry: {
+      segmentRects: geometry.segmentRects,
+      controlRects: geometry.controlRects,
+      overlaps: geometry.overlapDetails,
+      outsideHeader: geometry.outsideHeader,
+      outsideActions: geometry.outsideActions,
+      unhitTargets: geometry.unhitTargets,
+      missingCoreControls: geometry.missingCoreControls,
+      saveState: geometry.saveState,
+      saveLive: geometry.saveLive,
+      saveText: geometry.saveText,
+    },
+    screenshots: {
+      pagePath: path.relative(process.cwd(), pagePath),
+      pageSha256: createHash('sha256').update(pagePng).digest('hex'),
+      headerPath: path.relative(process.cwd(), headerPath),
+      headerSha256: createHash('sha256').update(headerPng).digest('hex'),
+    },
+  };
+  await writeFile(geometryPath, JSON.stringify(metadata, null, 2) + '\n');
+  await testInfo.attach(base + '-page.png', { path: pagePath, contentType: 'image/png' });
+  await testInfo.attach(base + '-header.png', { path: headerPath, contentType: 'image/png' });
+  await testInfo.attach(base + '-geometry.json', {
+    path: geometryPath,
+    contentType: 'application/json',
+  });
+};
 
 const captureScreenshot = async (
   page: import('@playwright/test').Page,
@@ -451,6 +576,8 @@ const captureD2S1Screenshot = async (options: {
     testedGitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     testedTreeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
     dirtyStatus: execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
+    execution: getExecutionIdentity(),
+    attempt: getExecutionIdentity().attempt,
     nodeVersion: process.version,
     browserName: browser.browserType().name(),
     browserVersion: browser.version(),
@@ -600,6 +727,8 @@ const captureD2S1MatrixState = async (options: {
     testedGitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     testedTreeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
     dirtyStatus: execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
+    execution: getExecutionIdentity(),
+    attempt: getExecutionIdentity().attempt,
     nodeVersion: process.version,
     browserName: browser.browserType().name(),
     browserVersion: browser.version(),
@@ -621,8 +750,9 @@ const captureD2S1MatrixState = async (options: {
 if (pcStudioEnabled) {
   test('desktop header geometry stays disjoint and controls remain reachable in both locales', async ({
     page,
-  }) => {
-    const viewports = [
+    browser,
+  }, testInfo) => {
+    const discreteViewports = [
       { width: 1024, height: 768 },
       { width: 1199, height: 800 },
       { width: 1200, height: 800 },
@@ -636,42 +766,64 @@ if (pcStudioEnabled) {
       { width: 1480, height: 900 },
       { width: 1920, height: 1080 },
     ];
+    const continuousWidths: number[] = [];
+    for (let width = 1200; width <= 1920; width += 20) continuousWidths.push(width);
+    const viewportByWidth = new Map(
+      discreteViewports.map((viewport) => [viewport.width, viewport]),
+    );
+    const widths = [
+      ...new Set([
+        ...discreteViewports.map((viewport) => viewport.width),
+        ...continuousWidths,
+        1201,
+        1481,
+      ]),
+    ].sort((first, second) => first - second);
+    const viewports = widths.map((width) => viewportByWidth.get(width) ?? { width, height: 900 });
+    const rows: Array<{
+      locale: 'en' | 'zh-CN';
+      fixture: string;
+      viewport: HeaderViewport;
+      geometry: HeaderGeometry;
+      issues: string[];
+    }> = [];
+    const failures: HeaderFailureRecord[] = [];
+    const captureFailures: Array<{ locale: string; viewport: HeaderViewport; error: string }> = [];
+    const capturedLocales = new Set<string>();
 
     for (const locale of ['en', 'zh-CN'] as const) {
       const localePage = await page.context().newPage();
+      let currentViewport = viewports[0]!;
       try {
         await installFixture(localePage, { locale });
-        await localePage.setViewportSize(viewports[0]!);
+        await localePage.setViewportSize(currentViewport);
         await openStudio(localePage);
 
         for (const viewport of viewports) {
+          currentViewport = viewport;
           await localePage.setViewportSize(viewport);
           const geometry = await measureHeaderGeometry(localePage);
-          const label = `${locale} at ${viewport.width}x${viewport.height}`;
+          const issues = inspectHeaderGeometry(geometry, viewport, locale);
+          rows.push({ locale, fixture: 'standard', viewport, geometry, issues });
+          if (issues.length === 0) continue;
 
-          expect(geometry.viewport, `${label} viewport`).toMatchObject(viewport);
-          expect(geometry.viewport.devicePixelRatio, `${label} device pixel ratio`).toBeGreaterThan(
-            0,
-          );
-          expect(geometry.documentOverflow, `${label} document overflow`).toBeLessThanOrEqual(0);
-          expect(
-            geometry.overlaps,
-            `${label} overlapping header targets; geometry=${JSON.stringify({
-              segmentRects: geometry.segmentRects,
-              controlRects: geometry.controlRects,
-              overlapDetails: geometry.overlapDetails,
-            })}`,
-          ).toEqual([]);
-          expect(geometry.outsideHeader, `${label} controls outside the header`).toEqual([]);
-          expect(geometry.outsideActions, `${label} controls outside the action region`).toEqual(
-            [],
-          );
-          expect(geometry.unhitTargets, `${label} controls with covered hit targets`).toEqual([]);
-          expect(geometry.saveState, `${label} save state`).toBe('saved');
-          expect(geometry.saveLive, `${label} save announcement`).toBe('polite');
-          expect(geometry.saveText, `${label} save status text`).toBe(
-            locale === 'en' ? 'Saved on this device' : '已保存到此设备',
-          );
+          failures.push({ locale, fixture: 'standard', viewport, geometry, issues });
+          if (capturedLocales.has(locale)) continue;
+          capturedLocales.add(locale);
+          try {
+            await attachHeaderFailureEvidence({
+              page: localePage,
+              browser,
+              testInfo,
+              locale,
+              fixture: 'standard',
+              viewport,
+              geometry,
+              issues,
+            });
+          } catch (error) {
+            captureFailures.push({ locale, viewport, error: String(error) });
+          }
         }
 
         const actionNames =
@@ -706,12 +858,200 @@ if (pcStudioEnabled) {
         await templateButton.focus();
         for (const [index, control] of keyboardOrder.entries()) {
           if (index > 0) await localePage.keyboard.press('Tab');
-          await expect(control, `${locale} header Tab order item ${index + 1}`).toBeFocused();
+          await expect(control, locale + ' header Tab order item ' + (index + 1)).toBeFocused();
         }
+      } catch (error) {
+        if (!capturedLocales.has(locale)) {
+          try {
+            const geometry = await measureHeaderGeometry(localePage);
+            const issues = ['test error: ' + String(error)];
+            await attachHeaderFailureEvidence({
+              page: localePage,
+              browser,
+              testInfo,
+              locale,
+              fixture: 'standard',
+              viewport: currentViewport,
+              geometry,
+              issues,
+            });
+            capturedLocales.add(locale);
+          } catch (captureError) {
+            captureFailures.push({
+              locale,
+              viewport: currentViewport,
+              error: String(captureError),
+            });
+          }
+        }
+        throw error;
       } finally {
         await localePage.close();
       }
     }
+
+    const execution = getExecutionIdentity();
+    const scanPath = testInfo.outputPath('header-responsive-scan.json');
+    await mkdir(path.dirname(scanPath), { recursive: true });
+    await writeFile(
+      scanPath,
+      JSON.stringify(
+        {
+          testedGitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+          testedTreeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], {
+            encoding: 'utf8',
+          }).trim(),
+          execution,
+          attempt: execution.attempt,
+          nodeVersion: process.version,
+          browserName: browser.browserType().name(),
+          browserVersion: browser.version(),
+          localeCount: 2,
+          continuousWidthCountPerLocale: continuousWidths.length,
+          testedWidthCountPerLocale: viewports.length,
+          testedStateCount: rows.length,
+          viewports,
+          failures: failures.map(({ locale, fixture, viewport, issues, geometry }) => ({
+            locale,
+            fixture,
+            viewport,
+            issues,
+            geometry,
+          })),
+          failureEvidenceCaptureFailures: captureFailures,
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    await testInfo.attach('header-responsive-scan.json', {
+      path: scanPath,
+      contentType: 'application/json',
+    });
+    expect(viewports.length, 'unique responsive width count').toBe(45);
+    expect(rows.length, 'bilingual responsive state count').toBe(90);
+    expect(
+      failures.map(({ locale, fixture, viewport, issues }) => ({
+        locale,
+        fixture,
+        viewport,
+        issues,
+      })),
+      'responsive header geometry failures',
+    ).toEqual([]);
+    expect(captureFailures, 'header failure evidence capture failures').toEqual([]);
+  });
+
+  test('desktop header remains stable with long resume and template names in both locales', async ({
+    page,
+    browser,
+  }, testInfo) => {
+    const resume = createEmptyResume();
+    const resumeName =
+      'Senior Product Designer ' + 'with an intentionally long candidate name '.repeat(4);
+    resume.personal.fullName = resumeName;
+    const longTemplate = {
+      ...fictionalCustomTemplate,
+      id: 'pc-d4-d2-s1-header-pressure-template',
+      name: 'Custom Portfolio Template ' + 'for International Product Designers '.repeat(3),
+    };
+    const viewports = [
+      { width: 1200, height: 800 },
+      { width: 1400, height: 800 },
+      { width: 1480, height: 900 },
+      { width: 1920, height: 1080 },
+    ];
+    const failures: HeaderFailureRecord[] = [];
+    const captureFailures: Array<{ locale: string; viewport: HeaderViewport; error: string }> = [];
+
+    for (const locale of ['en', 'zh-CN'] as const) {
+      const localePage = await page.context().newPage();
+      let currentViewport = viewports[0]!;
+      let evidenceCaptured = false;
+      try {
+        await installFixture(localePage, {
+          locale,
+          resume,
+          templateId: longTemplate.id,
+          customTemplates: [longTemplate],
+        });
+        await localePage.setViewportSize(currentViewport);
+        await openStudio(localePage);
+        await expect(localePage.locator('.pc-resume-context')).toContainText(longTemplate.name);
+        await expect(localePage.locator('.pc-resume-context')).toContainText(resumeName);
+
+        for (const viewport of viewports) {
+          currentViewport = viewport;
+          await localePage.setViewportSize(viewport);
+          const geometry = await measureHeaderGeometry(localePage);
+          const issues = inspectHeaderGeometry(geometry, viewport, locale);
+          if (issues.length === 0) continue;
+          failures.push({ locale, fixture: 'long-header-names', viewport, geometry, issues });
+          if (evidenceCaptured) continue;
+          evidenceCaptured = true;
+          try {
+            await attachHeaderFailureEvidence({
+              page: localePage,
+              browser,
+              testInfo,
+              locale,
+              fixture: 'long-header-names',
+              viewport,
+              geometry,
+              issues,
+            });
+          } catch (error) {
+            captureFailures.push({ locale, viewport, error: String(error) });
+          }
+        }
+
+        await localePage.setViewportSize(viewports[0]!);
+        const actionNames =
+          locale === 'en'
+            ? ['Template Center', 'AI Assistant', 'Preview', 'Back to editor']
+            : ['模板中心', 'AI 助手', '预览', '返回编辑器'];
+        for (const name of actionNames) {
+          await expect(localePage.getByRole('button', { name, exact: true })).toBeVisible();
+        }
+      } catch (error) {
+        if (!evidenceCaptured) {
+          try {
+            const geometry = await measureHeaderGeometry(localePage);
+            await attachHeaderFailureEvidence({
+              page: localePage,
+              browser,
+              testInfo,
+              locale,
+              fixture: 'long-header-names',
+              viewport: currentViewport,
+              geometry,
+              issues: ['test error: ' + String(error)],
+            });
+            evidenceCaptured = true;
+          } catch (captureError) {
+            captureFailures.push({
+              locale,
+              viewport: currentViewport,
+              error: String(captureError),
+            });
+          }
+        }
+        throw error;
+      } finally {
+        await localePage.close();
+      }
+    }
+
+    expect(
+      failures.map(({ locale, fixture, viewport, issues }) => ({
+        locale,
+        fixture,
+        viewport,
+        issues,
+      })),
+      'long-name header geometry failures',
+    ).toEqual([]);
+    expect(captureFailures, 'long-name failure evidence capture failures').toEqual([]);
   });
 
   test('mobile header, Export, and return path remain reachable in both locales @d2-s1', async ({
