@@ -12,6 +12,7 @@ import { LOCALE_KEY } from '@shared/i18n';
 import { RESUME_STORE_PERSIST_KEY, UI_STORE_PERSIST_KEY } from '@shared/lib/storage';
 
 import { penpotGeometryResume, productScreenshotResume } from './fixtures/pc-d1';
+import { SseResponseBarrier } from './helpers/sse-response-barrier';
 
 const screenshotsDir = path.resolve(
   process.env.PC_D1_R1_SCREENSHOTS_DIR ?? 'artifacts/pc-d1-r1/screenshots',
@@ -425,9 +426,8 @@ test('AI Dock runs the official inline controller with a local test SSE endpoint
   const firstSuggestion = 'A clearer, outcome-focused professional summary.';
   const staleSuggestion = 'A fictional summary focused on garden planning outcomes.';
   const regeneratedSuggestion = 'A fictional summary focused on safe model rocket restoration.';
-  const responses = [firstSuggestion, staleSuggestion, regeneratedSuggestion];
-  const requestBodies: Array<Record<string, unknown>> = [];
-  let responseIndex = 0;
+  const responseBarrier = new SseResponseBarrier();
+  const endpoint = '**/mock-ai/v1/chat/completions';
   await summary.focus();
   await page.getByRole('button', { name: 'AI 助手' }).click();
   const dock = page.getByTestId('pc-ai-dock');
@@ -435,86 +435,88 @@ test('AI Dock runs the official inline controller with a local test SSE endpoint
   await expect(dock.locator('[data-module-context]')).toContainText('当前上下文');
   await expect(dock).toContainText('个人简介');
 
-  await page.route('**/mock-ai/v1/chat/completions', async (route) => {
-    requestBodies.push(route.request().postDataJSON() as Record<string, unknown>);
-    const response = responses[responseIndex];
-    if (!response) throw new Error('Unexpected extra request to the local test SSE endpoint.');
-    responseIndex += 1;
-    const body = [
-      `data: ${JSON.stringify({ choices: [{ delta: { content: response } }] })}\n\n`,
-      'data: [DONE]\n\n',
-    ].join('');
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      headers: { 'cache-control': 'no-cache' },
-      body,
-    });
-  });
+  await page.route(endpoint, (route) => responseBarrier.handle(route));
 
-  await configureMockProvider(page);
-  const requestButton = dock.getByRole('button', { name: '比较 AI 建议' });
-  await requestButton.click();
-  let inlinePanel = page.getByTestId('pc-ai-inline-panel');
-  await inlinePanel.getByTestId('pc-ai-inline-generate').click();
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
-  const candidate = page.getByTestId('pc-ai-inline-candidate');
-  await expect(candidate).toHaveValue(firstSuggestion);
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'SUGGESTION_READY');
-  await expect(summary).toHaveValue(original);
-  await inlinePanel.getByTestId('pc-ai-inline-reject').click();
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'REJECTED');
-  await expect(summary).toHaveValue(original);
-  await inlinePanel.getByTestId('pc-ai-inline-done').click();
-  await expect(inlinePanel).toBeHidden();
+  try {
+    await configureMockProvider(page);
+    const requestButton = dock.getByRole('button', { name: '比较 AI 建议' });
+    await requestButton.click();
+    let inlinePanel = page.getByTestId('pc-ai-inline-panel');
+    const firstRequest = responseBarrier.expectRequest();
+    await inlinePanel.getByTestId('pc-ai-inline-generate').click();
+    await responseBarrier.waitForRequest(firstRequest);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
+    responseBarrier.release(firstRequest, firstSuggestion);
+    const candidate = page.getByTestId('pc-ai-inline-candidate');
+    await expect(candidate).toHaveValue(firstSuggestion);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'SUGGESTION_READY');
+    await expect(summary).toHaveValue(original);
+    await inlinePanel.getByTestId('pc-ai-inline-reject').click();
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'REJECTED');
+    await expect(summary).toHaveValue(original);
+    await inlinePanel.getByTestId('pc-ai-inline-done').click();
+    await expect(inlinePanel).toBeHidden();
 
-  await requestButton.click();
-  inlinePanel = page.getByTestId('pc-ai-inline-panel');
-  await inlinePanel.getByTestId('pc-ai-inline-generate').click();
-  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveValue(staleSuggestion);
-  await summary.fill(editedSource);
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'STALE');
-  await expect(page.getByTestId('pc-ai-inline-apply')).toBeDisabled();
-  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveCount(0);
-  await expect(summary).toHaveValue(editedSource);
-  const persistedAfterEdit = await page.evaluate(
-    (key) => globalThis.localStorage.getItem(key),
-    RESUME_STORE_PERSIST_KEY,
-  );
-  expect(persistedAfterEdit).toContain(editedSource);
-  expect(persistedAfterEdit).not.toContain(staleSuggestion);
-  expect(JSON.stringify(requestBodies[1]?.messages)).toContain(original);
+    await requestButton.click();
+    inlinePanel = page.getByTestId('pc-ai-inline-panel');
+    const staleRequest = responseBarrier.expectRequest();
+    await inlinePanel.getByTestId('pc-ai-inline-generate').click();
+    await responseBarrier.waitForRequest(staleRequest);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
+    responseBarrier.release(staleRequest, staleSuggestion);
+    await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveValue(staleSuggestion);
+    await summary.fill(editedSource);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'STALE');
+    await expect(page.getByTestId('pc-ai-inline-apply')).toBeDisabled();
+    await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveCount(0);
+    await expect(summary).toHaveValue(editedSource);
+    const persistedAfterEdit = await page.evaluate(
+      (key) => globalThis.localStorage.getItem(key),
+      RESUME_STORE_PERSIST_KEY,
+    );
+    expect(persistedAfterEdit).toContain(editedSource);
+    expect(persistedAfterEdit).not.toContain(staleSuggestion);
+    expect(JSON.stringify(responseBarrier.requestBodies[1]?.messages)).toContain(original);
 
-  await inlinePanel.getByTestId('pc-ai-inline-generate').click();
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
-  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveValue(regeneratedSuggestion);
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'SUGGESTION_READY');
-  expect(requestBodies).toHaveLength(3);
-  expect(JSON.stringify(requestBodies[2]?.messages)).toContain(editedSource);
-  expect(JSON.stringify(requestBodies[2]?.messages)).not.toContain(original);
-  await expect(summary).toHaveValue(editedSource);
-  const persistedBeforeApply = await page.evaluate(
-    (key) => globalThis.localStorage.getItem(key),
-    RESUME_STORE_PERSIST_KEY,
-  );
-  expect(persistedBeforeApply).toContain(editedSource);
-  expect(persistedBeforeApply).not.toContain(regeneratedSuggestion);
+    const regenerateRequest = responseBarrier.expectRequest();
+    await inlinePanel.getByTestId('pc-ai-inline-generate').click();
+    await responseBarrier.waitForRequest(regenerateRequest);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
+    responseBarrier.release(regenerateRequest, regeneratedSuggestion);
+    await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveValue(regeneratedSuggestion);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'SUGGESTION_READY');
+    expect(responseBarrier.requestBodies).toHaveLength(3);
+    expect(JSON.stringify(responseBarrier.requestBodies[2]?.messages)).toContain(editedSource);
+    expect(JSON.stringify(responseBarrier.requestBodies[2]?.messages)).not.toContain(original);
+    await expect(summary).toHaveValue(editedSource);
+    const persistedBeforeApply = await page.evaluate(
+      (key) => globalThis.localStorage.getItem(key),
+      RESUME_STORE_PERSIST_KEY,
+    );
+    expect(persistedBeforeApply).toContain(editedSource);
+    expect(persistedBeforeApply).not.toContain(regeneratedSuggestion);
 
-  await inlinePanel.getByTestId('pc-ai-inline-apply').click();
-  await expect(summary).toHaveValue(regeneratedSuggestion);
-  await expect(summary).not.toHaveValue(staleSuggestion);
-  await expect(inlinePanel).toHaveAttribute('data-ai-state', 'ACCEPTED');
-  await expect
-    .poll(() =>
-      page.evaluate((key) => globalThis.localStorage.getItem(key), RESUME_STORE_PERSIST_KEY),
-    )
-    .toContain(regeneratedSuggestion);
-  await inlinePanel.getByTestId('pc-ai-inline-done').click();
-  await page.getByRole('button', { name: 'AI 助手' }).click();
-  await expect(page.getByTestId('pc-preview-pane')).toBeVisible();
-  await expect(page.locator('.pc-preview-paper .resume-preview')).toContainText(
-    regeneratedSuggestion,
-  );
+    await inlinePanel.getByTestId('pc-ai-inline-apply').click();
+    await expect(summary).toHaveValue(regeneratedSuggestion);
+    await expect(summary).not.toHaveValue(staleSuggestion);
+    await expect(inlinePanel).toHaveAttribute('data-ai-state', 'ACCEPTED');
+    await expect
+      .poll(() =>
+        page.evaluate((key) => globalThis.localStorage.getItem(key), RESUME_STORE_PERSIST_KEY),
+      )
+      .toContain(regeneratedSuggestion);
+    await inlinePanel.getByTestId('pc-ai-inline-done').click();
+    await page.getByRole('button', { name: 'AI 助手' }).click();
+    await expect(page.getByTestId('pc-preview-pane')).toBeVisible();
+    await expect(page.locator('.pc-preview-paper .resume-preview')).toContainText(
+      regeneratedSuggestion,
+    );
+  } finally {
+    await responseBarrier.close();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+
+  responseBarrier.assertComplete();
 });
 
 test('inline provider failure stays visible and does not update the canonical field', async ({

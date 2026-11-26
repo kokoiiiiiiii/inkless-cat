@@ -46,4 +46,6 @@ await cleanupBarrier.close();
 await pendingHandler;
 assert.equal(pendingRoute.aborted, true);
 
-console.log('SSE response barrier exercise: PASS (prompt extra-request failure and pending-route cleanup)');
+console.log(
+  'SSE response barrier exercise: PASS (prompt extra-request failure and pending-route cleanup)',
+);
