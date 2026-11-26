@@ -1234,22 +1234,7 @@
   }
 }
 
-@media (max-width: 1479px) and (min-width: 1400px) {
-  .pc-studio-header {
-    gap: 12px;
-    padding-inline: 16px;
-  }
-
-  .pc-header-actions {
-    gap: 6px;
-  }
-
-  .pc-header-button {
-    padding-inline: 10px;
-  }
-}
-
-@media (max-width: 1399px) and (min-width: 1200px) {
+@media (max-width: 1479px) and (min-width: 1200px) {
   .pc-studio-header {
     gap: 8px;
     padding-inline: 12px;
@@ -1272,7 +1257,9 @@
   .pc-header-button {
     padding-inline: 10px;
   }
+}
 
+@media (max-width: 1399px) and (min-width: 1200px) {
   .pc-history-controls {
     display: none;
   }

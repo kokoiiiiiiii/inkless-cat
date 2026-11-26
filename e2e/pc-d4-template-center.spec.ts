@@ -255,9 +255,14 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
         bounds.height > 0
       );
     };
-    const intersects = (first: ReturnType<typeof rect>, second: ReturnType<typeof rect>) =>
-      Math.min(first.right, second.right) - Math.max(first.left, second.left) > 0.5 &&
-      Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > 0.5;
+    const describe = (element: HTMLElement) => ({
+      label:
+        element.getAttribute('aria-label') ||
+        element.innerText.trim().replace(/\s+/gu, ' ') ||
+        element.tagName.toLowerCase(),
+      className: element.className,
+      rect: rect(element),
+    });
 
     const selectors = {
       brand: '.pc-brand-lockup',
@@ -279,29 +284,53 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
       ),
     ].filter((element) => isVisible(element));
     const overlaps: string[] = [];
+    const overlapDetails: Array<{
+      pair: string;
+      overlapWidth: number;
+      overlapHeight: number;
+      first: ReturnType<typeof describe>;
+      second: ReturnType<typeof describe>;
+    }> = [];
+    const recordOverlap = (
+      firstName: string,
+      firstElement: HTMLElement,
+      secondName: string,
+      secondElement: HTMLElement,
+    ) => {
+      const first = rect(firstElement);
+      const second = rect(secondElement);
+      const overlapWidth = Math.min(first.right, second.right) - Math.max(first.left, second.left);
+      const overlapHeight = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
+      if (overlapWidth <= 0.5 || overlapHeight <= 0.5) return;
+
+      const pair = `${firstName}:${secondName}`;
+      overlaps.push(pair);
+      overlapDetails.push({
+        pair,
+        overlapWidth: Math.round(overlapWidth * 100) / 100,
+        overlapHeight: Math.round(overlapHeight * 100) / 100,
+        first: describe(firstElement),
+        second: describe(secondElement),
+      });
+    };
 
     for (let first = 0; first < visibleSegments.length; first += 1) {
       for (let second = first + 1; second < visibleSegments.length; second += 1) {
         const [firstName, firstElement] = visibleSegments[first]!;
         const [secondName, secondElement] = visibleSegments[second]!;
-        if (intersects(rect(firstElement), rect(secondElement))) {
-          overlaps.push(`${firstName}:${secondName}`);
-        }
+        recordOverlap(firstName, firstElement, secondName, secondElement);
       }
     }
 
     const nonActionSegments = visibleSegments.filter(([name]) => name !== 'actions');
     for (const [segmentName, segment] of nonActionSegments) {
       for (const [index, control] of controls.entries()) {
-        if (intersects(rect(segment), rect(control)))
-          overlaps.push(`${segmentName}:control-${index}`);
+        recordOverlap(segmentName, segment, `control-${index}`, control);
       }
     }
     for (let first = 0; first < controls.length; first += 1) {
       for (let second = first + 1; second < controls.length; second += 1) {
-        if (intersects(rect(controls[first]!), rect(controls[second]!))) {
-          overlaps.push(`control-${first}:control-${second}`);
-        }
+        recordOverlap(`control-${first}`, controls[first]!, `control-${second}`, controls[second]!);
       }
     }
 
@@ -310,6 +339,13 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
     const outsideHeader: number[] = [];
     const outsideActions: number[] = [];
     const unhitTargets: number[] = [];
+    const controlDiagnostics: Array<{
+      index: number;
+      label: string;
+      className: string;
+      rect: ReturnType<typeof rect>;
+      hitTarget: string | null;
+    }> = [];
     for (const [index, control] of controls.entries()) {
       const bounds = rect(control);
       if (
@@ -327,6 +363,11 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
         bounds.left + bounds.width / 2,
         bounds.top + bounds.height / 2,
       );
+      controlDiagnostics.push({
+        index,
+        ...describe(control),
+        hitTarget: hitTarget instanceof HTMLElement ? describe(hitTarget).label : null,
+      });
       if (!hitTarget || (hitTarget !== control && !control.contains(hitTarget))) {
         unhitTargets.push(index);
       }
@@ -343,7 +384,9 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
       segmentRects: Object.fromEntries(
         Object.entries(segments).map(([name, element]) => [name, rect(element)]),
       ),
+      controlRects: controlDiagnostics,
       overlaps,
+      overlapDetails,
       outsideHeader,
       outsideActions,
       unhitTargets,
@@ -587,6 +630,7 @@ if (pcStudioEnabled) {
       { width: 1366, height: 768 },
       { width: 1399, height: 800 },
       { width: 1400, height: 800 },
+      { width: 1401, height: 800 },
       { width: 1440, height: 900 },
       { width: 1479, height: 900 },
       { width: 1480, height: 900 },
@@ -610,7 +654,14 @@ if (pcStudioEnabled) {
             0,
           );
           expect(geometry.documentOverflow, `${label} document overflow`).toBeLessThanOrEqual(0);
-          expect(geometry.overlaps, `${label} overlapping header targets`).toEqual([]);
+          expect(
+            geometry.overlaps,
+            `${label} overlapping header targets; geometry=${JSON.stringify({
+              segmentRects: geometry.segmentRects,
+              controlRects: geometry.controlRects,
+              overlapDetails: geometry.overlapDetails,
+            })}`,
+          ).toEqual([]);
           expect(geometry.outsideHeader, `${label} controls outside the header`).toEqual([]);
           expect(geometry.outsideActions, `${label} controls outside the action region`).toEqual(
             [],
