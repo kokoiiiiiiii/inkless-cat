@@ -19,10 +19,10 @@ export const useMobileLayout = ({
   previewScrollContainerRef,
 }: UseMobileLayoutParams) => {
   useEffect(() => {
-    if (isLargeScreen) {
+    if (isLargeScreen && mobileView !== 'editor') {
       setMobileView('editor');
     }
-  }, [isLargeScreen, setMobileView]);
+  }, [isLargeScreen, mobileView, setMobileView]);
 
   useEffect(() => {
     if (isLargeScreen) return;
