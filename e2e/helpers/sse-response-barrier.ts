@@ -67,6 +67,8 @@ export class SseResponseBarrier {
   private readonly slots: RequestSlot[] = [];
   private readonly activeHandlers = new Set<Promise<void>>();
   private readonly problems: string[] = [];
+  private readonly firstUnexpectedRequest = deferred<string>();
+  private unexpectedRequestMessage: string | null = null;
   private nextRequestIndex = 0;
   private closed = false;
 
@@ -92,14 +94,14 @@ export class SseResponseBarrier {
     this.nextRequestIndex += 1;
 
     if (this.closed) {
-      this.problems.push(`Request ${index} arrived after the barrier was closed.`);
+      this.recordUnexpectedRequest(`Request ${index} arrived after the barrier was closed.`);
       await abortRoute(route);
       return;
     }
 
     const slot = this.slots[index];
     if (!slot) {
-      this.problems.push(`Unexpected extra SSE request ${index}.`);
+      this.recordUnexpectedRequest(`Unexpected extra SSE request ${index}.`);
       await abortRoute(route);
       return;
     }
@@ -115,7 +117,18 @@ export class SseResponseBarrier {
 
   async waitForRequest(ticket: SseRequestTicket): Promise<ArrivedSseRequest> {
     const slot = this.getSlot(ticket);
-    const arrival = await slot.arrival.promise;
+    const result = await Promise.race([
+      slot.arrival.promise.then((arrival) => ({ kind: 'arrival' as const, arrival })),
+      this.firstUnexpectedRequest.promise.then((message) => ({
+        kind: 'unexpected' as const,
+        message,
+      })),
+    ]);
+
+    if (result.kind === 'unexpected') throw new Error(result.message);
+    if (this.unexpectedRequestMessage) throw new Error(this.unexpectedRequestMessage);
+
+    const { arrival } = result;
     if (!arrival.arrived || !arrival.body) {
       throw new Error(`Expected SSE request ${ticket.index} did not arrive.`);
     }
@@ -168,6 +181,14 @@ export class SseResponseBarrier {
       throw new Error(`Unknown or foreign SSE request ticket ${ticket.index}.`);
     }
     return slot;
+  }
+
+  private recordUnexpectedRequest(message: string): void {
+    this.problems.push(message);
+    if (this.unexpectedRequestMessage) return;
+
+    this.unexpectedRequestMessage = message;
+    this.firstUnexpectedRequest.resolve(message);
   }
 
   private async handleRegisteredRoute(route: Route, slot: RequestSlot): Promise<void> {
