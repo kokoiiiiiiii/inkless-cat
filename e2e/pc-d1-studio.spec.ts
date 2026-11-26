@@ -391,6 +391,13 @@ test('AI Dock runs the official inline controller with a local test SSE endpoint
   await openStudio(page);
   const summary = page.getByRole('textbox', { name: '个人简介' });
   const original = await summary.inputValue();
+  const editedSource = 'A user edit made while reviewing the first suggestion.';
+  const firstSuggestion = 'A clearer, outcome-focused professional summary.';
+  const staleSuggestion = 'A fictional summary focused on garden planning outcomes.';
+  const regeneratedSuggestion = 'A fictional summary focused on safe model rocket restoration.';
+  const responses = [firstSuggestion, staleSuggestion, regeneratedSuggestion];
+  const requestBodies: Array<Record<string, unknown>> = [];
+  let responseIndex = 0;
   await summary.focus();
   await page.getByRole('button', { name: 'AI 助手' }).click();
   const dock = page.getByTestId('pc-ai-dock');
@@ -399,9 +406,12 @@ test('AI Dock runs the official inline controller with a local test SSE endpoint
   await expect(dock).toContainText('个人简介');
 
   await page.route('**/mock-ai/v1/chat/completions', async (route) => {
-    await new Promise((resolve) => globalThis.setTimeout(resolve, 60));
+    requestBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+    const response = responses[responseIndex];
+    if (!response) throw new Error('Unexpected extra request to the local test SSE endpoint.');
+    responseIndex += 1;
     const body = [
-      'data: {"choices":[{"delta":{"content":"A clearer, outcome-focused professional summary."}}]}\n\n',
+      `data: ${JSON.stringify({ choices: [{ delta: { content: response } }] })}\n\n`,
       'data: [DONE]\n\n',
     ].join('');
     await route.fulfill({
@@ -419,7 +429,7 @@ test('AI Dock runs the official inline controller with a local test SSE endpoint
   await inlinePanel.getByTestId('pc-ai-inline-generate').click();
   await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
   const candidate = page.getByTestId('pc-ai-inline-candidate');
-  await expect(candidate).toHaveText('A clearer, outcome-focused professional summary.');
+  await expect(candidate).toHaveValue(firstSuggestion);
   await expect(inlinePanel).toHaveAttribute('data-ai-state', 'SUGGESTION_READY');
   await expect(summary).toHaveValue(original);
   await inlinePanel.getByTestId('pc-ai-inline-reject').click();
@@ -431,26 +441,49 @@ test('AI Dock runs the official inline controller with a local test SSE endpoint
   await requestButton.click();
   inlinePanel = page.getByTestId('pc-ai-inline-panel');
   await inlinePanel.getByTestId('pc-ai-inline-generate').click();
-  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveText(
-    'A clearer, outcome-focused professional summary.',
-  );
-  await summary.fill('A user edit made while reviewing the first suggestion.');
+  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveValue(staleSuggestion);
+  await summary.fill(editedSource);
   await expect(inlinePanel).toHaveAttribute('data-ai-state', 'STALE');
   await expect(page.getByTestId('pc-ai-inline-apply')).toBeDisabled();
+  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveCount(0);
+  await expect(summary).toHaveValue(editedSource);
+  const persistedAfterEdit = await page.evaluate(
+    (key) => globalThis.localStorage.getItem(key),
+    RESUME_STORE_PERSIST_KEY,
+  );
+  expect(persistedAfterEdit).toContain(editedSource);
+  expect(persistedAfterEdit).not.toContain(staleSuggestion);
+  expect(JSON.stringify(requestBodies[1]?.messages)).toContain(original);
+
   await inlinePanel.getByTestId('pc-ai-inline-generate').click();
   await expect(inlinePanel).toHaveAttribute('data-ai-state', 'GENERATING');
-  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveText(
-    'A clearer, outcome-focused professional summary.',
-  );
+  await expect(page.getByTestId('pc-ai-inline-candidate')).toHaveValue(regeneratedSuggestion);
   await expect(inlinePanel).toHaveAttribute('data-ai-state', 'SUGGESTION_READY');
+  expect(requestBodies).toHaveLength(3);
+  expect(JSON.stringify(requestBodies[2]?.messages)).toContain(editedSource);
+  expect(JSON.stringify(requestBodies[2]?.messages)).not.toContain(original);
+  await expect(summary).toHaveValue(editedSource);
+  const persistedBeforeApply = await page.evaluate(
+    (key) => globalThis.localStorage.getItem(key),
+    RESUME_STORE_PERSIST_KEY,
+  );
+  expect(persistedBeforeApply).toContain(editedSource);
+  expect(persistedBeforeApply).not.toContain(regeneratedSuggestion);
+
   await inlinePanel.getByTestId('pc-ai-inline-apply').click();
-  await expect(summary).toHaveValue('A clearer, outcome-focused professional summary.');
+  await expect(summary).toHaveValue(regeneratedSuggestion);
+  await expect(summary).not.toHaveValue(staleSuggestion);
   await expect(inlinePanel).toHaveAttribute('data-ai-state', 'ACCEPTED');
+  await expect
+    .poll(() =>
+      page.evaluate((key) => globalThis.localStorage.getItem(key), RESUME_STORE_PERSIST_KEY),
+    )
+    .toContain(regeneratedSuggestion);
   await inlinePanel.getByTestId('pc-ai-inline-done').click();
   await page.getByRole('button', { name: 'AI 助手' }).click();
   await expect(page.getByTestId('pc-preview-pane')).toBeVisible();
   await expect(page.locator('.pc-preview-paper .resume-preview')).toContainText(
-    'A clearer, outcome-focused professional summary.',
+    regeneratedSuggestion,
   );
 });
 

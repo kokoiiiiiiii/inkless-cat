@@ -207,6 +207,10 @@ describe('useAIResumeEnhancement', () => {
       });
       useResumeStore.getState().setHasResumeChanges(false);
     });
+    expect(result.current.session).toMatchObject({
+      status: 'error',
+      errorCode: 'source_changed',
+    });
     let applied = true;
     act(() => {
       applied = result.current.apply();

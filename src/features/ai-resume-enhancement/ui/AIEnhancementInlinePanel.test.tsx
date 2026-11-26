@@ -176,6 +176,30 @@ describe('AIEnhancementInlinePanel', () => {
     fireEvent.click(screen.getByTestId('pc-ai-inline-apply'));
 
     expect(onAccept).not.toHaveBeenCalled();
+    expect(controller.apply).not.toHaveBeenCalled();
+    expect(useResumeStore.getState().resume.personal.summary).toBe('A newer source value.');
+    expect(useResumeStore.getState().hasResumeChanges).toBe(false);
+  });
+
+  it('keeps Apply visible but disabled when the controller marks a suggestion stale', () => {
+    const staleCandidate = 'A stale suggestion must not replace the latest source.';
+    const controller = createController(
+      createSession('error', { errorCode: 'source_changed', candidate: staleCandidate }),
+    );
+    const onAccept = vi.fn().mockReturnValue(true);
+    useResumeStore.getState().updateResume((draft) => {
+      draft.personal.summary = 'A newer source value.';
+    });
+    useResumeStore.getState().setHasResumeChanges(false);
+    renderPanel(controller, makeProps({ onAccept }));
+
+    expect(screen.getByTestId('pc-ai-inline-panel').dataset.aiState).toBe('STALE');
+    expect(screen.queryByTestId('pc-ai-inline-candidate')).toBeNull();
+    expect(screen.getByTestId<HTMLButtonElement>('pc-ai-inline-apply').disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('pc-ai-inline-apply'));
+
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(controller.apply).not.toHaveBeenCalled();
     expect(useResumeStore.getState().resume.personal.summary).toBe('A newer source value.');
     expect(useResumeStore.getState().hasResumeChanges).toBe(false);
   });

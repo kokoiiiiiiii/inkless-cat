@@ -390,7 +390,7 @@ const AIEnhancementInlinePanel = ({
             </button>
           )}
 
-        {inlineSession?.status === 'suggested' && (
+        {(inlineSession?.status === 'suggested' || state === 'STALE') && (
           <button
             type="button"
             className="ai-enhancement-inline__apply"
