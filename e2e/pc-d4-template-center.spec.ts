@@ -258,7 +258,7 @@ const measureHeaderGeometry = (page: import('@playwright/test').Page) =>
     const describe = (element: HTMLElement) => ({
       label:
         element.getAttribute('aria-label') ||
-        element.innerText.trim().replace(/\s+/gu, ' ') ||
+        (element.textContent ?? '').trim().replaceAll(/\s+/gu, ' ') ||
         element.tagName.toLowerCase(),
       className: element.className,
       rect: rect(element),
