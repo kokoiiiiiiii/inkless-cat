@@ -23,10 +23,13 @@ const createEditor = () => {
     value: 0,
   });
   document.body.append(editorScrollContainer);
+  const moduleContainer = document.createElement('div');
+  moduleContainer.dataset.module = 'personal';
+  editorScrollContainer.append(moduleContainer);
   const field = document.createElement('textarea');
   field.dataset.studioFieldId = 'personal.summary';
   field.value = resume.personal.summary;
-  editorScrollContainer.append(field);
+  moduleContainer.append(field);
 
   const editor = {
     resume,
@@ -34,7 +37,7 @@ const createEditor = () => {
     editorScrollContainerRef: { current: editorScrollContainer },
   } as unknown as UseEditorPageControllerResult;
 
-  return { editor, editorScrollContainer, field };
+  return { editor, editorScrollContainer, moduleContainer, field };
 };
 
 const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider>{children}</I18nProvider>;
@@ -50,33 +53,34 @@ describe('usePCStudioController Focus Preview', () => {
     document.body.replaceChildren();
   });
 
-  it('restores the editor field, selection, and scroll position after leaving Focus Preview', () => {
-    const { editor, editorScrollContainer, field } = createEditor();
+  it('preserves the return snapshot when the remounted field focus event reports its fresh range', () => {
+    const { editor, editorScrollContainer, moduleContainer, field } = createEditor();
     const { result } = renderHook(() => usePCStudioController(editor), { wrapper });
+    const notifySummaryFocus = () =>
+      result.current.modulesController.notifyFocus('summary', 'summary', 'personal.summary');
 
-    field.focus();
-    field.setSelectionRange(4, 14, 'backward');
-    act(() =>
-      result.current.modulesController.notifyFocus('summary', 'summary', 'personal.summary'),
-    );
+    field.addEventListener('focus', notifySummaryFocus);
+
+    act(() => field.focus());
+    field.setSelectionRange(3, 18, 'backward');
     editorScrollContainer.scrollTop = 135;
     editorScrollContainer.scrollLeft = 12;
-
-    expect(result.current.selectionRange).toEqual({
-      start: 4,
-      end: 14,
-      direction: 'backward',
-    });
 
     act(() => result.current.enterPreviewFocus());
     expect(result.current.previewFocus).toBe(true);
     expect(result.current.aiOpen).toBe(false);
+    expect(result.current.selectionRange).toEqual({
+      start: 3,
+      end: 18,
+      direction: 'backward',
+    });
 
     field.remove();
     const restoredField = document.createElement('textarea');
     restoredField.dataset.studioFieldId = 'personal.summary';
     restoredField.value = editor.resume.personal.summary ?? '';
-    editorScrollContainer.append(restoredField);
+    restoredField.addEventListener('focus', notifySummaryFocus);
+    moduleContainer.append(restoredField);
     editorScrollContainer.scrollTop = 0;
     editorScrollContainer.scrollLeft = 0;
 
@@ -84,11 +88,71 @@ describe('usePCStudioController Focus Preview', () => {
 
     expect(result.current.previewFocus).toBe(false);
     expect(document.activeElement).toBe(restoredField);
-    expect(restoredField.selectionStart).toBe(4);
-    expect(restoredField.selectionEnd).toBe(14);
+    expect(restoredField.selectionStart).toBe(3);
+    expect(restoredField.selectionEnd).toBe(18);
     expect(restoredField.selectionDirection).toBe('backward');
+    expect(result.current.selectionRange).toEqual({
+      start: 3,
+      end: 18,
+      direction: 'backward',
+    });
     expect(editorScrollContainer.scrollTop).toBe(135);
     expect(editorScrollContainer.scrollLeft).toBe(12);
+  });
+
+  it('does not restore a saved selection into a same-id field from another module', () => {
+    const { editor, editorScrollContainer, field } = createEditor();
+    const { result } = renderHook(() => usePCStudioController(editor), { wrapper });
+    const notifySummaryFocus = () =>
+      result.current.modulesController.notifyFocus('summary', 'summary', 'personal.summary');
+
+    field.addEventListener('focus', notifySummaryFocus);
+    act(() => field.focus());
+    field.setSelectionRange(3, 18, 'backward');
+    editorScrollContainer.scrollTop = 48;
+    editorScrollContainer.scrollLeft = 9;
+    act(() => result.current.enterPreviewFocus());
+    field.remove();
+
+    const otherModule = document.createElement('div');
+    otherModule.dataset.module = 'experience';
+    const otherField = document.createElement('textarea');
+    otherField.dataset.studioFieldId = 'personal.summary';
+    otherField.value = editor.resume.personal.summary ?? '';
+    otherField.addEventListener('focus', notifySummaryFocus);
+    otherModule.append(otherField);
+    editorScrollContainer.append(otherModule);
+    editorScrollContainer.scrollTop = 0;
+    editorScrollContainer.scrollLeft = 0;
+
+    act(() => result.current.exitPreviewFocus());
+
+    expect(document.activeElement).not.toBe(otherField);
+    expect(editorScrollContainer.scrollTop).toBe(48);
+    expect(editorScrollContainer.scrollLeft).toBe(9);
+  });
+
+  it('restores the scroll position without focusing a field that no longer exists', () => {
+    const { editor, editorScrollContainer, field } = createEditor();
+    const { result } = renderHook(() => usePCStudioController(editor), { wrapper });
+    const notifySummaryFocus = () =>
+      result.current.modulesController.notifyFocus('summary', 'summary', 'personal.summary');
+
+    field.addEventListener('focus', notifySummaryFocus);
+    act(() => field.focus());
+    field.setSelectionRange(3, 18, 'backward');
+    editorScrollContainer.scrollTop = 72;
+    editorScrollContainer.scrollLeft = 14;
+    act(() => result.current.enterPreviewFocus());
+    field.remove();
+    editorScrollContainer.scrollTop = 0;
+    editorScrollContainer.scrollLeft = 0;
+
+    act(() => result.current.exitPreviewFocus());
+
+    expect(document.activeElement).toBe(document.body);
+    expect(editorScrollContainer.scrollTop).toBe(72);
+    expect(editorScrollContainer.scrollLeft).toBe(14);
   });
 
   it('returns from Focus Preview with Escape and keeps the active field context', () => {
@@ -115,14 +179,14 @@ describe('usePCStudioController Focus Preview', () => {
   });
 
   it('captures editor position before compact preview hides the editor', () => {
-    const { editor, editorScrollContainer, field } = createEditor();
+    const { editor, editorScrollContainer, moduleContainer, field } = createEditor();
     const { result } = renderHook(() => usePCStudioController(editor), { wrapper });
+    const notifySummaryFocus = () =>
+      result.current.modulesController.notifyFocus('summary', 'summary', 'personal.summary');
 
-    field.focus();
-    field.setSelectionRange(1, 7, 'forward');
-    act(() =>
-      result.current.modulesController.notifyFocus('summary', 'summary', 'personal.summary'),
-    );
+    field.addEventListener('focus', notifySummaryFocus);
+    act(() => field.focus());
+    field.setSelectionRange(1, 7, 'backward');
     editorScrollContainer.scrollTop = 92;
     editorScrollContainer.scrollLeft = 5;
 
@@ -133,7 +197,8 @@ describe('usePCStudioController Focus Preview', () => {
     const restoredField = document.createElement('textarea');
     restoredField.dataset.studioFieldId = 'personal.summary';
     restoredField.value = editor.resume.personal.summary ?? '';
-    editorScrollContainer.append(restoredField);
+    restoredField.addEventListener('focus', notifySummaryFocus);
+    moduleContainer.append(restoredField);
     editorScrollContainer.scrollTop = 0;
     editorScrollContainer.scrollLeft = 0;
 
@@ -142,6 +207,7 @@ describe('usePCStudioController Focus Preview', () => {
     expect(document.activeElement).toBe(restoredField);
     expect(restoredField.selectionStart).toBe(1);
     expect(restoredField.selectionEnd).toBe(7);
+    expect(restoredField.selectionDirection).toBe('backward');
     expect(editorScrollContainer.scrollTop).toBe(92);
     expect(editorScrollContainer.scrollLeft).toBe(5);
   });

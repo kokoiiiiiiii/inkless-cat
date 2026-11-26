@@ -1,5 +1,5 @@
 import { getCustomSectionKey, sectionOrder } from '@entities/module';
-import { useResumeStore, type ActiveSectionKey } from '@entities/resume';
+import { type ActiveSectionKey, useResumeStore } from '@entities/resume';
 import { useI18n } from '@shared/i18n';
 import {
   type SyntheticEvent,
@@ -23,6 +23,14 @@ import {
 export type { StudioModuleKey } from './fieldContext';
 
 export type StudioFieldContext = StudioFieldContextData & { fieldLabel: string };
+
+type PreviewReturnSnapshot = {
+  fieldIdentity: StudioFieldIdentity | null;
+  selectionRange: StudioSelectionRange | null;
+  scrollTop: number;
+  scrollLeft: number;
+  workspaceGeneration: number;
+};
 
 const readSelectionRange = (target: EventTarget | null): StudioSelectionRange | null => {
   if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return null;
@@ -70,7 +78,7 @@ export const usePCStudioController = (editor: UseEditorPageControllerResult) => 
   const workspaceGeneration = useResumeStore((state) => state.workspaceGeneration);
   const selectionRangeRef = useRef<StudioSelectionRange | null>(null);
   const focusedFieldRef = useRef<StudioFieldIdentity | null>(null);
-  const editorScrollSnapshotRef = useRef<{ top: number; left: number } | null>(null);
+  const previewReturnSnapshotRef = useRef<PreviewReturnSnapshot | null>(null);
   const pendingFocusRestoreRef = useRef(false);
 
   const updateSelectionRange = useCallback((next: StudioSelectionRange | null) => {
@@ -197,30 +205,47 @@ export const usePCStudioController = (editor: UseEditorPageControllerResult) => 
 
   const restoreEditorFocus = useCallback(() => {
     const scrollContainer = editor.editorScrollContainerRef.current;
-    const snapshot = editorScrollSnapshotRef.current;
-    if (scrollContainer && snapshot) {
-      scrollContainer.scrollTop = snapshot.top;
-      scrollContainer.scrollLeft = snapshot.left;
+    const snapshot = previewReturnSnapshotRef.current;
+    previewReturnSnapshotRef.current = null;
+    if (!scrollContainer || !snapshot || snapshot.workspaceGeneration !== workspaceGeneration) {
+      return;
     }
-    editorScrollSnapshotRef.current = null;
 
-    const fieldId = focusedFieldRef.current?.fieldId;
-    if (!scrollContainer || !fieldId) return;
+    const restoreScrollPosition = () => {
+      scrollContainer.scrollTop = snapshot.scrollTop;
+      scrollContainer.scrollLeft = snapshot.scrollLeft;
+    };
+
+    restoreScrollPosition();
+
+    const fieldIdentity = snapshot.fieldIdentity;
+    if (!fieldIdentity || activeModule !== fieldIdentity.moduleKey) return;
     const field = [...scrollContainer.querySelectorAll<HTMLElement>('[data-studio-field-id]')].find(
-      (candidate) => candidate.dataset.studioFieldId === fieldId,
+      (candidate) => {
+        const candidateModule = candidate.closest<HTMLElement>('[data-module]')?.dataset.module;
+        return (
+          candidate.dataset.studioFieldId === fieldIdentity.fieldId &&
+          (!candidateModule || candidateModule === fieldIdentity.moduleKey)
+        );
+      },
     );
     if (!field) return;
 
     field.focus({ preventScroll: true });
-    const range = selectionRangeRef.current;
+    // Focusing the remounted field can synchronously run handleFieldFocus and
+    // replace selectionRangeRef with the new DOM field's default caret. Restore
+    // from the immutable preview snapshot captured before the editor was hidden.
+    const range = snapshot.selectionRange;
     if (range && isSelectionField(field)) {
+      updateSelectionRange(range);
       try {
         field.setSelectionRange(range.start, range.end, range.direction);
       } catch {
         // Some input types do not support text selection.
       }
     }
-  }, [editor.editorScrollContainerRef]);
+    restoreScrollPosition();
+  }, [activeModule, editor.editorScrollContainerRef, updateSelectionRange, workspaceGeneration]);
 
   useLayoutEffect(() => {
     if (previewFocus || compactMode === 'preview' || !pendingFocusRestoreRef.current) return;
@@ -233,12 +258,15 @@ export const usePCStudioController = (editor: UseEditorPageControllerResult) => 
     if (activeRange) updateSelectionRange(activeRange);
     const scrollContainer = editor.editorScrollContainerRef.current;
     if (!scrollContainer) return;
-    editorScrollSnapshotRef.current = {
-      top: scrollContainer.scrollTop,
-      left: scrollContainer.scrollLeft,
+    previewReturnSnapshotRef.current = {
+      fieldIdentity: focusedFieldRef.current ? { ...focusedFieldRef.current } : null,
+      selectionRange: activeRange ?? selectionRangeRef.current,
+      scrollTop: scrollContainer.scrollTop,
+      scrollLeft: scrollContainer.scrollLeft,
+      workspaceGeneration,
     };
     pendingFocusRestoreRef.current = true;
-  }, [editor.editorScrollContainerRef, updateSelectionRange]);
+  }, [editor.editorScrollContainerRef, updateSelectionRange, workspaceGeneration]);
 
   const enterPreviewFocus = useCallback(() => {
     if (previewFocus) return;
@@ -280,6 +308,7 @@ export const usePCStudioController = (editor: UseEditorPageControllerResult) => 
   const selectModule = useCallback(
     (key: StudioModuleKey) => {
       pendingFocusRestoreRef.current = false;
+      previewReturnSnapshotRef.current = null;
       focusedFieldRef.current = null;
       setActiveModule(key);
       setFocusedField(null);
