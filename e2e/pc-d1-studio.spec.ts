@@ -125,15 +125,45 @@ test('PC-D1 opens through the isolated experimental route', async ({ page }) => 
 test('Focus Preview returns focus, selection, and scroll to the editor', async ({ page }) => {
   await installResumeFixture(page, productScreenshotResume());
   await openStudio(page, 1440, 900);
+  await page.getByTestId('pc-personal-more').locator('summary').click();
   const summary = page.getByRole('textbox', { name: '个人简介' });
   await summary.focus();
   await summary.evaluate((element: HTMLTextAreaElement) => {
     element.setSelectionRange(3, 18, 'backward');
   });
   const editorScroll = page.locator('.pc-editor-scroll');
+  const initialScrollMetrics = await editorScroll.evaluate((element) => ({
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    maxScrollTop: element.scrollHeight - element.clientHeight,
+    scrollTop: element.scrollTop,
+  }));
+  expect(initialScrollMetrics.maxScrollTop).toBeGreaterThanOrEqual(120);
+
   await editorScroll.evaluate((element) => {
     element.scrollTop = 120;
   });
+  const beforePreview = await editorScroll.evaluate((element) => {
+    const activeField = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+    return {
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      maxScrollTop: element.scrollHeight - element.clientHeight,
+      scrollTop: element.scrollTop,
+      fieldIdentity: activeField?.dataset.studioFieldId ?? null,
+      selectionStart:
+        activeField && 'selectionStart' in activeField ? activeField.selectionStart : null,
+      selectionEnd: activeField && 'selectionEnd' in activeField ? activeField.selectionEnd : null,
+      selectionDirection:
+        activeField && 'selectionDirection' in activeField ? activeField.selectionDirection : null,
+    };
+  });
+  expect(beforePreview.maxScrollTop).toBeGreaterThanOrEqual(120);
+  expect(beforePreview.scrollTop).toBe(120);
+  expect(beforePreview.fieldIdentity).toBe('personal.summary');
+  expect(beforePreview.selectionStart).toBe(3);
+  expect(beforePreview.selectionEnd).toBe(18);
+  expect(beforePreview.selectionDirection).toBe('backward');
 
   await page.getByTestId('pc-preview-focus').click();
   await expect(summary).toBeHidden();
